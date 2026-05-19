@@ -1,0 +1,71 @@
+# Producción en VPS — NO usa puerto 8080 (reservado a tu app actual)
+# Uso: docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gym-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gym_db}
+      POSTGRES_USER: ${POSTGRES_USER:-gym_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en deploy/.env}
+    volumes:
+      - gym_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gym_user} -d ${POSTGRES_DB:-gym_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gym-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gym-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-gym_db}
+      DB_USER: ${POSTGRES_USER:-gym_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en deploy/.env}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ACCESS_DEVICE_KEY: ${ACCESS_DEVICE_KEY:-}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - gym_uploads:/app/uploads
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - gym-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_URL: ${API_URL}
+        UPLOADS_BASE_URL: ${UPLOADS_BASE_URL}
+    container_name: gym-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:80"
+    networks:
+      - gym-net
+
+volumes:
+  gym_postgres_data:
+  gym_uploads:
+
+networks:
+  gym-net:
+    driver: bridge
