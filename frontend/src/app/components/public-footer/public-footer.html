@@ -1,0 +1,56 @@
+@if (footer(); as data) {
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo footer-logo" />
+        @if (data.tagline) {
+          <p class="tagline">{{ data.tagline }}</p>
+        }
+      </div>
+
+      @if (data.address || data.phone) {
+        <div class="footer-contact">
+          @if (data.address) {
+            <p>📍 {{ data.address }}</p>
+          }
+          @if (data.phone) {
+            <p>📞 {{ data.phone }}</p>
+          }
+        </div>
+      }
+
+      @if (hasSocials(data)) {
+        <div class="footer-social">
+          <span class="social-label">Síguenos</span>
+          <div class="social-links">
+            @if (data.instagramUrl) {
+              <a [href]="data.instagramUrl" target="_blank" rel="noopener noreferrer" aria-label="Instagram"
+                >Instagram</a
+              >
+            }
+            @if (data.facebookUrl) {
+              <a [href]="data.facebookUrl" target="_blank" rel="noopener noreferrer" aria-label="Facebook"
+                >Facebook</a
+              >
+            }
+            @if (data.tiktokUrl) {
+              <a [href]="data.tiktokUrl" target="_blank" rel="noopener noreferrer" aria-label="TikTok">TikTok</a>
+            }
+            @if (data.youtubeUrl) {
+              <a [href]="data.youtubeUrl" target="_blank" rel="noopener noreferrer" aria-label="YouTube"
+                >YouTube</a
+              >
+            }
+            @if (data.whatsappUrl) {
+              <a [href]="data.whatsappUrl" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"
+                >WhatsApp</a
+              >
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <p class="footer-copy">© {{ currentYear }} Sport Gym R.IO</p>
+  </footer>
+}

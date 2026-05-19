@@ -1,0 +1,135 @@
+<div class="page-head">
+  <h1>Calificación de entrenadores</h1>
+  <p class="hint">
+    Revisa el ranking mensual para bonificaciones. El super administrador define quién aparece en la
+    página de inicio.
+  </p>
+</div>
+
+@if (message()) {
+  <p class="banner-error">{{ message() }}</p>
+}
+
+<div class="tabs">
+  <button type="button" [class.active]="tab() === 'ranking'" (click)="setTab('ranking')">
+    Ranking del mes
+  </button>
+  @if (auth.hasRole('SUPER_ADMIN')) {
+    <button type="button" [class.active]="tab() === 'participants'" (click)="setTab('participants')">
+      Participantes (inicio)
+    </button>
+  }
+</div>
+
+@if (tab() === 'ranking') {
+  <section class="panel">
+    <div class="period-filters">
+      <label>
+        Año
+        <input
+          type="number"
+          min="2020"
+          max="2100"
+          [ngModel]="selectedYear()"
+          (ngModelChange)="selectedYear.set($event); onPeriodChange()"
+        />
+      </label>
+      <label>
+        Mes
+        <select
+          [ngModel]="selectedMonth()"
+          (ngModelChange)="selectedMonth.set(+$event); onPeriodChange()"
+        >
+          @for (m of monthOptions; track m.value) {
+            <option [value]="m.value">{{ m.label }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (loading()) {
+      <p class="muted">Cargando ranking...</p>
+    } @else if (monthly().length === 0) {
+      <p class="muted">Sin calificaciones en este mes.</p>
+    } @else {
+      <ol class="ranking-list">
+        @for (row of monthly(); track row.employeeId) {
+          <li [class.top]="row.rank === 1">
+            <span class="rank-badge">#{{ row.rank }}</span>
+            @if (row.photoUrl) {
+              <img [src]="row.photoUrl | uploadUrl" [alt]="row.fullName" class="rank-photo" />
+            } @else {
+              <span class="rank-avatar">{{ initials(row.fullName) }}</span>
+            }
+            <div class="rank-info">
+              <strong>{{ row.fullName }}</strong>
+              <span>{{ row.ratingCount }} calificación{{ row.ratingCount === 1 ? '' : 'es' }}</span>
+            </div>
+            <div class="rank-score">
+              <span class="score-value">{{ row.averageScore }}</span>
+              <span class="score-label">promedio / 10</span>
+            </div>
+            @if (row.rank === 1) {
+              <span class="bonus-tag">Candidato a bonificación</span>
+            }
+          </li>
+        }
+      </ol>
+    }
+  </section>
+}
+
+@if (tab() === 'participants' && auth.hasRole('SUPER_ADMIN')) {
+  <section class="panel">
+    <p class="hint">
+      Solo los entrenadores marcados como participantes aparecen en «Califica a tu entrenador» del
+      inicio. Sube su foto y activa la casilla.
+    </p>
+    @if (participants().length === 0) {
+      <p class="muted">No hay entrenadores registrados.</p>
+    } @else {
+      <ul class="participant-list">
+        @for (p of participants(); track p.id) {
+          <li>
+            @if (p.photoUrl) {
+              <img [src]="p.photoUrl | uploadUrl" [alt]="p.fullName" class="participant-photo" />
+            } @else {
+              <span class="participant-avatar">{{ initials(p.fullName) }}</span>
+            }
+            <div class="participant-meta">
+              <strong>{{ p.fullName }}</strong>
+              <span>{{ p.active ? 'Activo' : 'Inactivo' }}</span>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                [checked]="p.ratingEligible"
+                [disabled]="saving()"
+                (change)="setParticipantEligible(p, $any($event.target).checked)"
+              />
+              En la página de inicio
+            </label>
+            <label class="photo-field">
+              Foto (URL)
+              <input
+                type="text"
+                [value]="p.photoUrl ?? ''"
+                placeholder="/uploads/... o https://..."
+                (change)="updatePhotoUrl(p, $any($event.target).value)"
+              />
+            </label>
+            <label class="file-upload">
+              Subir foto
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                [disabled]="uploading()"
+                (change)="onPhotoSelected(p, $event)"
+              />
+            </label>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

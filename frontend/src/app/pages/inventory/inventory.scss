@@ -1,0 +1,85 @@
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  padding: 1rem;
+
+  span {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  strong {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.panel {
+  padding: 1.25rem;
+
+  .checkbox {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+
+  button {
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+  }
+}
+
+tr.low-stock td {
+  background: var(--color-warning-soft);
+}
+
+.stock-row td {
+  background: var(--color-surface-muted);
+}
+
+.stock-adjust .small {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.badge.warn {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.row-actions .link {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

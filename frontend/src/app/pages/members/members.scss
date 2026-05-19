@@ -1,0 +1,51 @@
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.panel {
+  padding: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+
+  button {
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+  }
+}
+
+.badge {
+  &.active {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  &.expired {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  &.suspended {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+}
+
+.row-actions .link {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

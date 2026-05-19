@@ -1,0 +1,67 @@
+<div class="page-head">
+  <h1>Módulos del sistema</h1>
+  <p class="hint">
+    Solo el super administrador puede activar o desactivar funciones. Los demás roles dejarán de ver
+    lo que esté apagado. Tú siempre ves todo para poder configurar.
+  </p>
+</div>
+
+@if (message()) {
+  <p class="banner-info">{{ message() }}</p>
+}
+
+@if (loading()) {
+  <p class="muted">Cargando módulos...</p>
+} @else {
+  <section class="panel">
+    <h2>Panel de administración</h2>
+    <ul class="module-list">
+      @for (m of panelModules(); track m.code) {
+        <li [class.disabled-row]="!m.enabled">
+          <div class="module-info">
+            <strong>{{ m.name }}</strong>
+            <span class="code">{{ m.code }}</span>
+            @if (m.description) {
+              <p>{{ m.description }}</p>
+            }
+          </div>
+          <label class="toggle" [class.locked]="m.code === 'MODULOS_SISTEMA'">
+            <input
+              type="checkbox"
+              [checked]="m.enabled"
+              [disabled]="saving() === m.code || m.code === 'MODULOS_SISTEMA'"
+              (change)="toggle(m)"
+            />
+            <span>{{ m.enabled ? 'Activo' : 'Inactivo' }}</span>
+          </label>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Página pública (inicio)</h2>
+    <ul class="module-list">
+      @for (m of publicModules(); track m.code) {
+        <li [class.disabled-row]="!m.enabled">
+          <div class="module-info">
+            <strong>{{ m.name }}</strong>
+            <span class="code">{{ m.code }}</span>
+            @if (m.description) {
+              <p>{{ m.description }}</p>
+            }
+          </div>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="m.enabled"
+              [disabled]="saving() === m.code"
+              (change)="toggle(m)"
+            />
+            <span>{{ m.enabled ? 'Activo' : 'Inactivo' }}</span>
+          </label>
+        </li>
+      }
+    </ul>
+  </section>
+}

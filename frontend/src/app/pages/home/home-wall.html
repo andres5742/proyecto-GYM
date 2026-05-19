@@ -1,0 +1,124 @@
+<app-home-carousel />
+
+<div class="wall-intro">
+  <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo wall-hero-logo" />
+  <h1>Sport Gym R.IO</h1>
+  <p>Novedades y avisos del gimnasio</p>
+</div>
+
+<div class="home-layout">
+  <main class="wall-main">
+    <section class="posts-section">
+      <h2>Muro de publicaciones</h2>
+      @if (loading()) {
+        <p class="muted">Cargando publicaciones...</p>
+      } @else if (posts().length === 0) {
+        <p class="muted">Aún no hay publicaciones activas.</p>
+      } @else {
+        @for (post of posts(); track post.id) {
+          <article class="wall-post" [class]="'cat-' + categoryClass(post.category)">
+            <header class="post-header">
+              <span class="post-emoji">{{ post.emoji || '📋' }}</span>
+              <div class="post-meta">
+                <strong>{{ post.authorName }}</strong>
+                <span>{{ postMeta(post) }}</span>
+                <span class="visibility">{{ visibilityLabel(post) }}</span>
+              </div>
+              <span class="post-badge">{{ post.categoryLabel }}</span>
+            </header>
+            <h3>{{ post.title }}</h3>
+            <p>{{ post.body }}</p>
+            @if (post.imageUrls?.length) {
+              <div class="post-photos" [class.single]="post.imageUrls!.length === 1">
+                @for (url of post.imageUrls; track url) {
+                  <img [src]="url | uploadUrl" [alt]="'Foto: ' + post.title" loading="lazy" />
+                }
+              </div>
+            }
+          </article>
+        }
+      }
+    </section>
+  </main>
+
+  <aside class="home-sidebar">
+    <section class="sidebar-card calendar-section">
+      <div class="section-head">
+        <h2>Calendario</h2>
+        <div class="month-nav">
+          <button type="button" class="nav-btn" (click)="prevMonth()" aria-label="Mes anterior">‹</button>
+          <span class="month-label">{{ calendarTitle() }}</span>
+          <button type="button" class="nav-btn" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
+        </div>
+      </div>
+
+      <p class="holiday-policy-note">
+        Si un día entre semana (lun–sáb) es festivo, el gimnasio atiende con el
+        <strong>horario del domingo</strong>.
+      </p>
+
+      <div class="calendar-grid">
+        @for (wd of weekdayShort; track wd) {
+          <span class="weekday-label">{{ wd }}</span>
+        }
+        @for (cell of calendarCells(); track cell?.iso ?? $index) {
+          @if (cell) {
+            <div
+              class="calendar-day"
+              [class.today]="cell.isToday"
+              [class.holiday]="cell.isHoliday"
+              [title]="cellHolidayTitle(cell)"
+            >
+              <span class="day-num">{{ cell.day }}</span>
+            </div>
+          } @else {
+            <div class="calendar-day empty"></div>
+          }
+        }
+      </div>
+
+      @if (holidays().length > 0) {
+        <ul class="holiday-list">
+          @for (h of holidays(); track h.id) {
+            <li>
+              <span class="holiday-line">{{ h.date | date: 'd MMM' }} · {{ h.name }}</span>
+              @if (holidayUsesSundayHours(h)) {
+                <span class="holiday-sunday-hours">{{ holidaySundayHoursLabel(h) }}</span>
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted small">Sin festivos este mes.</p>
+      }
+    </section>
+
+    <section class="sidebar-card hours-section">
+      <h2>Horario habitual</h2>
+      <p class="holiday-policy-note compact">
+        Festivo en día de semana → mismo horario que <strong>domingo</strong>.
+      </p>
+      @if (todayHolidayNotice(); as notice) {
+        <p class="today-holiday-banner">{{ notice }}</p>
+      }
+      @if (businessDays().length === 0) {
+        <p class="muted small">Cargando...</p>
+      } @else {
+        <ul class="hours-list">
+          @for (day of businessDays(); track day.dayOfWeek) {
+            <li [class.closed]="day.closed" [class.sunday-ref]="day.dayOfWeek === 'SUNDAY'">
+              <span>{{ dayLabels[day.dayOfWeek] }}</span>
+              <strong>{{ formatHours(day) }}</strong>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </aside>
+</div>
+
+<app-home-media-gallery />
+
+@if (modules.isEnabled('PUBLIC_CALIFICACIONES', 'public')) {
+  <app-trainer-rating-modal />
+}

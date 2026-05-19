@@ -1,0 +1,53 @@
+@if (slides().length > 0) {
+  <section class="hero-carousel" aria-label="Promociones del gimnasio">
+    <div class="carousel-track">
+      @for (slide of slides(); track slide.id; let i = $index) {
+        <article class="carousel-slide" [class.active]="i === currentIndex()">
+          @if (slide.linkUrl) {
+            <a [href]="slide.linkUrl" target="_blank" rel="noopener noreferrer" class="slide-link">
+              <img [src]="slide.imageUrl | uploadUrl" [alt]="slide.title ?? 'Sport Gym'" loading="lazy" />
+              @if (slide.title || slide.caption) {
+                <div class="slide-overlay">
+                  @if (slide.title) {
+                    <h2>{{ slide.title }}</h2>
+                  }
+                  @if (slide.caption) {
+                    <p>{{ slide.caption }}</p>
+                  }
+                </div>
+              }
+            </a>
+          } @else {
+            <img [src]="slide.imageUrl | uploadUrl" [alt]="slide.title ?? 'Sport Gym'" loading="lazy" />
+            @if (slide.title || slide.caption) {
+              <div class="slide-overlay">
+                @if (slide.title) {
+                  <h2>{{ slide.title }}</h2>
+                }
+                @if (slide.caption) {
+                  <p>{{ slide.caption }}</p>
+                }
+              </div>
+            }
+          }
+        </article>
+      }
+    </div>
+
+    @if (slides().length > 1) {
+      <button type="button" class="nav prev" (click)="prev()" aria-label="Anterior">‹</button>
+      <button type="button" class="nav next" (click)="next()" aria-label="Siguiente">›</button>
+      <div class="dots">
+        @for (slide of slides(); track slide.id; let i = $index) {
+          <button
+            type="button"
+            class="dot"
+            [class.active]="i === currentIndex()"
+            (click)="goTo(i)"
+            [attr.aria-label]="'Ir a imagen ' + (i + 1)"
+          ></button>
+        }
+      </div>
+    }
+  </section>
+}

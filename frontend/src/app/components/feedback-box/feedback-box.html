@@ -1,0 +1,115 @@
+<section class="feedback-box" id="buzon" [class.in-modal]="inModal()">
+  <div class="feedback-hero">
+    <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo feedback-logo" />
+    <div class="hero-text">
+      <span class="hero-badge">📬 Tu voz importa</span>
+      <h2>Buzón de sugerencias</h2>
+      <p>
+        Ayúdanos a mejorar Sport Gym R.IO. En 3 pasos puedes enviar una sugerencia, queja o
+        felicitación — con tu nombre o en total confidencialidad.
+      </p>
+    </div>
+  </div>
+
+  <ol class="steps-strip" aria-label="Pasos para enviar">
+    <li><span class="step-num">1</span> Elige el tipo</li>
+    <li><span class="step-num">2</span> Cuéntanos</li>
+    <li><span class="step-num">3</span> Identificación</li>
+  </ol>
+
+  @if (success()) {
+    <div class="feedback-success">
+      <span class="success-icon">✅</span>
+      <div>
+        <strong>¡Mensaje enviado!</strong>
+        <p>Gracias por compartirlo. El equipo del gimnasio lo revisará pronto.</p>
+      </div>
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="feedback-form">
+    <div class="form-step">
+      <h3 class="step-title">
+        <span class="step-badge">Paso 1</span>
+        ¿Qué quieres contarnos?
+      </h3>
+      <fieldset class="type-picker">
+        <legend class="sr-only">Tipo de mensaje</legend>
+        <div class="type-options">
+          @for (t of types; track t.value) {
+            <label class="type-option" [class]="t.cssClass">
+              <input type="radio" formControlName="type" [value]="t.value" />
+              <span class="type-card">
+                <span class="type-icon">{{ t.icon }}</span>
+                <span class="type-label">{{ t.label }}</span>
+                <span class="type-hint">{{ t.hint }}</span>
+              </span>
+            </label>
+          }
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="form-step">
+      <h3 class="step-title">
+        <span class="step-badge">Paso 2</span>
+        Escribe tu mensaje
+      </h3>
+      <p class="step-help">
+        Sé específico: fechas, horarios o nombres ayudan a entenderte mejor.
+      </p>
+      <label class="message-field">
+        <textarea
+          formControlName="message"
+          rows="5"
+          [placeholder]="messagePlaceholder()"
+        ></textarea>
+        <span class="char-hint">Mínimo 10 caracteres</span>
+      </label>
+    </div>
+
+    <div class="form-step identity-step">
+      <h3 class="step-title">
+        <span class="step-badge">Paso 3</span>
+        ¿Cómo te identificamos?
+      </h3>
+      <div class="identity-picker">
+        <button
+          type="button"
+          class="identity-card"
+          [class.active]="!form.controls.anonymous.value"
+          (click)="setAnonymous(false)"
+        >
+          <span class="id-icon">👤</span>
+          <strong>Con mi nombre</strong>
+          <span>El equipo sabrá quién escribió</span>
+        </button>
+        <button
+          type="button"
+          class="identity-card"
+          [class.active]="form.controls.anonymous.value"
+          (click)="setAnonymous(true)"
+        >
+          <span class="id-icon">🕶️</span>
+          <strong>Anónimo</strong>
+          <span>Nadie verá tu identidad</span>
+        </button>
+      </div>
+
+      @if (!form.controls.anonymous.value) {
+        <label class="name-field">
+          Tu nombre completo
+          <input formControlName="authorName" placeholder="Ej: María López" />
+        </label>
+      } @else {
+        <p class="anon-note">🔒 Tu mensaje se guardará sin nombre. Gracias por tu honestidad.</p>
+      }
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-send" [disabled]="saving()">
+      <span class="send-icon">{{ saving() ? '⏳' : '📨' }}</span>
+      {{ saving() ? 'Enviando tu mensaje...' : 'Enviar al buzón del gym' }}
+    </button>
+    <p class="send-note">Solo lo lee la administración del gym. No se publica en el muro.</p>
+  </form>
+</section>

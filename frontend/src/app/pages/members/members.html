@@ -1,0 +1,111 @@
+<section class="page-header">
+  <h2>Tus socios</h2>
+  <p>Cada persona que entrena contigo merece sentirse bien atendida. Aquí guardas su información con cariño.</p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<div class="grid">
+  <form class="panel" [formGroup]="form" (ngSubmit)="save()">
+    <h3>{{ editingId() ? 'Actualizar datos' : 'Dar de alta un socio' }}</h3>
+
+    <label>
+      Nombre
+      <input formControlName="firstName" placeholder="Ej: Juan" />
+    </label>
+    <label>
+      Apellido
+      <input formControlName="lastName" />
+    </label>
+    <label>
+      Correo
+      <input type="email" formControlName="email" />
+    </label>
+    <label>
+      Teléfono
+      <input formControlName="phone" />
+    </label>
+    <label>
+      Documento
+      <input formControlName="documentId" />
+    </label>
+    <label>
+      Plan
+      <select formControlName="planId">
+        <option [ngValue]="null">Sin plan</option>
+        @for (plan of plans(); track plan.id) {
+          <option [ngValue]="plan.id">{{ plan.name }} — {{ plan.price | currency }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Estado
+      <select formControlName="status">
+        @for (status of statuses; track status) {
+          <option [value]="status">{{ statusLabel(status) }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Inicio membresía
+      <input type="date" formControlName="membershipStart" />
+    </label>
+    <label>
+      Fin membresía
+      <input type="date" formControlName="membershipEnd" />
+    </label>
+
+    <div class="actions">
+      <button type="submit" [disabled]="saving()">
+        {{ saving() ? 'Guardando...' : editingId() ? '✓ Guardar cambios' : '✓ Registrar socio' }}
+      </button>
+      <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
+      <p class="psych-reassurance">
+        Solo tú y tu equipo ven esta información. Puedes editarla cuando lo necesites.
+      </p>
+    </div>
+  </form>
+
+  <div class="panel table-panel">
+    <h3>Listado</h3>
+    @if (loading()) {
+      <p>Cargando...</p>
+    } @else if (members().length === 0) {
+      <p class="empty-state">Aún no hay socios. Usa el formulario de la izquierda para registrar al primero.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Plan</th>
+            <th>Estado</th>
+            <th>Vence</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (member of members(); track member.id) {
+            <tr>
+              <td>{{ member.firstName }} {{ member.lastName }}</td>
+              <td>{{ member.email }}</td>
+              <td>{{ member.planName ?? '—' }}</td>
+              <td>
+                <span class="badge" [class]="member.status.toLowerCase()">
+                  {{ statusLabel(member.status) }}
+                </span>
+              </td>
+              <td>{{ member.membershipEnd ? (member.membershipEnd | date: 'dd/MM/yyyy') : '—' }}</td>
+              <td class="row-actions">
+                <button type="button" class="link" (click)="startEdit(member)">Editar</button>
+                <button type="button" class="link danger" (click)="remove(member.id)">Eliminar</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

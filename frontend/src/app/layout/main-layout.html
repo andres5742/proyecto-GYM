@@ -1,0 +1,115 @@
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo brand-logo" />
+      <p class="brand-tagline">Cuidamos tu gimnasio, paso a paso</p>
+    </div>
+
+    @if (auth.currentUser(); as user) {
+      <div class="user-box">
+        <strong>{{ user.fullName }}</strong>
+        <span class="user-role">{{ user.roleLabel }}</span>
+        <button type="button" class="btn-logout" (click)="logout()">Cerrar sesión</button>
+      </div>
+    }
+
+    <nav>
+      <a routerLink="/panel" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        <span class="nav-icon">📊</span> Panel
+      </a>
+      <a routerLink="/" class="nav-muro">
+        <span class="nav-icon">📋</span> Muro público
+      </a>
+
+      @if (auth.isAdmin()) {
+        @if (modules.isEnabled('SOCIOS') || modules.isEnabled('PLANES')) {
+          <span class="nav-group-label">Clientes</span>
+        }
+        @if (modules.isEnabled('SOCIOS')) {
+          <a routerLink="/panel/socios" routerLinkActive="active">
+            <span class="nav-icon">👥</span> Socios
+          </a>
+        }
+        @if (modules.isEnabled('PLANES')) {
+          <a routerLink="/panel/planes" routerLinkActive="active">
+            <span class="nav-icon">📋</span> Planes
+          </a>
+        }
+      }
+
+      @if (modules.isEnabled('VENTAS') || modules.isEnabled('JORNADA') || (auth.isAdmin() && modules.isEnabled('INVENTARIO'))) {
+        <span class="nav-group-label">Día a día</span>
+      }
+      @if (modules.isEnabled('VENTAS')) {
+        <a routerLink="/panel/ventas" routerLinkActive="active">
+          <span class="nav-icon">💳</span> Ventas
+        </a>
+      }
+      @if (auth.isAdmin() && modules.isEnabled('INVENTARIO')) {
+        <a routerLink="/panel/inventario" routerLinkActive="active">
+          <span class="nav-icon">📦</span> Inventario
+        </a>
+      }
+
+      @if (
+        modules.isEnabled('JORNADA') ||
+        (auth.isAdmin() &&
+          (modules.isEnabled('ENTRENADORES') ||
+            modules.isEnabled('NOMINA') ||
+            modules.isEnabled('CONTENIDO_INICIO') ||
+            modules.isEnabled('BUZON') ||
+            modules.isEnabled('CALIFICACIONES') ||
+            modules.isEnabled('ACCESO')))
+      ) {
+        <span class="nav-group-label">Equipo</span>
+      }
+      @if (modules.isEnabled('JORNADA')) {
+        <a routerLink="/panel/jornada" routerLinkActive="active">
+          <span class="nav-icon">🕐</span> Jornada
+        </a>
+      }
+      @if (auth.isAdmin()) {
+        @if (modules.isEnabled('ENTRENADORES')) {
+          <a routerLink="/panel/entrenadores" routerLinkActive="active">
+            <span class="nav-icon">🏋️</span> Entrenadores
+          </a>
+        }
+        @if (modules.isEnabled('NOMINA')) {
+          <a routerLink="/panel/configuracion-nomina" routerLinkActive="active">
+            <span class="nav-icon">⚙️</span> Pago por hora
+          </a>
+        }
+        @if (modules.isEnabled('CONTENIDO_INICIO')) {
+          <a routerLink="/panel/contenido-inicio" routerLinkActive="active">
+            <span class="nav-icon">🏠</span> Contenido inicio
+          </a>
+        }
+        @if (modules.isEnabled('BUZON')) {
+          <a routerLink="/panel/buzon" routerLinkActive="active">
+            <span class="nav-icon">📬</span> Buzón
+          </a>
+        }
+        @if (modules.isEnabled('CALIFICACIONES')) {
+          <a routerLink="/panel/calificaciones" routerLinkActive="active">
+            <span class="nav-icon">⭐</span> Calificaciones
+          </a>
+        }
+        @if (modules.isEnabled('ACCESO')) {
+          <a routerLink="/panel/acceso" routerLinkActive="active">
+            <span class="nav-icon">👆</span> Acceso / torniquete
+          </a>
+        }
+      }
+
+      @if (auth.isSuperAdmin()) {
+        <span class="nav-group-label">Sistema</span>
+        <a routerLink="/panel/modulos" routerLinkActive="active">
+          <span class="nav-icon">🧩</span> Módulos
+        </a>
+      }
+    </nav>
+  </aside>
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

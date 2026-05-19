@@ -1,0 +1,196 @@
+<section class="page-header">
+  <h2>Registrar ventas</h2>
+  <p>Un proceso simple en tres pasos. Sin prisa: puedes corregir o anular si te equivocas.</p>
+</section>
+
+<ol class="steps-calm">
+  <li>
+    <span class="step-num">1</span>
+    <span>Abre el turno del día (mañana, tarde o noche).</span>
+  </li>
+  <li>
+    <span class="step-num">2</span>
+    <span>Registra cada venta con el entrenador, producto y forma de pago.</span>
+  </li>
+  <li>
+    <span class="step-num">3</span>
+    <span>Al cerrar el turno, revisa el resumen por efectivo, Nequi, Bancolombia o pendiente.</span>
+  </li>
+</ol>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<section class="shift-panel">
+  @if (openShift(); as shift) {
+    <div class="shift-open">
+      <div>
+        <strong>Turno activo: {{ shift.name }}</strong>
+        <span>
+          {{ shift.shiftDate | date: 'dd/MM/yyyy' }} · Abierto
+          {{ shift.openedAt | date: 'HH:mm' }}
+        </span>
+      </div>
+      <button type="button" class="btn-close" (click)="closeShiftAction()">Cerrar turno</button>
+    </div>
+
+    <h3 class="summary-title">Totales del turno por medio de pago</h3>
+    @if (summary(); as s) {
+      <div class="summary">
+        <article class="summary-card highlight">
+          <span>Total turno</span>
+          <strong>{{ s.totalAmount | currency }}</strong>
+        </article>
+        <article class="summary-card">
+          <span>Ventas</span>
+          <strong>{{ s.totalSales }}</strong>
+        </article>
+        @for (pm of paymentMethods; track pm.value) {
+          <article class="summary-card" [class.pending]="pm.value === 'PENDING'">
+            <span>{{ pm.label }}</span>
+            <strong>{{ summaryAmount(pm.value) | currency }}</strong>
+          </article>
+        }
+      </div>
+    }
+  } @else {
+    <div class="shift-closed">
+      <p>Para empezar a vender, elige el turno del día:</p>
+      <div class="shift-open-actions">
+        @for (preset of shiftPresets; track preset) {
+          <button type="button" (click)="openShiftAction(preset)" [disabled]="openingShift()">
+            {{ preset }}
+          </button>
+        }
+        <input
+          type="text"
+          [value]="shiftNameInput()"
+          (input)="shiftNameInput.set($any($event.target).value)"
+          placeholder="Nombre del turno"
+        />
+        <button type="button" class="primary" (click)="openShiftAction()" [disabled]="openingShift()">
+          Abrir turno
+        </button>
+      </div>
+    </div>
+  }
+</section>
+
+@if (openShift()) {
+  <div class="grid">
+    <form class="panel" [formGroup]="form" (ngSubmit)="save()">
+      <h3>Nueva venta</h3>
+      <p class="form-section-title">Datos de la venta</p>
+
+      <label>
+        ¿Qué entrenador vendió?
+        <select formControlName="employeeId">
+          <option [ngValue]="null">Elige un entrenador</option>
+          @for (emp of employees(); track emp.id) {
+            <option [ngValue]="emp.id">{{ emp.fullName }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        ¿Qué producto?
+        <select formControlName="productId">
+          <option [ngValue]="null">Elige un producto</option>
+          @for (product of products(); track product.id) {
+            <option [ngValue]="product.id">
+              {{ product.name }} ({{ product.quantity }}) — {{ product.unitPrice | currency }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Cantidad
+        <input type="number" formControlName="quantity" min="1" />
+      </label>
+
+      <label>
+        ¿Cómo pagó el cliente?
+        <select formControlName="paymentMethod">
+          @for (pm of paymentMethods; track pm.value) {
+            <option [value]="pm.value">{{ pm.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Notas
+        <textarea formControlName="notes" rows="2"></textarea>
+      </label>
+
+      @if (selectedProduct(); as product) {
+        <p class="total-preview">
+          Total:
+          <strong>{{ product.unitPrice * form.controls.quantity.value | currency }}</strong>
+        </p>
+      }
+
+      <button type="submit" [disabled]="saving()">
+        {{ saving() ? 'Guardando...' : '✓ Guardar venta' }}
+      </button>
+      <p class="psych-reassurance">
+        Los datos quedan guardados de inmediato. Puedes anular una venta después si fue un error.
+      </p>
+    </form>
+
+    <div class="panel table-panel">
+      <div class="table-header">
+        <h3>Ventas del turno</h3>
+        <label>
+          Filtrar entrenador
+          <select (change)="onFilterChange($any($event.target).value)">
+            <option value="">Todos</option>
+            @for (emp of employees(); track emp.id) {
+              <option [value]="emp.id">{{ emp.fullName }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (loading()) {
+        <p>Cargando...</p>
+      } @else if (sales().length === 0) {
+        <p class="empty-state">Todavía no hay ventas en este turno. ¡Registra la primera arriba!</p>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Entrenador</th>
+              <th>Producto</th>
+              <th>Cant.</th>
+              <th>Total</th>
+              <th>Pago</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (sale of sales(); track sale.id) {
+              <tr [class.pending-row]="sale.paymentMethod === 'PENDING'">
+                <td>{{ sale.saleDate | date: 'HH:mm' }}</td>
+                <td>{{ sale.employeeName }}</td>
+                <td>{{ sale.productName }}</td>
+                <td>{{ sale.quantity }}</td>
+                <td>{{ sale.totalAmount | currency }}</td>
+                <td>
+                  <span class="badge" [class]="sale.paymentMethod.toLowerCase()">
+                    {{ sale.paymentMethodLabel }}
+                  </span>
+                </td>
+                <td>
+                  <button type="button" class="link danger" (click)="remove(sale.id)">Anular</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}

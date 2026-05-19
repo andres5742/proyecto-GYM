@@ -1,0 +1,28 @@
+<div class="emoji-picker-field">
+  <label class="field-label">Emoji</label>
+  <div class="emoji-trigger-row">
+    <button type="button" class="emoji-preview" (click)="toggle()" aria-label="Elegir emoji">
+      <span class="emoji-display">{{ selected() }}</span>
+    </button>
+    <button type="button" class="emoji-open-btn" (click)="toggle()">
+      Ver todos los emojis
+    </button>
+  </div>
+
+  @if (open()) {
+    <div class="emoji-picker-backdrop" (click)="close()" role="presentation"></div>
+    <div class="emoji-picker-popover" role="dialog" aria-label="Selector de emojis">
+      <div class="popover-head">
+        <strong>Elige un emoji</strong>
+        <button type="button" class="close-btn" (click)="close()" aria-label="Cerrar">×</button>
+      </div>
+      <p class="popover-hint">Navega por categorías: caritas, deportes, comida, banderas y más.</p>
+      <emoji-picker
+        class="gym-emoji-picker"
+        locale="es"
+        [i18n]="esI18n"
+        (emoji-click)="onEmojiPick($event)"
+      />
+    </div>
+  }
+</div>

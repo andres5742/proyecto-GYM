@@ -1,0 +1,68 @@
+.kiosk-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-weight: 600;
+  color: var(--color-trust);
+}
+
+.access-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.2fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: start;
+}
+
+.steps-hint {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+}
+
+.enroll-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--color-border);
+
+    strong {
+      display: block;
+    }
+  }
+}
+
+.fp-id {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--color-primary-hover);
+  font-weight: 600;
+  margin-top: 0.2rem;
+}
+
+.logs-panel .badge.ok {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.row-granted td {
+  background: rgb(184 223 196 / 25%);
+}
+
+@media (max-width: 900px) {
+  .access-grid {
+    grid-template-columns: 1fr;
+  }
+}

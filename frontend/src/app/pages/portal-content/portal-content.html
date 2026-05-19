@@ -1,0 +1,278 @@
+<section class="page-header">
+  <h2>Contenido del inicio</h2>
+  <p>
+    Configura el slider, galería, redes sociales, calendario de festivos, horarios y publicaciones del
+    inicio público.
+  </p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<nav class="tabs">
+  <button type="button" [class.active]="activeTab() === 'hours'" (click)="setTab('hours')">
+    Horarios
+  </button>
+  <button type="button" [class.active]="activeTab() === 'holidays'" (click)="setTab('holidays')">
+    Festivos
+  </button>
+  <button type="button" [class.active]="activeTab() === 'posts'" (click)="setTab('posts')">
+    Publicaciones
+  </button>
+  <button type="button" [class.active]="activeTab() === 'slider'" (click)="setTab('slider')">
+    Slider
+  </button>
+  <button type="button" [class.active]="activeTab() === 'media'" (click)="setTab('media')">
+    Fotos y videos
+  </button>
+  <button type="button" [class.active]="activeTab() === 'footer'" (click)="setTab('footer')">
+    Redes sociales
+  </button>
+</nav>
+
+@if (activeTab() === 'slider') {
+  <app-portal-home-admin tab="slider" (notify)="message.set($event)" />
+}
+@if (activeTab() === 'media') {
+  <app-portal-home-admin tab="media" (notify)="message.set($event)" />
+}
+@if (activeTab() === 'footer') {
+  <app-portal-home-admin tab="footer" (notify)="message.set($event)" />
+}
+
+@if (activeTab() === 'hours') {
+  <section class="panel">
+    <h3>Horario de atención semanal</h3>
+    <p class="hint">
+      Estos horarios se muestran en la página de inicio. Configura bien el horario de
+      <strong>domingo</strong>: cuando un día entre semana (lun–sáb) sea festivo, se usará ese horario.
+    </p>
+    <div class="table-wrap">
+      <table class="hours-table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Cerrado</th>
+            <th>Apertura</th>
+            <th>Cierre</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (day of scheduleRows(); track day.dayOfWeek) {
+            <tr>
+              <td>{{ dayLabels[day.dayOfWeek] }}</td>
+              <td>
+                <input
+                  type="checkbox"
+                  [checked]="day.closed"
+                  (change)="toggleClosed(day)"
+                />
+              </td>
+              <td class="time-cell">
+                <div class="time-12-wrap">
+                  <select
+                    [disabled]="day.closed"
+                    [value]="timeParts(day.openTime).hour12"
+                    (change)="setTime12(day, 'openTime', +$any($event.target).value, timeParts(day.openTime).period)"
+                  >
+                    @for (h of hour12Options; track h) {
+                      <option [value]="h">{{ h }}</option>
+                    }
+                  </select>
+                  <select
+                    [disabled]="day.closed"
+                    [value]="timeParts(day.openTime).period"
+                    (change)="setTime12(day, 'openTime', timeParts(day.openTime).hour12, $any($event.target).value)"
+                  >
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </td>
+              <td class="time-cell">
+                <div class="time-12-wrap">
+                  <select
+                    [disabled]="day.closed"
+                    [value]="timeParts(day.closeTime).hour12"
+                    (change)="setTime12(day, 'closeTime', +$any($event.target).value, timeParts(day.closeTime).period)"
+                  >
+                    @for (h of hour12Options; track h) {
+                      <option [value]="h">{{ h }}</option>
+                    }
+                  </select>
+                  <select
+                    [disabled]="day.closed"
+                    [value]="timeParts(day.closeTime).period"
+                    (change)="setTime12(day, 'closeTime', timeParts(day.closeTime).hour12, $any($event.target).value)"
+                  >
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <button
+      type="button"
+      class="btn-primary"
+      [disabled]="saving() || scheduleRows().length !== 7"
+      (click)="saveHours()"
+    >
+      {{ saving() ? 'Guardando...' : 'Guardar horarios' }}
+    </button>
+  </section>
+}
+
+@if (activeTab() === 'holidays') {
+  <div class="grid">
+    <form class="panel form-panel" [formGroup]="holidayForm" (ngSubmit)="saveHoliday()">
+      <h3>{{ editingHolidayId() ? 'Editar festivo' : 'Nuevo festivo' }}</h3>
+      <p class="hint">
+        Un festivo en día de semana (lun–sáb) se atiende con el horario configurado para
+        <strong>domingo</strong> en la pestaña Horarios.
+      </p>
+      <label>
+        Fecha
+        <input type="date" formControlName="date" />
+      </label>
+      <label>
+        Nombre
+        <input formControlName="name" placeholder="Ej: Día de la Independencia" />
+      </label>
+      <label>
+        Descripción (opcional)
+        <input formControlName="description" />
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : editingHolidayId() ? 'Guardar' : 'Agregar festivo' }}
+        </button>
+        <button type="button" class="secondary" (click)="startHolidayCreate()">Nuevo</button>
+      </div>
+    </form>
+
+    <div class="panel table-panel">
+      <h3>Festivos del mes actual</h3>
+      @if (holidays().length === 0) {
+        <p class="empty">No hay festivos este mes.</p>
+      } @else {
+        <ul class="simple-list">
+          @for (h of holidays(); track h.id) {
+            <li>
+              <div>
+                <strong>{{ h.date | date: 'dd/MM/yyyy' }}</strong> — {{ h.name }}
+              </div>
+              <div class="row-actions">
+                <button type="button" class="btn-edit" (click)="startHolidayEdit(h)">Editar</button>
+                <button type="button" class="btn-delete" (click)="removeHoliday(h.id)">Eliminar</button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+}
+
+@if (activeTab() === 'posts') {
+  <div class="grid">
+    <form class="panel form-panel" [formGroup]="postForm" (ngSubmit)="savePost()">
+      <h3>{{ editingPostId() ? 'Editar publicación' : 'Nueva publicación' }}</h3>
+      <p class="hint">Tu usuario quedará registrado como autor. Las publicaciones temporales se eliminan al vencer.</p>
+      <label>
+        Título
+        <input formControlName="title" />
+      </label>
+      <label>
+        Texto
+        <textarea formControlName="body" rows="4"></textarea>
+      </label>
+      <app-emoji-picker formControlName="emoji" />
+
+      <div class="post-photos-field">
+        <span class="field-label">Fotos (opcional)</span>
+        <p class="hint compact">Hasta {{ maxPostPhotos }} imágenes · JPG, PNG, WEBP o GIF · máx. 5 MB c/u</p>
+        @if (postImageUrls().length > 0) {
+          <div class="post-photo-previews">
+            @for (url of postImageUrls(); track url; let i = $index) {
+              <figure class="photo-thumb">
+                <img [src]="url | uploadUrl" alt="Foto de la publicación" />
+                <button type="button" class="photo-remove" (click)="removePostImage(i)" aria-label="Quitar foto">
+                  ×
+                </button>
+              </figure>
+            }
+          </div>
+        }
+        <label class="file-upload">
+          @if (postPhotoUploading()) {
+            Subiendo fotos...
+          } @else {
+            Agregar fotos
+          }
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            [disabled]="postPhotoUploading() || postImageUrls().length >= maxPostPhotos"
+            (change)="onPostPhotosSelected($event)"
+          />
+        </label>
+      </div>
+
+      <label>
+        Categoría
+        <select formControlName="category">
+          @for (c of postCategories; track c.value) {
+            <option [ngValue]="c.value">{{ c.label }}</option>
+          }
+        </select>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" formControlName="permanent" />
+        Publicación permanente (no se borra sola)
+      </label>
+      @if (!postForm.controls.permanent.value) {
+        <label>
+          Días visible en el muro
+          <input type="number" formControlName="displayDays" min="1" max="365" />
+        </label>
+      }
+      <div class="actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : editingPostId() ? 'Guardar' : 'Publicar' }}
+        </button>
+        <button type="button" class="secondary" (click)="startPostCreate()">Nueva</button>
+      </div>
+    </form>
+
+    <div class="panel table-panel">
+      <h3>Publicaciones</h3>
+      @if (posts().length === 0) {
+        <p class="empty">Sin publicaciones.</p>
+      } @else {
+        <ul class="simple-list posts-admin-list">
+          @for (p of posts(); track p.id) {
+            <li>
+              <div>
+                <strong>{{ p.emoji || '📋' }} {{ p.title }}</strong>
+                <span class="meta">{{ p.authorName }} · {{ p.categoryLabel }} · {{ postVisibility(p) }}</span>
+                @if (p.imageUrls?.length) {
+                  <span class="meta">{{ p.imageUrls!.length }} foto{{ p.imageUrls!.length === 1 ? '' : 's' }}</span>
+                }
+              </div>
+              <div class="row-actions">
+                <button type="button" class="btn-edit" (click)="startPostEdit(p)">Editar</button>
+                <button type="button" class="btn-delete" (click)="removePost(p.id)">Eliminar</button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,27 @@
+<button type="button" class="feedback-cta" [class.in-header]="inHeader()" (click)="show()">
+  <span class="cta-icon">📬</span>
+  <span class="cta-text">
+    <span class="cta-title">Buzón de sugerencias</span>
+    <span class="cta-kicker">Tu voz importa</span>
+  </span>
+  <span class="cta-arrow" aria-hidden="true">→</span>
+</button>
+
+@if (open()) {
+  <div class="modal-backdrop" (click)="onBackdropClick($event)" role="presentation">
+    <div
+      class="modal-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="feedback-modal-title"
+    >
+      <button type="button" class="modal-close" (click)="close()" aria-label="Cerrar">
+        ×
+      </button>
+      <h2 id="feedback-modal-title" class="sr-only">Buzón de sugerencias</h2>
+      <div class="modal-body">
+        <app-feedback-box [inModal]="true" (submitted)="onSubmitted()" />
+      </div>
+    </div>
+  </div>
+}

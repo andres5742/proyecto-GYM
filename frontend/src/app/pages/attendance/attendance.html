@@ -1,0 +1,147 @@
+<section class="page-header">
+  <h2>Jornada del equipo</h2>
+  <p>Registra entradas y salidas por hora completa. El sistema calcula las horas trabajadas.</p>
+  <a routerLink="/panel/configuracion-nomina" class="card-link" style="margin-top: 0.75rem">Ajustar pago por hora</a>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<div class="summary">
+  <article class="summary-card">
+    <span>Jornadas</span>
+    <strong>{{ summary().totalRecords }}</strong>
+  </article>
+  <article class="summary-card warn">
+    <span>Abiertas hoy</span>
+    <strong>{{ summary().openRecords }}</strong>
+  </article>
+  <article class="summary-card">
+    <span>Horas trabajadas</span>
+    <strong>{{ summary().totalHours | number: '1.0-0' }} h</strong>
+  </article>
+</div>
+
+<div class="panel table-panel">
+  <div class="table-header">
+    <h3>Historial de jornadas</h3>
+    <button type="button" class="btn-register" (click)="openRegisterModal()">
+      + Registrar jornada
+    </button>
+  </div>
+
+  @if (loading()) {
+    <p>Cargando...</p>
+  } @else if (records().length === 0) {
+    <p class="empty-state">Aún no hay jornadas hoy. Pulsa «Registrar jornada» para empezar.</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="attendance-table">
+        <thead>
+          <tr>
+            <th class="col-date">Fecha</th>
+            <th class="col-employee">Entrenador</th>
+            <th class="col-time">Entrada</th>
+            <th class="col-time">Salida</th>
+            <th class="col-hours">Horas</th>
+            <th class="col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of records(); track r.id) {
+            <tr [class.open]="!r.clockOut">
+              <td class="col-date">
+                {{ r.workDate | date: 'dd/MM/yyyy' }}
+                <small>{{ r.dayTypeLabel }}</small>
+              </td>
+              <td class="col-employee">{{ r.employeeName }}</td>
+              <td class="col-time">{{ formatHour(r.clockIn) }}</td>
+              <td class="col-time">{{ r.clockOut ? formatHour(r.clockOut) : '—' }}</td>
+              <td class="col-hours">{{ r.hoursWorked != null ? (r.hoursWorked | number: '1.0-0') + ' h' : '—' }}</td>
+              <td class="col-actions row-actions">
+                @if (isToday(r.workDate)) {
+                  <button type="button" class="btn-edit" (click)="openEditModal(r)">Editar</button>
+                  <button type="button" class="btn-delete" (click)="remove(r.id)">Eliminar</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (modalOpen()) {
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    (click)="closeModal()"
+    (keydown.escape)="closeModal()"
+  >
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-labelledby]="'attendance-modal-title'"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-header">
+        <h3 id="attendance-modal-title">
+          {{ editingId() ? 'Editar jornada' : 'Registrar jornada' }}
+        </h3>
+        <button type="button" class="modal-close" aria-label="Cerrar" (click)="closeModal()">×</button>
+      </header>
+
+      <form class="modal-form" [formGroup]="form" (ngSubmit)="save()">
+        <label>
+          Entrenador
+          <select formControlName="employeeId">
+            <option [ngValue]="null">Seleccione entrenador</option>
+            @for (emp of employees(); track emp.id) {
+              <option [ngValue]="emp.id">{{ emp.fullName }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Fecha (solo hoy)
+          <input type="date" formControlName="workDate" readonly />
+        </label>
+        <label>
+          Hora entrada
+          <select formControlName="clockInHour">
+            <option [ngValue]="null">Seleccione hora</option>
+            @for (h of hourOptions; track h) {
+              <option [ngValue]="h">{{ hourLabel(h) }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Hora salida
+          <select formControlName="clockOutHour">
+            <option [ngValue]="null">Sin salida aún</option>
+            @for (h of hourOptions; track h) {
+              <option [ngValue]="h">{{ hourLabel(h) }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Notas
+          <textarea formControlName="notes" rows="3"></textarea>
+        </label>
+
+        <p class="psych-reassurance">
+          Solo se registran jornadas del día de hoy, en horas completas (sin minutos).
+        </p>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary" (click)="closeModal()">Cancelar</button>
+          <button type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando...' : editingId() ? 'Actualizar' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

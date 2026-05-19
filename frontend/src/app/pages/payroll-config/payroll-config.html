@@ -1,0 +1,36 @@
+<section class="page-header">
+  <h2>Pago justo por hora</h2>
+  <p>Configura las tarifas una vez. El sistema las aplica solo al calcular cada jornada — sin cálculos manuales.</p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<form class="panel config-form" [formGroup]="form" (ngSubmit)="save()">
+  <article class="rate-card">
+    <h3>Lunes a sábado</h3>
+    <p>Precio por hora en días de semana (COP)</p>
+    <input type="number" formControlName="weekdayHourlyRate" min="0" step="100" />
+  </article>
+
+  <article class="rate-card sunday">
+    <h3>Domingos</h3>
+    <p>Precio por hora los domingos (COP)</p>
+    <input type="number" formControlName="sundayHourlyRate" min="0" step="100" />
+  </article>
+
+  <div class="example">
+    <p><strong>Ejemplo:</strong> 8 horas un martes → {{ form.controls.weekdayHourlyRate.value * 8 | currency }}</p>
+    <p>8 horas un domingo → {{ form.controls.sundayHourlyRate.value * 8 | currency }}</p>
+  </div>
+
+  @if (lastUpdated()) {
+    <p class="updated">Última actualización: {{ lastUpdated() | date: 'dd/MM/yyyy HH:mm' }}</p>
+  }
+
+  <button type="submit" [disabled]="saving()">
+    {{ saving() ? 'Guardando...' : '✓ Guardar tarifas' }}
+  </button>
+  <p class="psych-reassurance">Puedes cambiar las tarifas cuando quieras; las jornadas futuras usarán los nuevos valores.</p>
+</form>

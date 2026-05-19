@@ -1,0 +1,105 @@
+<button type="button" class="rating-cta" (click)="show()">
+  <span class="cta-icon">⭐</span>
+  <span class="cta-text">
+    <span class="cta-title">Califica a tu entrenador</span>
+    <span class="cta-kicker">Del 1 al 10 · ayúdanos a reconocer al mejor del mes</span>
+  </span>
+  <span class="cta-arrow" aria-hidden="true">→</span>
+</button>
+
+@if (open()) {
+  <div class="modal-backdrop" (click)="onBackdropClick($event)" role="presentation">
+    <div
+      class="modal-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trainer-rating-title"
+    >
+      <button type="button" class="modal-close" (click)="close()" aria-label="Cerrar">×</button>
+
+      <header class="modal-header">
+        <span class="modal-badge">⭐ Tu opinión cuenta</span>
+        <h2 id="trainer-rating-title">Califica a tu entrenador</h2>
+        <p>
+          Una calificación por mes y por entrenador, con tu <strong>número de identificación</strong>.
+          Puntuación del <strong>1 al 10</strong>.
+        </p>
+      </header>
+
+      <div class="modal-body">
+        @if (success()) {
+          <p class="success-banner">¡Gracias! Tu calificación fue registrada.</p>
+        } @else if (loading()) {
+          <p class="muted">Cargando entrenadores...</p>
+        } @else if (participants().length === 0) {
+          <p class="muted empty-note">
+            Pronto podrás calificar a los entrenadores. El gimnasio está preparando la lista.
+          </p>
+        } @else {
+          <p class="step-label">1. Elige entrenador</p>
+          <div class="trainer-grid">
+            @for (t of participants(); track t.id) {
+              <button
+                type="button"
+                class="trainer-card"
+                [class.selected]="selectedId() === t.id"
+                (click)="selectTrainer(t.id)"
+              >
+                @if (trainerPhoto(t); as photo) {
+                  <img [src]="photo" [alt]="t.fullName" class="trainer-photo" />
+                } @else {
+                  <span class="trainer-avatar">{{ initials(t.fullName) }}</span>
+                }
+                <span class="trainer-name">{{ t.fullName }}</span>
+              </button>
+            }
+          </div>
+
+          @if (selectedId()) {
+            <p class="step-label">2. Tu número de identificación</p>
+            <label class="id-field">
+              <span class="sr-only">Número de identificación</span>
+              <input
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="20"
+                placeholder="Ej: 1234567890"
+                [value]="identificationNumber()"
+                (input)="identificationNumber.set($any($event.target).value); message.set(null)"
+              />
+            </label>
+            <p class="field-hint">Solo puedes calificar una vez al mes a cada entrenador.</p>
+
+            <p class="step-label">3. Tu puntuación</p>
+            <div class="score-row" role="group" aria-label="Puntuación del 1 al 10">
+              @for (n of scores; track n) {
+                <button
+                  type="button"
+                  class="score-btn"
+                  [class.selected]="selectedScore() === n"
+                  (click)="selectScore(n)"
+                >
+                  {{ n }}
+                </button>
+              }
+            </div>
+          }
+
+          @if (message()) {
+            <p class="error-msg">{{ message() }}</p>
+          }
+
+          <button
+            type="button"
+            class="btn-submit"
+            [disabled]="saving() || !selectedId() || identificationNumber().trim().length < 5 || !selectedScore()"
+            (click)="submit()"
+          >
+            {{ saving() ? 'Enviando...' : 'Enviar calificación' }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

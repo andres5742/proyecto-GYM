@@ -1,0 +1,121 @@
+@if (tab() === 'slider') {
+  <section class="panel">
+    <h3>Slider de la página de inicio</h3>
+    <p class="hint">
+      Imágenes que rotan solas (cada 5 s). Puedes <strong>subir una foto</strong> (JPG, PNG, WEBP, GIF, máx. 5 MB)
+      o pegar una URL externa.
+    </p>
+    <form class="form-panel inner" [formGroup]="slideForm" (ngSubmit)="saveSlide()">
+      <label class="file-upload">
+        Subir imagen
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onSlideFileSelected($event)" />
+        @if (uploading()) {
+          <span class="upload-status">Subiendo...</span>
+        }
+      </label>
+      <label>
+        URL de la imagen (si no subes archivo)
+        <input formControlName="imageUrl" placeholder="https://... o /uploads/..." />
+      </label>
+      @if (slideForm.controls.imageUrl.value) {
+        <img [src]="slideForm.controls.imageUrl.value | uploadUrl" alt="Vista previa" class="preview" />
+      }
+      <label>Título <input formControlName="title" /></label>
+      <label>Subtítulo <input formControlName="caption" /></label>
+      <label>Enlace (opcional) <input formControlName="linkUrl" placeholder="https://..." /></label>
+      <label class="checkbox"><input type="checkbox" formControlName="active" /> Visible</label>
+      <div class="actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : editingSlideId() ? 'Guardar' : 'Agregar' }}
+        </button>
+        <button type="button" class="secondary" (click)="resetSlideForm()">Nuevo</button>
+      </div>
+    </form>
+    <ul class="simple-list">
+      @for (s of slides(); track s.id) {
+        <li>
+          <img [src]="s.imageUrl | uploadUrl" alt="" class="thumb" />
+          <div>
+            <strong>{{ s.title || 'Sin título' }}</strong>
+            <span class="meta">Orden {{ s.displayOrder }} · {{ s.active ? 'Activa' : 'Oculta' }}</span>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn-edit" (click)="editSlide(s)">Editar</button>
+            <button type="button" class="btn-delete" (click)="removeSlide(s.id)">Eliminar</button>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+@if (tab() === 'media') {
+  <section class="panel">
+    <h3>Fotos y videos</h3>
+    <p class="hint">
+      Fotos: sube archivo o URL. Videos: URL de YouTube (embed) o enlace .mp4.
+    </p>
+    <form class="form-panel inner" [formGroup]="mediaForm" (ngSubmit)="saveMedia()">
+      <label>
+        Tipo
+        <select formControlName="mediaType">
+          <option value="PHOTO">Foto</option>
+          <option value="VIDEO">Video</option>
+        </select>
+      </label>
+      @if (mediaForm.controls.mediaType.value === 'PHOTO') {
+        <label class="file-upload">
+          Subir foto
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onMediaPhotoSelected($event)" />
+        </label>
+      }
+      <label>
+        URL
+        <input formControlName="mediaUrl" placeholder="https://... o /uploads/..." />
+      </label>
+      <label>Miniatura (videos) <input formControlName="thumbnailUrl" /></label>
+      <label>Título <input formControlName="title" /></label>
+      <label class="checkbox"><input type="checkbox" formControlName="active" /> Visible</label>
+      <div class="actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : editingMediaId() ? 'Guardar' : 'Agregar' }}
+        </button>
+        <button type="button" class="secondary" (click)="resetMediaForm()">Nuevo</button>
+      </div>
+    </form>
+    <ul class="simple-list">
+      @for (m of mediaItems(); track m.id) {
+        <li>
+          <span class="badge-type">{{ m.mediaType === 'PHOTO' ? 'Foto' : 'Video' }}</span>
+          <div>
+            <strong>{{ m.title || m.mediaUrl }}</strong>
+            <span class="meta">{{ m.active ? 'Visible' : 'Oculto' }}</span>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn-edit" (click)="editMedia(m)">Editar</button>
+            <button type="button" class="btn-delete" (click)="removeMedia(m.id)">Eliminar</button>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+@if (tab() === 'footer') {
+  <section class="panel">
+    <h3>Pie de página y redes sociales</h3>
+    <form class="form-panel inner" [formGroup]="footerForm" (ngSubmit)="saveFooter()">
+      <label>Frase del gym <input formControlName="tagline" /></label>
+      <label>Dirección <input formControlName="address" /></label>
+      <label>Teléfono <input formControlName="phone" /></label>
+      <label>Instagram <input formControlName="instagramUrl" placeholder="https://instagram.com/..." /></label>
+      <label>Facebook <input formControlName="facebookUrl" /></label>
+      <label>TikTok <input formControlName="tiktokUrl" /></label>
+      <label>YouTube <input formControlName="youtubeUrl" /></label>
+      <label>WhatsApp <input formControlName="whatsappUrl" placeholder="https://wa.me/57..." /></label>
+      <button type="submit" class="btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Guardando...' : 'Guardar pie de página' }}
+      </button>
+    </form>
+  </section>
+}

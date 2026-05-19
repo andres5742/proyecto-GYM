@@ -1,0 +1,65 @@
+<section class="page-header">
+  <h2>Planes para tus socios</h2>
+  <p>Ofrece opciones claras (mensual, trimestral…) con precios en pesos. Así cada cliente elige con confianza.</p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<div class="grid">
+  <form class="panel" [formGroup]="form" (ngSubmit)="save()">
+    <h3>Nuevo plan</h3>
+    <label>
+      Nombre
+      <input formControlName="name" />
+    </label>
+    <label>
+      Descripción
+      <textarea formControlName="description" rows="3"></textarea>
+    </label>
+    <label>
+      Duración (días)
+      <input type="number" formControlName="durationDays" min="1" />
+    </label>
+    <label>
+      Precio (COP)
+      <input type="number" formControlName="price" min="0" step="0.01" />
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" formControlName="active" />
+      Plan activo
+    </label>
+    <button type="submit" [disabled]="saving()">
+      {{ saving() ? 'Guardando...' : '✓ Crear plan' }}
+    </button>
+    <p class="psych-reassurance">Puedes desactivar un plan sin borrarlo si dejas de ofrecerlo.</p>
+  </form>
+
+  <div class="panel">
+    <h3>Planes disponibles</h3>
+    @if (loading()) {
+      <p>Cargando...</p>
+    } @else if (plans().length === 0) {
+      <p class="empty-state">Crea tu primer plan de membresía (por ejemplo, mensual).</p>
+    } @else {
+      <ul class="plan-list">
+        @for (plan of plans(); track plan.id) {
+          <li>
+            <div>
+              <strong>{{ plan.name }}</strong>
+              <p>{{ plan.description || 'Sin descripción' }}</p>
+            </div>
+            <div class="meta">
+              <span>{{ plan.durationDays }} días</span>
+              <span>{{ plan.price | currency }}</span>
+              <span class="badge" [class.inactive]="!plan.active">
+                {{ plan.active ? 'Activo' : 'Inactivo' }}
+              </span>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

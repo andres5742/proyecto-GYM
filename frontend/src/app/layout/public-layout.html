@@ -1,0 +1,47 @@
+<div class="public-layout">
+  <header class="public-header">
+    <a routerLink="/" class="brand-link">
+      <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo header-logo" />
+      <span class="brand-name">Sport Gym R.IO</span>
+    </a>
+
+    @if (modules.isEnabled('PUBLIC_BUZON', 'public')) {
+      <div class="header-center">
+        <app-feedback-modal [inHeader]="true" />
+      </div>
+    }
+
+    <div class="header-actions">
+      @if (auth.isLoggedIn(); as _) {
+        @if (auth.currentUser(); as user) {
+          <span class="user-greeting">Hola, {{ user.fullName }}</span>
+          <a routerLink="/panel" class="btn-panel">Ir al panel</a>
+          <button type="button" class="btn-logout-header" (click)="logout()">Salir</button>
+        }
+      } @else {
+        <div class="login-dropdown-wrap" (click)="onLoginPanelClick($event)">
+          <button type="button" class="btn-login" (click)="toggleLogin($event)">
+            Iniciar sesión
+          </button>
+          @if (loginOpen()) {
+            <div class="login-dropdown">
+              <img
+                src="/logo-sport-gym.png"
+                alt="Sport Gym R.IO"
+                class="gym-logo dropdown-logo"
+              />
+              <p class="dropdown-title">Acceso al equipo</p>
+              <app-login-panel (closed)="closeLogin()" />
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </header>
+
+  <main class="public-main">
+    <router-outlet />
+  </main>
+
+  <app-public-footer />
+</div>

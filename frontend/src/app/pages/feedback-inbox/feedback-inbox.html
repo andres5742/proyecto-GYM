@@ -1,0 +1,122 @@
+<section class="page-header">
+  <h2>Buzón de sugerencias</h2>
+  <p>
+    Mensajes del público: sugerencias, quejas, reclamos y felicitaciones.
+    @if (pendingCount() > 0) {
+      <strong class="pending-badge">{{ pendingCount() }} pendiente(s)</strong>
+    }
+  </p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<nav class="tabs inbox-filters">
+  <button type="button" class="filter-all" [class.active]="filter() === 'ALL'" (click)="setFilter('ALL')">
+    Todos
+  </button>
+  <button
+    type="button"
+    class="filter-pending"
+    [class.active]="filter() === 'PENDING'"
+    (click)="setFilter('PENDING')"
+  >
+    Pendientes
+  </button>
+  <button
+    type="button"
+    class="filter-resolved"
+    [class.active]="filter() === 'RESOLVED'"
+    (click)="setFilter('RESOLVED')"
+  >
+    Solucionadas
+  </button>
+  <button
+    type="button"
+    class="filter-not-resolved"
+    [class.active]="filter() === 'NOT_RESOLVED'"
+    (click)="setFilter('NOT_RESOLVED')"
+  >
+    No solucionadas
+  </button>
+</nav>
+
+@if (loading()) {
+  <p class="muted">Cargando mensajes...</p>
+} @else if (filteredItems().length === 0) {
+  <p class="muted">No hay mensajes en esta categoría.</p>
+} @else {
+  <div class="inbox-layout">
+    <ul class="inbox-list">
+      @for (item of filteredItems(); track item.id) {
+        <li>
+          <button
+            type="button"
+            class="inbox-item"
+            [class.active]="selectedId() === item.id"
+            (click)="select(item)"
+          >
+            <span class="item-type">{{ item.typeLabel }}</span>
+            <strong>{{ item.displayName }}</strong>
+            <span class="item-preview">{{ item.message }}</span>
+            <span class="item-meta">
+              {{ item.createdAt | date: 'short' }} ·
+              <span [class]="statusClass(item.status)">{{ item.statusLabel }}</span>
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+
+    @if (selected(); as item) {
+      <article class="inbox-detail panel">
+        <header>
+          <span class="badge-type">{{ item.typeLabel }}</span>
+          <span [class]="'badge-status ' + statusClass(item.status)">{{ item.statusLabel }}</span>
+        </header>
+        <p class="detail-author">
+          <strong>De:</strong> {{ item.displayName }}
+          @if (item.anonymous) {
+            <span class="anon-tag">(envío anónimo)</span>
+          }
+        </p>
+        <p class="detail-date">Recibido: {{ item.createdAt | date: 'full' }}</p>
+        <div class="detail-body">{{ item.message }}</div>
+        @if (item.resolvedAt) {
+          <p class="detail-date">Gestionado: {{ item.resolvedAt | date: 'full' }}</p>
+        }
+        @if (item.adminNote) {
+          <p class="admin-note-prev"><strong>Nota anterior:</strong> {{ item.adminNote }}</p>
+        }
+
+        @if (item.status === 'PENDING') {
+          <form [formGroup]="noteForm">
+            <label>
+              Nota interna (opcional)
+              <textarea formControlName="adminNote" rows="3"></textarea>
+            </label>
+          </form>
+          <div class="detail-actions">
+            <button type="button" class="btn btn-success" [disabled]="saving()" (click)="mark('RESOLVED')">
+              ✓ Marcar solucionada
+            </button>
+            <button type="button" class="btn btn-warn" [disabled]="saving()" (click)="mark('NOT_RESOLVED')">
+              ✗ No solucionada
+            </button>
+          </div>
+        } @else {
+          @if (item.adminNote) {
+            <p class="admin-note"><strong>Nota:</strong> {{ item.adminNote }}</p>
+          }
+        }
+
+        <button type="button" class="btn btn-delete-ghost" (click)="remove(item.id)">
+          🗑 Eliminar mensaje
+        </button>
+      </article>
+    } @else {
+      <p class="muted detail-placeholder">Selecciona un mensaje para ver el detalle.</p>
+    }
+  </div>
+}

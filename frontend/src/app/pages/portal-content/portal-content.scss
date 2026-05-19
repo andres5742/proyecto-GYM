@@ -1,0 +1,146 @@
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+
+  button {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-pill);
+    padding: 0.45rem 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--color-text-muted);
+
+    &.active {
+      background: var(--color-primary-soft);
+      border-color: var(--color-primary-border);
+      color: var(--color-primary-hover);
+    }
+  }
+}
+
+.hint {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.hours-table {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.time-cell {
+  min-width: 9rem;
+}
+
+.time-12-wrap {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+
+  select {
+    min-height: 2.35rem;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    font-size: 0.88rem;
+
+    &:first-child {
+      flex: 1;
+      min-width: 3rem;
+    }
+
+    &:last-child {
+      min-width: 3.5rem;
+    }
+  }
+}
+
+.simple-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .meta {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin-top: 0.2rem;
+  }
+}
+
+.empty {
+  color: var(--color-text-muted);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.post-photos-field {
+  margin-bottom: 1rem;
+
+  .field-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.88rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .hint.compact {
+    margin: 0 0 0.65rem;
+    font-size: 0.82rem;
+  }
+}
+
+.post-photo-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.photo-thumb {
+  position: relative;
+  margin: 0;
+  width: 88px;
+  height: 88px;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+  }
+}
+
+.photo-remove {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}

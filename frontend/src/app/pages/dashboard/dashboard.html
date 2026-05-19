@@ -1,0 +1,93 @@
+<div class="welcome-banner">
+  <span class="welcome-icon">👋</span>
+  <div>
+    <h2>¡Hola! Qué bueno verte de nuevo</h2>
+    <p>
+      Este es tu panel de Sport Gym R.IO. Todo está organizado para que encuentres
+      lo que necesitas sin complicaciones.
+    </p>
+    <span class="welcome-note">Tú tienes el control — avanza a tu ritmo.</span>
+  </div>
+</div>
+
+@if (error()) {
+  <p class="alert error">
+    En este momento no logramos conectar. Revisa que el sistema esté encendido e inténtalo de nuevo.
+  </p>
+}
+
+<section class="quick-actions">
+  <h3>¿Qué quieres hacer ahora?</h3>
+  <p>Elige una acción. Solo te llevará un momento.</p>
+  <div class="quick-actions-grid">
+    @if (modules.isEnabled('VENTAS')) {
+      <a routerLink="/panel/ventas" class="quick-action-btn">
+        <span class="qa-icon">💳</span>
+        Registrar venta
+      </a>
+    }
+    @if (modules.isEnabled('JORNADA')) {
+      <a routerLink="/panel/jornada" class="quick-action-btn">
+        <span class="qa-icon">🕐</span>
+        Registrar jornada
+      </a>
+    }
+    @if (auth.isAdmin() && modules.isEnabled('SOCIOS')) {
+      <a routerLink="/panel/socios" class="quick-action-btn">
+        <span class="qa-icon">👥</span>
+        Ver socios
+      </a>
+    }
+  </div>
+</section>
+
+@if (auth.isAdmin() && (modules.isEnabled('SOCIOS') || modules.isEnabled('PLANES') || modules.isEnabled('INVENTARIO'))) {
+  <p class="form-section-title" style="margin-bottom: 1rem">Resumen de tu gimnasio</p>
+
+  <div class="cards">
+    @if (modules.isEnabled('SOCIOS')) {
+      <article class="card card-members">
+        <span class="card-emoji">👥</span>
+        <h3>Socios</h3>
+        <p class="metric">{{ memberCount() }}</p>
+        <span class="hint">personas que confían en ti</span>
+        <a routerLink="/panel/socios" class="card-link">Gestionar socios</a>
+      </article>
+    }
+
+    @if (modules.isEnabled('PLANES')) {
+      <article class="card card-plans">
+        <span class="card-emoji">📋</span>
+        <h3>Planes</h3>
+        <p class="metric">{{ planCount() }}</p>
+        <span class="hint">opciones para tus clientes</span>
+        <a routerLink="/panel/planes" class="card-link">Ver planes</a>
+      </article>
+    }
+
+    @if (modules.isEnabled('INVENTARIO')) {
+      <article class="card card-inventory">
+        <span class="card-emoji">📦</span>
+        <h3>Productos</h3>
+        <p class="metric">{{ productCount() }}</p>
+        <span class="hint">en tu inventario</span>
+        <a routerLink="/panel/inventario" class="card-link">Revisar stock</a>
+      </article>
+
+      <article class="card card-sales">
+        <span class="card-emoji">💰</span>
+        <h3>Valor en stock</h3>
+        <p class="metric">{{ inventoryValue() | currency }}</p>
+        <span class="hint">productos disponibles</span>
+        <a routerLink="/panel/inventario" class="card-link">Ver inventario</a>
+      </article>
+    }
+
+    <article class="card card-status">
+      <span class="card-emoji">💚</span>
+      <h3>Todo en orden</h3>
+      <p class="metric status-ok">{{ apiStatus() === 'UP' ? 'Sistema listo' : apiStatus() }}</p>
+      <span class="hint">puedes trabajar con tranquilidad</span>
+    </article>
+  </div>
+}

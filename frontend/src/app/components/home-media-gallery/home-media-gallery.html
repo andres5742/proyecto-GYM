@@ -1,0 +1,49 @@
+@if (items().length > 0) {
+  <section class="media-section">
+    <h2>Fotos y videos del gym</h2>
+    <p class="media-intro">Conoce nuestras instalaciones y el ambiente del gimnasio.</p>
+
+    <div class="media-grid">
+      @for (item of items(); track item.id) {
+        @if (item.mediaType === 'PHOTO') {
+          <figure class="media-card photo">
+            <img [src]="item.mediaUrl | uploadUrl" [alt]="item.title ?? 'Foto del gym'" loading="lazy" />
+            @if (item.title) {
+              <figcaption>{{ item.title }}</figcaption>
+            }
+          </figure>
+        } @else {
+          <button type="button" class="media-card video" (click)="openVideo(item)">
+            <img
+              [src]="(item.thumbnailUrl ?? item.mediaUrl) | uploadUrl"
+              [alt]="item.title ?? 'Video del gym'"
+              loading="lazy"
+            />
+            <span class="play-badge" aria-hidden="true">▶</span>
+            @if (item.title) {
+              <span class="video-title">{{ item.title }}</span>
+            }
+          </button>
+        }
+      }
+    </div>
+  </section>
+}
+
+@if (selectedVideo(); as video) {
+  <div class="video-modal" (click)="closeVideo()" role="dialog" aria-modal="true">
+    <div class="video-modal-inner" (click)="$event.stopPropagation()">
+      <button type="button" class="close-modal" (click)="closeVideo()" aria-label="Cerrar">×</button>
+      @if (isYoutube(video.mediaUrl)) {
+        <iframe
+          [src]="video.mediaUrl"
+          title="{{ video.title ?? 'Video' }}"
+          allowfullscreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        ></iframe>
+      } @else {
+        <video [src]="video.mediaUrl | uploadUrl" controls autoplay></video>
+      }
+    </div>
+  </div>
+}

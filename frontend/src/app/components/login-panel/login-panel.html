@@ -1,0 +1,22 @@
+@if (error()) {
+  <p class="login-error">{{ error() }}</p>
+}
+
+<form [formGroup]="form" (ngSubmit)="submit()" class="login-form">
+  <label>
+    Usuario
+    <input formControlName="username" autocomplete="username" placeholder="Usuario" />
+  </label>
+  <label>
+    Contraseña
+    <input
+      type="password"
+      formControlName="password"
+      autocomplete="current-password"
+      placeholder="Contraseña"
+    />
+  </label>
+  <button type="submit" [disabled]="saving()">
+    {{ saving() ? 'Entrando...' : 'Entrar' }}
+  </button>
+</form>

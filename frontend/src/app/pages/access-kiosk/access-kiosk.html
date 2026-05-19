@@ -1,0 +1,46 @@
+<div class="kiosk" [class.granted]="lastResult()?.result === 'GRANTED'" [class.denied]="lastResult()?.result === 'DENIED'">
+  <header class="kiosk-header">
+    <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo kiosk-logo" />
+    <div>
+      <h1>Control de acceso</h1>
+      <p class="clock">{{ clock() | date: 'HH:mm:ss' }}</p>
+    </div>
+  </header>
+
+  <div class="scan-zone">
+    <div class="fingerprint-icon" [class.pulse]="scanning()">👆</div>
+    <p class="scan-title">Coloca tu dedo en el lector</p>
+    <p class="scan-sub">El torniquete se abrirá si tu membresía está activa</p>
+
+    @if (lastResult(); as r) {
+      <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">
+        <span class="result-icon">{{ r.result === 'GRANTED' ? '✅' : '⛔' }}</span>
+        <div>
+          @if (r.memberName) {
+            <strong>{{ r.memberName }}</strong>
+          }
+          <p>{{ r.message }}</p>
+          @if (r.gateOpened) {
+            <span class="gate-open">Torniquete liberado</span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="dev-sim panel">
+    <p class="dev-label">Modo prueba (lector conectado usará el ID automáticamente)</p>
+    <div class="dev-row">
+      <input
+        type="text"
+        [value]="fingerprintId()"
+        (input)="fingerprintId.set($any($event.target).value)"
+        placeholder="ID de huella del lector"
+        (keyup.enter)="simulateScan()"
+      />
+      <button type="button" class="btn btn-primary" [disabled]="scanning()" (click)="simulateScan()">
+        {{ scanning() ? 'Verificando...' : 'Simular lectura' }}
+      </button>
+    </div>
+  </div>
+</div>

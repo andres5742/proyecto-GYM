@@ -1,0 +1,108 @@
+<section class="page-header">
+  <h2>Acceso con huella y torniquete</h2>
+  <p>
+    Vincula el ID de huella del lector biométrico con cada socio. Al escanear, el sistema valida la
+    membresía y envía la señal para abrir el torniquete.
+  </p>
+  <a routerLink="/acceso" target="_blank" class="kiosk-link">Abrir pantalla del torniquete ↗</a>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<div class="access-grid">
+  <form class="panel enroll-panel" [formGroup]="enrollForm" (ngSubmit)="enroll()">
+    <h3>Registrar huella de un socio</h3>
+    <ol class="steps-hint">
+      <li>Registra la huella en el lector físico (ZKTeco, etc.)</li>
+      <li>Anota el <strong>ID de usuario</strong> que muestra el dispositivo</li>
+      <li>Vincúlalo aquí con el socio del sistema</li>
+    </ol>
+    <label>
+      Socio
+      <select formControlName="memberId">
+        <option [ngValue]="null">Selecciona un socio</option>
+        @for (m of members(); track m.id) {
+          <option [ngValue]="m.id">{{ m.firstName }} {{ m.lastName }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      ID de huella en el lector
+      <input formControlName="fingerprintUserId" placeholder="Ej: 10042" />
+    </label>
+    <label>
+      Nota del dispositivo (opcional)
+      <input formControlName="deviceLabel" placeholder="Ej: Lector entrada principal" />
+    </label>
+    <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      {{ saving() ? 'Guardando...' : 'Vincular huella' }}
+    </button>
+  </form>
+
+  <section class="panel">
+    <h3>Socios con huella registrada</h3>
+    @if (enrollments().length === 0) {
+      <p class="muted">Aún no hay huellas vinculadas.</p>
+    } @else {
+      <ul class="enroll-list">
+        @for (e of enrollments(); track e.memberId) {
+          <li>
+            <div>
+              <strong>{{ e.memberName }}</strong>
+              <span class="fp-id">ID lector: {{ e.fingerprintUserId }}</span>
+              @if (e.deviceLabel) {
+                <span class="meta">{{ e.deviceLabel }}</span>
+              }
+            </div>
+            <div class="row-actions">
+              <button type="button" class="btn btn-success" (click)="manualOpen(e.memberId)">
+                Abrir torniquete
+              </button>
+              <button type="button" class="btn btn-delete" (click)="removeEnrollment(e.memberId)">
+                Quitar
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</div>
+
+<section class="panel logs-panel">
+  <h3>Últimos intentos de ingreso</h3>
+  @if (logs().length === 0) {
+    <p class="muted">Sin registros aún.</p>
+  } @else {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Socio</th>
+            <th>ID huella</th>
+            <th>Resultado</th>
+            <th>Mensaje</th>
+            <th>Torniquete</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (log of logs(); track log.id) {
+            <tr [class.row-granted]="log.result === 'GRANTED'">
+              <td>{{ log.createdAt | date: 'short' }}</td>
+              <td>{{ log.memberName ?? '—' }}</td>
+              <td>{{ log.fingerprintUserId }}</td>
+              <td>
+                <span class="badge" [class.ok]="log.result === 'GRANTED'">{{ log.resultLabel }}</span>
+              </td>
+              <td>{{ log.message }}</td>
+              <td>{{ log.gateOpened ? '✓ Abierto' : '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
