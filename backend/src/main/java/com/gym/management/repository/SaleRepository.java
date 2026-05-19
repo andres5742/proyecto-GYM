@@ -41,4 +41,15 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     @Query("SELECT COUNT(s) FROM Sale s WHERE s.workShift.id = :shiftId")
     long countByShift(@Param("shiftId") Long shiftId);
+
+    @Query(
+            """
+            SELECT s.product.id, s.product.name, s.paymentMethod,
+                   COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.workShift.id = :shiftId
+            GROUP BY s.product.id, s.product.name, s.paymentMethod
+            ORDER BY s.product.name
+            """)
+    List<Object[]> aggregateByProductAndPayment(@Param("shiftId") Long shiftId);
 }

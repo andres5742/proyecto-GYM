@@ -4,5 +4,6 @@ public enum PaymentMethod {
     CASH,
     NEQUI,
     BANCOLOMBIA,
+    AUX,
     PENDING
 }

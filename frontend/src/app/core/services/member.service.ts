@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { MemberImportResult } from '../models/member-import.model';
 import { Member, MemberRequest } from '../models/member.model';
 
 @Injectable({ providedIn: 'root' })
@@ -23,5 +24,23 @@ export class MemberService {
 
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  deleteAll(): Observable<{ deleted: number }> {
+    return this.http.delete<{ deleted: number }>(this.baseUrl);
+  }
+
+  importFromExcel(file: File): Observable<MemberImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<MemberImportResult>(`${this.baseUrl}/import`, formData);
+  }
+
+  setPortalPassword(id: number, newPassword: string): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/${id}/portal-password`, { newPassword });
+  }
+
+  resetPortalPassword(id: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${id}/portal-password/reset`, null);
   }
 }

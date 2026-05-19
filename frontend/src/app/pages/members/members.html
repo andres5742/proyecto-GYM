@@ -1,5 +1,5 @@
 <section class="page-header">
-  <h2>Tus socios</h2>
+  <h2>Tus afiliados</h2>
   <p>Cada persona que entrena contigo merece sentirse bien atendida. Aquí guardas su información con cariño.</p>
 </section>
 
@@ -7,9 +7,57 @@
   <p class="alert info">{{ message() }}</p>
 }
 
+<section class="panel import-panel">
+  <h3>Importar desde Excel</h3>
+  <p class="import-hint">
+    La primera fila debe tener los encabezados:
+    <strong>codigo, nombre, id, fecha_nac, eps, tel, cel, mail, servicio, estado, fechac, fechav</strong>.
+    Se usa la columna <strong>id</strong> (documento): si no existe el afiliado se crea; si ya existe, se actualizan sus datos.
+    En <strong>servicio</strong> usa el tipo de plan (ej. <em>MENSUALIDAD</em>, <em>QUINCENA</em>).
+    Solo se importan filas con <strong>fechav</strong> válida del año en curso; las demás se omiten sin detener el proceso.
+    Si la fecha de vencimiento ya pasó, el afiliado queda como <em>Vencido</em>.
+  </p>
+  <div class="import-actions">
+    <input
+      #excelInput
+      type="file"
+      accept=".xlsx,.xls"
+      hidden
+      (change)="onExcelSelected($event)"
+    />
+    <button type="button" class="secondary" [disabled]="importing()" (click)="excelInput.click()">
+      {{ importing() ? 'Importando...' : 'Elegir archivo Excel' }}
+    </button>
+    @if (selectedFileName()) {
+      <span class="file-name">{{ selectedFileName() }}</span>
+    }
+  </div>
+  @if (importErrors().length > 0) {
+    <ul class="import-errors">
+      @for (err of importErrors(); track err) {
+        <li>{{ err }}</li>
+      }
+    </ul>
+  }
+
+  @if (isSuperAdmin()) {
+    <div class="danger-zone">
+      <p><strong>Zona super admin:</strong> borra todos los afiliados de una vez (incluye huellas e historial de acceso).</p>
+      <button
+        type="button"
+        class="btn-danger"
+        [disabled]="clearingAll() || members().length === 0"
+        (click)="clearAllMembers()"
+      >
+        {{ clearingAll() ? 'Borrando...' : 'Borrar todos los afiliados' }}
+      </button>
+    </div>
+  }
+</section>
+
 <div class="grid">
   <form class="panel" [formGroup]="form" (ngSubmit)="save()">
-    <h3>{{ editingId() ? 'Actualizar datos' : 'Dar de alta un socio' }}</h3>
+    <h3>{{ editingId() ? 'Editar afiliado' : 'Nuevo afiliado' }}</h3>
 
     <label>
       Nombre
@@ -20,8 +68,12 @@
       <input formControlName="lastName" />
     </label>
     <label>
-      Correo
-      <input type="email" formControlName="email" />
+      Género
+      <select formControlName="gender">
+        @for (option of genders; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
     </label>
     <label>
       Teléfono
@@ -36,7 +88,7 @@
       <select formControlName="planId">
         <option [ngValue]="null">Sin plan</option>
         @for (plan of plans(); track plan.id) {
-          <option [ngValue]="plan.id">{{ plan.name }} — {{ plan.price | currency }}</option>
+          <option [ngValue]="plan.id">{{ plan.name }} — {{ plan.price | cop }}</option>
         }
       </select>
     </label>
@@ -57,44 +109,134 @@
       <input type="date" formControlName="membershipEnd" />
     </label>
 
-    <div class="actions">
-      <button type="submit" [disabled]="saving()">
-        {{ saving() ? 'Guardando...' : editingId() ? '✓ Guardar cambios' : '✓ Registrar socio' }}
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Guardando...' : editingId() ? 'Guardar cambios' : 'Agregar afiliado' }}
       </button>
       <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
       <p class="psych-reassurance">
         Solo tú y tu equipo ven esta información. Puedes editarla cuando lo necesites.
       </p>
     </div>
+
+    @if (editingId() && isAdmin()) {
+      <section class="portal-password-block">
+        <h4>Acceso al portal del afiliado</h4>
+        <p class="portal-hint">
+          El usuario de ingreso es el <strong>documento</strong>. Por defecto la contraseña también es el documento.
+        </p>
+        <label>
+          Nueva contraseña
+          <input
+            type="password"
+            [value]="portalPassword()"
+            (input)="portalPassword.set($any($event.target).value)"
+            placeholder="Contraseña para el portal"
+          />
+        </label>
+        <div class="portal-password-actions">
+          <button
+            type="button"
+            class="secondary"
+            [disabled]="portalPasswordSaving() || !portalPassword().trim()"
+            (click)="savePortalPassword()"
+          >
+            {{ portalPasswordSaving() ? 'Guardando...' : 'Cambiar contraseña' }}
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            [disabled]="portalPasswordSaving()"
+            (click)="resetPortalPassword()"
+          >
+            Restablecer al documento
+          </button>
+        </div>
+      </section>
+    }
   </form>
 
   <div class="panel table-panel">
-    <h3>Listado</h3>
+    <header class="list-header">
+      <h3>Listado de afiliados</h3>
+      <span class="list-count">{{ totalFiltered() }} de {{ members().length }}</span>
+    </header>
+
+    <div class="table-toolbar">
+      <label class="search-field">
+        Buscar
+        <input
+          type="search"
+          placeholder="Nombre, documento, género, teléfono..."
+          [value]="searchQuery()"
+          (input)="onSearchChange($any($event.target).value)"
+        />
+      </label>
+      <label>
+        Estado
+        <select [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
+          <option value="ALL">Todos</option>
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ statusLabel(status) }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Por página
+        <select [value]="pageSize()" (change)="onPageSizeChange($any($event.target).value)">
+          @for (size of pageSizeOptions; track size) {
+            <option [value]="size">{{ size }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
     @if (loading()) {
-      <p>Cargando...</p>
+      <p class="muted">Cargando...</p>
     } @else if (members().length === 0) {
-      <p class="empty-state">Aún no hay socios. Usa el formulario de la izquierda para registrar al primero.</p>
+      <p class="empty-state">Aún no hay afiliados. Completa el formulario para agregar el primero.</p>
+    } @else if (totalFiltered() === 0) {
+      <p class="empty-state">No hay resultados para tu búsqueda.</p>
     } @else {
-      <table>
+      <div class="table-wrap">
+      <table class="members-table">
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>Plan</th>
-            <th>Estado</th>
-            <th>Vence</th>
-            <th></th>
+            <th>
+              <button type="button" class="th-sort" (click)="sortBy('name')">Nombre{{ sortIndicator('name') }}</button>
+            </th>
+            <th>
+              <button type="button" class="th-sort" (click)="sortBy('documentId')">
+                Documento{{ sortIndicator('documentId') }}
+              </button>
+            </th>
+            <th>
+              <button type="button" class="th-sort" (click)="sortBy('gender')">Género{{ sortIndicator('gender') }}</button>
+            </th>
+            <th>
+              <button type="button" class="th-sort" (click)="sortBy('planName')">Plan{{ sortIndicator('planName') }}</button>
+            </th>
+            <th>
+              <button type="button" class="th-sort" (click)="sortBy('status')">Estado{{ sortIndicator('status') }}</button>
+            </th>
+            <th>
+              <button type="button" class="th-sort" (click)="sortBy('membershipEnd')">
+                Vence{{ sortIndicator('membershipEnd') }}
+              </button>
+            </th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          @for (member of members(); track member.id) {
-            <tr>
+          @for (member of paginatedMembers(); track member.id) {
+            <tr [class.row-expired]="effectiveStatus(member) === 'EXPIRED'">
               <td>{{ member.firstName }} {{ member.lastName }}</td>
-              <td>{{ member.email }}</td>
+              <td>{{ member.documentId ?? '—' }}</td>
+              <td>{{ genderLabel(member.gender) }}</td>
               <td>{{ member.planName ?? '—' }}</td>
               <td>
-                <span class="badge" [class]="member.status.toLowerCase()">
-                  {{ statusLabel(member.status) }}
+                <span class="badge" [class]="effectiveStatus(member).toLowerCase()">
+                  {{ statusLabel(effectiveStatus(member)) }}
                 </span>
               </td>
               <td>{{ member.membershipEnd ? (member.membershipEnd | date: 'dd/MM/yyyy') : '—' }}</td>
@@ -106,6 +248,25 @@
           }
         </tbody>
       </table>
+      </div>
+
+      <footer class="table-footer">
+        <span>Mostrando {{ pageStart() }}–{{ pageEnd() }} de {{ totalFiltered() }}</span>
+        <div class="pagination">
+          <button type="button" class="secondary" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
+            Anterior
+          </button>
+          <span>Página {{ page() }} / {{ totalPages() }}</span>
+          <button
+            type="button"
+            class="secondary"
+            [disabled]="page() >= totalPages()"
+            (click)="goToPage(page() + 1)"
+          >
+            Siguiente
+          </button>
+        </div>
+      </footer>
     }
   </div>
 </div>

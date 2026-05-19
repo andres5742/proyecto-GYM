@@ -1,5 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ModuleCode } from '../models/module.model';
 import { AuthService } from '../services/auth.service';
 import { ModuleService } from '../services/module.service';
@@ -16,9 +18,17 @@ export const moduleGuard: CanActivateFn = (route) => {
   if (auth.hasRole('SUPER_ADMIN')) {
     return true;
   }
+
   const scope = key.startsWith('PUBLIC_') ? 'public' : 'panel';
-  if (modules.isEnabled(key, scope)) {
-    return true;
-  }
-  return router.createUrlTree([key.startsWith('PUBLIC_') ? '/' : '/panel']);
+  const ensureLoaded =
+    scope === 'panel' ? modules.ensurePanelLoaded() : of(undefined);
+
+  return ensureLoaded.pipe(
+    map(() => {
+      if (modules.isEnabled(key, scope)) {
+        return true;
+      }
+      return router.createUrlTree([key.startsWith('PUBLIC_') ? '/' : '/panel']);
+    }),
+  );
 };

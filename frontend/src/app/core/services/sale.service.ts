@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Sale, SaleRequest, SalesSummary } from '../models/sale.model';
+import { BatchSaleRequest, Sale, SaleRequest, SalesSummary } from '../models/sale.model';
 
 @Injectable({ providedIn: 'root' })
 export class SaleService {
@@ -30,6 +30,10 @@ export class SaleService {
 
   create(request: SaleRequest): Observable<Sale> {
     return this.http.post<Sale>(this.baseUrl, request);
+  }
+
+  createBatch(request: BatchSaleRequest): Observable<Sale[]> {
+    return this.http.post<Sale[]>(`${this.baseUrl}/batch`, request);
   }
 
   delete(id: number): Observable<void> {

@@ -1,8 +1,9 @@
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TRAINER';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TRAINER' | 'AFFILIATE';
 
 export interface AuthUser {
   token: string | null;
-  employeeId: number;
+  employeeId: number | null;
+  memberId: number | null;
   fullName: string;
   username: string;
   role: UserRole;
@@ -16,7 +17,8 @@ export interface LoginRequest {
 
 export interface AuthResponse {
   token: string | null;
-  employeeId: number;
+  employeeId: number | null;
+  memberId: number | null;
   fullName: string;
   username: string;
   role: UserRole;
@@ -27,4 +29,5 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   SUPER_ADMIN: 'Super administrador',
   ADMIN: 'Administrador',
   TRAINER: 'Entrenador',
+  AFFILIATE: 'Afiliado',
 };

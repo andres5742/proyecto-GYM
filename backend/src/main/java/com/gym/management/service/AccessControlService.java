@@ -15,6 +15,7 @@ import com.gym.management.model.MembershipStatus;
 import com.gym.management.repository.AccessLogRepository;
 import com.gym.management.repository.MemberFingerprintRepository;
 import com.gym.management.repository.MemberRepository;
+import com.gym.management.service.MemberMembershipRules;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -43,12 +44,12 @@ public class AccessControlService {
     public FingerprintEnrollResponse enroll(FingerprintEnrollRequest request) {
         Member member = memberRepository
                 .findById(request.memberId())
-                .orElseThrow(() -> new ResourceNotFoundException("Socio no encontrado: " + request.memberId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado: " + request.memberId()));
 
         String fpId = request.fingerprintUserId().trim();
         fingerprintRepository.findByFingerprintUserId(fpId).ifPresent(existing -> {
             if (!existing.getMember().getId().equals(member.getId())) {
-                throw new BusinessException("Ese ID de huella ya está asignado a otro socio");
+                throw new BusinessException("Ese ID de huella ya está asignado a otro afiliado");
             }
         });
 
@@ -72,7 +73,7 @@ public class AccessControlService {
     public void removeEnrollment(Long memberId) {
         MemberFingerprint fp = fingerprintRepository
                 .findByMemberId(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Este socio no tiene huella registrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Este afiliado no tiene huella registrada"));
         fingerprintRepository.delete(fp);
     }
 
@@ -97,7 +98,7 @@ public class AccessControlService {
     public AccessVerifyResponse manualOpen(Long memberId) {
         Member member = memberRepository
                 .findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Socio no encontrado: " + memberId));
+                .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado: " + memberId));
         String fpId = fingerprintRepository
                 .findByMemberId(memberId)
                 .map(MemberFingerprint::getFingerprintUserId)
@@ -112,13 +113,14 @@ public class AccessControlService {
 
     private AccessVerifyResponse evaluateMember(
             MemberFingerprint fp, String fpId, Member member, boolean manual) {
-        if (member.getStatus() != MembershipStatus.ACTIVE) {
-            return deny(fpId, member, "Membresía inactiva. Acércate a recepción.");
+        MembershipStatus status = MemberMembershipRules.effectiveStatus(member);
+        if (status != MembershipStatus.ACTIVE) {
+            String message = status == MembershipStatus.SUSPENDED
+                    ? "Membresía suspendida. Acércate a recepción."
+                    : "Membresía vencida. Renueva tu plan para ingresar.";
+            return deny(fpId, member, message);
         }
         LocalDate today = LocalDate.now();
-        if (member.getMembershipEnd() != null && member.getMembershipEnd().isBefore(today)) {
-            return deny(fpId, member, "Membresía vencida. Renueva tu plan para ingresar.");
-        }
         if (member.getMembershipStart() != null && member.getMembershipStart().isAfter(today)) {
             return deny(fpId, member, "Tu membresía aún no ha iniciado.");
         }

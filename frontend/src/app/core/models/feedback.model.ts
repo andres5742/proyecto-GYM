@@ -14,6 +14,7 @@ export interface FeedbackMessage {
   adminNote?: string | null;
   createdAt: string;
   resolvedAt?: string | null;
+  imageUrls?: string[];
 }
 
 export interface FeedbackMessageRequest {
@@ -21,6 +22,7 @@ export interface FeedbackMessageRequest {
   message: string;
   anonymous: boolean;
   authorName?: string;
+  imageUrls?: string[];
 }
 
 export interface FeedbackStatusUpdateRequest {

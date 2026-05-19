@@ -45,8 +45,8 @@
   <section class="panel">
     <h3>Horario de atención semanal</h3>
     <p class="hint">
-      Estos horarios se muestran en la página de inicio. Configura bien el horario de
-      <strong>domingo</strong>: cuando un día entre semana (lun–sáb) sea festivo, se usará ese horario.
+      Elige hora y AM/PM (formato 12 horas). Así se mostrará en la página de inicio.
+      Configura bien el horario de <strong>domingo</strong>: en festivos entre semana se usa ese horario.
     </p>
     <div class="table-wrap">
       <table class="hours-table">
@@ -54,8 +54,9 @@
           <tr>
             <th>Día</th>
             <th>Cerrado</th>
-            <th>Apertura</th>
-            <th>Cierre</th>
+            <th>Apertura (12 h)</th>
+            <th>Cierre (12 h)</th>
+            <th>Como en inicio</th>
           </tr>
         </thead>
         <tbody>
@@ -73,20 +74,22 @@
                 <div class="time-12-wrap">
                   <select
                     [disabled]="day.closed"
-                    [value]="timeParts(day.openTime).hour12"
-                    (change)="setTime12(day, 'openTime', +$any($event.target).value, timeParts(day.openTime).period)"
+                    [ngModel]="day.openHour12"
+                    (ngModelChange)="patchOpenHour(day, $event)"
+                    [ngModelOptions]="{ standalone: true }"
                   >
                     @for (h of hour12Options; track h) {
-                      <option [value]="h">{{ h }}</option>
+                      <option [ngValue]="h">{{ h }}</option>
                     }
                   </select>
                   <select
                     [disabled]="day.closed"
-                    [value]="timeParts(day.openTime).period"
-                    (change)="setTime12(day, 'openTime', timeParts(day.openTime).hour12, $any($event.target).value)"
+                    [ngModel]="day.openPeriod"
+                    (ngModelChange)="patchOpenPeriod(day, $event)"
+                    [ngModelOptions]="{ standalone: true }"
                   >
-                    <option value="AM">AM</option>
-                    <option value="PM">PM</option>
+                    <option ngValue="AM">AM</option>
+                    <option ngValue="PM">PM</option>
                   </select>
                 </div>
               </td>
@@ -94,22 +97,27 @@
                 <div class="time-12-wrap">
                   <select
                     [disabled]="day.closed"
-                    [value]="timeParts(day.closeTime).hour12"
-                    (change)="setTime12(day, 'closeTime', +$any($event.target).value, timeParts(day.closeTime).period)"
+                    [ngModel]="day.closeHour12"
+                    (ngModelChange)="patchCloseHour(day, $event)"
+                    [ngModelOptions]="{ standalone: true }"
                   >
                     @for (h of hour12Options; track h) {
-                      <option [value]="h">{{ h }}</option>
+                      <option [ngValue]="h">{{ h }}</option>
                     }
                   </select>
                   <select
                     [disabled]="day.closed"
-                    [value]="timeParts(day.closeTime).period"
-                    (change)="setTime12(day, 'closeTime', timeParts(day.closeTime).hour12, $any($event.target).value)"
+                    [ngModel]="day.closePeriod"
+                    (ngModelChange)="patchClosePeriod(day, $event)"
+                    [ngModelOptions]="{ standalone: true }"
                   >
-                    <option value="AM">AM</option>
-                    <option value="PM">PM</option>
+                    <option ngValue="AM">AM</option>
+                    <option ngValue="PM">PM</option>
                   </select>
                 </div>
+              </td>
+              <td class="preview-cell">
+                <span class="row-preview" [class.closed]="day.closed">{{ rowPreview(day) }}</span>
               </td>
             </tr>
           }

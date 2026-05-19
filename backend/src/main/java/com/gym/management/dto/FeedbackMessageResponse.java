@@ -3,6 +3,7 @@ package com.gym.management.dto;
 import com.gym.management.model.FeedbackStatus;
 import com.gym.management.model.FeedbackType;
 import java.time.Instant;
+import java.util.List;
 
 public record FeedbackMessageResponse(
         Long id,
@@ -16,5 +17,6 @@ public record FeedbackMessageResponse(
         String statusLabel,
         String adminNote,
         Instant createdAt,
-        Instant resolvedAt
+        Instant resolvedAt,
+        List<String> imageUrls
 ) {}

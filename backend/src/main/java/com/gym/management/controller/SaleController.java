@@ -1,5 +1,6 @@
 package com.gym.management.controller;
 
+import com.gym.management.dto.BatchSaleRequest;
 import com.gym.management.dto.SaleRequest;
 import com.gym.management.dto.SaleResponse;
 import com.gym.management.dto.SalesSummaryResponse;
@@ -41,6 +42,12 @@ public class SaleController {
     @ResponseStatus(HttpStatus.CREATED)
     public SaleResponse create(@Valid @RequestBody SaleRequest request) {
         return saleService.create(request);
+    }
+
+    @PostMapping("/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<SaleResponse> createBatch(@Valid @RequestBody BatchSaleRequest request) {
+        return saleService.createBatch(request);
     }
 
     @DeleteMapping("/{id}")

@@ -1,21 +1,31 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Member, MemberRequest, MembershipStatus } from '../../core/models/member.model';
+import { Gender, Member, MemberRequest, MembershipStatus } from '../../core/models/member.model';
 import { MembershipPlan } from '../../core/models/plan.model';
+import { AuthService } from '../../core/services/auth.service';
 import { MemberService } from '../../core/services/member.service';
 import { PlanService } from '../../core/services/plan.service';
 
+type SortColumn = 'name' | 'documentId' | 'gender' | 'planName' | 'status' | 'membershipEnd';
+
+const PAGE_SIZES = [10, 25, 50, 100] as const;
+
 @Component({
   selector: 'app-members',
-  imports: [ReactiveFormsModule, DatePipe, CurrencyPipe],
+  imports: [ReactiveFormsModule, DatePipe, CopCurrencyPipe],
   templateUrl: './members.html',
   styleUrl: './members.scss',
 })
 export class Members implements OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
   private readonly memberService = inject(MemberService);
   private readonly planService = inject(PlanService);
+
+  protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
+  protected readonly isAdmin = () => this.auth.isAdmin();
 
   protected readonly members = signal<Member[]>([]);
   protected readonly plans = signal<MembershipPlan[]>([]);
@@ -23,13 +33,85 @@ export class Members implements OnInit {
   protected readonly saving = signal(false);
   protected readonly message = signal<string | null>(null);
   protected readonly editingId = signal<number | null>(null);
+  protected readonly importing = signal(false);
+  protected readonly clearingAll = signal(false);
+  protected readonly selectedFileName = signal<string | null>(null);
+  protected readonly importErrors = signal<string[]>([]);
+  protected readonly portalPassword = signal('');
+  protected readonly portalPasswordSaving = signal(false);
+
+  protected readonly searchQuery = signal('');
+  protected readonly statusFilter = signal<'ALL' | MembershipStatus>('ALL');
+  protected readonly sortColumn = signal<SortColumn>('name');
+  protected readonly sortDirection = signal<'asc' | 'desc'>('asc');
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal<number>(10);
+  protected readonly pageSizeOptions = PAGE_SIZES;
 
   protected readonly statuses: MembershipStatus[] = ['ACTIVE', 'EXPIRED', 'SUSPENDED'];
+  protected readonly genders: { value: Gender | ''; label: string }[] = [
+    { value: '', label: 'Sin especificar' },
+    { value: 'MALE', label: 'Masculino' },
+    { value: 'FEMALE', label: 'Femenino' },
+    { value: 'OTHER', label: 'Otro' },
+  ];
+
+  protected readonly filteredMembers = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+    const statusFilter = this.statusFilter();
+    let list = [...this.members()];
+
+    if (query) {
+      list = list.filter((member) => {
+        const haystack = [
+          member.firstName,
+          member.lastName,
+          this.genderLabel(member.gender),
+          member.documentId ?? '',
+          member.phone ?? '',
+          member.planName ?? '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    if (statusFilter !== 'ALL') {
+      list = list.filter((member) => this.effectiveStatus(member) === statusFilter);
+    }
+
+    const column = this.sortColumn();
+    const dir = this.sortDirection() === 'asc' ? 1 : -1;
+    list.sort((a, b) => dir * this.compareMembers(a, b, column));
+    return list;
+  });
+
+  protected readonly totalFiltered = computed(() => this.filteredMembers().length);
+
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.totalFiltered() / this.pageSize())),
+  );
+
+  protected readonly paginatedMembers = computed(() => {
+    const totalPages = this.totalPages();
+    const page = Math.min(this.page(), totalPages);
+    const start = (page - 1) * this.pageSize();
+    return this.filteredMembers().slice(start, start + this.pageSize());
+  });
+
+  protected readonly pageStart = computed(() =>
+    this.totalFiltered() === 0 ? 0 : (Math.min(this.page(), this.totalPages()) - 1) * this.pageSize() + 1,
+  );
+
+  protected readonly pageEnd = computed(() =>
+    Math.min(this.pageStart() + this.pageSize() - 1, this.totalFiltered()),
+  );
 
   protected readonly form = this.fb.nonNullable.group({
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
-    email: ['', [Validators.required, Validators.email]],
+    gender: ['' as Gender | ''],
     phone: [''],
     documentId: [''],
     planId: [null as number | null],
@@ -51,20 +133,59 @@ export class Members implements OnInit {
       next: (members) => {
         this.members.set(members);
         this.loading.set(false);
+        this.page.set(1);
       },
       error: () => {
-        this.message.set('Error al cargar socios. ¿Está el backend en marcha?');
+        this.message.set('Error al cargar afiliados. ¿Está el backend en marcha?');
         this.loading.set(false);
       },
     });
   }
 
+  onSearchChange(value: string): void {
+    this.searchQuery.set(value);
+    this.page.set(1);
+  }
+
+  onStatusFilterChange(value: string): void {
+    this.statusFilter.set(value as 'ALL' | MembershipStatus);
+    this.page.set(1);
+  }
+
+  onPageSizeChange(value: string): void {
+    this.pageSize.set(Number(value));
+    this.page.set(1);
+  }
+
+  sortBy(column: SortColumn): void {
+    if (this.sortColumn() === column) {
+      this.sortDirection.set(this.sortDirection() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortColumn.set(column);
+      this.sortDirection.set('asc');
+    }
+    this.page.set(1);
+  }
+
+  sortIndicator(column: SortColumn): string {
+    if (this.sortColumn() !== column) {
+      return '';
+    }
+    return this.sortDirection() === 'asc' ? ' ▲' : ' ▼';
+  }
+
+  goToPage(page: number): void {
+    const clamped = Math.max(1, Math.min(page, this.totalPages()));
+    this.page.set(clamped);
+  }
+
   startCreate(): void {
     this.editingId.set(null);
+    this.portalPassword.set('');
     this.form.reset({
       firstName: '',
       lastName: '',
-      email: '',
+      gender: '',
       phone: '',
       documentId: '',
       planId: null,
@@ -76,14 +197,15 @@ export class Members implements OnInit {
 
   startEdit(member: Member): void {
     this.editingId.set(member.id);
+    this.portalPassword.set('');
     this.form.patchValue({
       firstName: member.firstName,
       lastName: member.lastName,
-      email: member.email,
+      gender: member.gender ?? '',
       phone: member.phone ?? '',
       documentId: member.documentId ?? '',
       planId: member.planId ?? null,
-      status: member.status,
+      status: this.effectiveStatus(member),
       membershipStart: member.membershipStart ?? '',
       membershipEnd: member.membershipEnd ?? '',
     });
@@ -96,14 +218,18 @@ export class Members implements OnInit {
     }
 
     const raw = this.form.getRawValue();
+    let status = raw.status;
+    if (raw.membershipEnd && raw.membershipEnd < this.todayIso()) {
+      status = 'EXPIRED';
+    }
     const request: MemberRequest = {
       firstName: raw.firstName,
       lastName: raw.lastName,
-      email: raw.email,
+      gender: raw.gender || null,
       phone: raw.phone || undefined,
       documentId: raw.documentId || undefined,
       planId: raw.planId,
-      status: raw.status,
+      status,
       membershipStart: raw.membershipStart || undefined,
       membershipEnd: raw.membershipEnd || undefined,
     };
@@ -116,37 +242,200 @@ export class Members implements OnInit {
 
     action.subscribe({
       next: () => {
-        this.message.set(id ? 'Socio actualizado' : 'Socio registrado');
+        this.message.set(id ? 'Cambios guardados' : 'Afiliado agregado correctamente');
         this.saving.set(false);
         this.startCreate();
         this.loadData();
       },
       error: () => {
-        this.message.set('No se pudo guardar el socio');
+        this.message.set('No se pudo guardar el afiliado');
         this.saving.set(false);
       },
     });
   }
 
   remove(id: number): void {
-    if (!confirm('¿Eliminar este socio?')) {
+    if (!confirm('¿Eliminar este afiliado?')) {
       return;
     }
     this.memberService.delete(id).subscribe({
       next: () => {
-        this.message.set('Socio eliminado');
+        this.message.set('Afiliado eliminado');
         this.loadData();
       },
-      error: () => this.message.set('No se pudo eliminar el socio'),
+      error: () => this.message.set('No se pudo eliminar el afiliado'),
     });
+  }
+
+  clearAllMembers(): void {
+    const total = this.members().length;
+    if (total === 0) {
+      this.message.set('No hay afiliados que borrar');
+      return;
+    }
+    const confirmed = confirm(
+      `¿Borrar los ${total} afiliados?\n\nSe eliminarán también sus huellas registradas y el historial de acceso.\nEsta acción no se puede deshacer.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    const typed = prompt('Escribe BORRAR para confirmar:');
+    if (typed?.trim().toUpperCase() !== 'BORRAR') {
+      this.message.set('Cancelado: no se escribió la confirmación');
+      return;
+    }
+
+    this.clearingAll.set(true);
+    this.memberService.deleteAll().subscribe({
+      next: (result) => {
+        this.clearingAll.set(false);
+        this.message.set(`Se eliminaron ${result.deleted} afiliado(s)`);
+        this.startCreate();
+        this.loadData();
+      },
+      error: () => {
+        this.clearingAll.set(false);
+        this.message.set('No se pudo borrar la lista de afiliados');
+      },
+    });
+  }
+
+  savePortalPassword(): void {
+    const id = this.editingId();
+    const password = this.portalPassword().trim();
+    if (!id || !password) {
+      this.message.set('Escribe una contraseña para el portal del afiliado');
+      return;
+    }
+    this.portalPasswordSaving.set(true);
+    this.memberService.setPortalPassword(id, password).subscribe({
+      next: () => {
+        this.portalPasswordSaving.set(false);
+        this.portalPassword.set('');
+        this.message.set('Contraseña del portal actualizada');
+      },
+      error: (err) => {
+        this.portalPasswordSaving.set(false);
+        this.message.set(err?.error?.message ?? 'No se pudo cambiar la contraseña');
+      },
+    });
+  }
+
+  resetPortalPassword(): void {
+    const id = this.editingId();
+    if (!id) {
+      return;
+    }
+    const doc = this.form.controls.documentId.value?.trim();
+    const hint = doc ? ` (quedará como el documento: ${doc})` : ' (quedará igual al documento)';
+    if (!confirm(`¿Restablecer la contraseña del portal${hint}?`)) {
+      return;
+    }
+    this.portalPasswordSaving.set(true);
+    this.memberService.resetPortalPassword(id).subscribe({
+      next: () => {
+        this.portalPasswordSaving.set(false);
+        this.portalPassword.set('');
+        this.message.set('Contraseña restablecida al número de documento');
+      },
+      error: (err) => {
+        this.portalPasswordSaving.set(false);
+        this.message.set(err?.error?.message ?? 'No se pudo restablecer la contraseña');
+      },
+    });
+  }
+
+  onExcelSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) {
+      return;
+    }
+    this.selectedFileName.set(file.name);
+    this.importing.set(true);
+    this.importErrors.set([]);
+    this.memberService.importFromExcel(file).subscribe({
+      next: (result) => {
+        this.importing.set(false);
+        const parts: string[] = [];
+        if (result.created > 0) {
+          parts.push(`${result.created} nuevo(s)`);
+        }
+        if (result.updated > 0) {
+          parts.push(`${result.updated} actualizado(s)`);
+        }
+        if (result.skipped > 0) {
+          parts.push(`${result.skipped} fila(s) omitida(s)`);
+        }
+        this.message.set(
+          parts.length > 0
+            ? `Importación lista: ${parts.join(', ')}.`
+            : 'No se importó ningún registro.',
+        );
+        this.importErrors.set(result.errors);
+        if (result.created > 0 || result.updated > 0) {
+          this.loadData();
+        }
+      },
+      error: () => {
+        this.importing.set(false);
+        this.message.set('No se pudo importar el archivo. Revisa el formato e inténtalo de nuevo.');
+      },
+    });
+  }
+
+  effectiveStatus(member: Member): MembershipStatus {
+    if (member.status === 'SUSPENDED') {
+      return 'SUSPENDED';
+    }
+    if (member.membershipEnd && member.membershipEnd < this.todayIso()) {
+      return 'EXPIRED';
+    }
+    return member.status;
+  }
+
+  genderLabel(gender?: Gender): string {
+    const labels: Record<Gender, string> = {
+      MALE: 'Masculino',
+      FEMALE: 'Femenino',
+      OTHER: 'Otro',
+    };
+    return gender ? labels[gender] : '—';
   }
 
   statusLabel(status: MembershipStatus): string {
     const labels: Record<MembershipStatus, string> = {
       ACTIVE: 'Activo',
-      EXPIRED: 'Vencido',
+      EXPIRED: 'Inactivo',
       SUSPENDED: 'Suspendido',
     };
     return labels[status];
+  }
+
+  private todayIso(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private compareMembers(a: Member, b: Member, column: SortColumn): number {
+    switch (column) {
+      case 'documentId':
+        return (a.documentId ?? '').localeCompare(b.documentId ?? '', 'es');
+      case 'gender':
+        return this.genderLabel(a.gender).localeCompare(this.genderLabel(b.gender), 'es');
+      case 'planName':
+        return (a.planName ?? '').localeCompare(b.planName ?? '', 'es');
+      case 'status':
+        return this.effectiveStatus(a).localeCompare(this.effectiveStatus(b), 'es');
+      case 'membershipEnd':
+        return (a.membershipEnd ?? '').localeCompare(b.membershipEnd ?? '');
+      case 'name':
+      default:
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es');
+    }
   }
 }

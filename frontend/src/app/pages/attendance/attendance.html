@@ -1,70 +1,158 @@
 <section class="page-header">
   <h2>Jornada del equipo</h2>
-  <p>Registra entradas y salidas por hora completa. El sistema calcula las horas trabajadas.</p>
-  <a routerLink="/panel/configuracion-nomina" class="card-link" style="margin-top: 0.75rem">Ajustar pago por hora</a>
+  @if (auth.isAdmin()) {
+    <p>Registra y consulta las jornadas de todo el equipo por día o por mes.</p>
+    <a routerLink="/panel/configuracion-nomina" class="card-link" style="margin-top: 0.75rem"
+      >Ajustar pago por hora</a
+    >
+  } @else {
+    <p>Consulta y registra tus entradas y salidas. Solo ves tus propias jornadas.</p>
+  }
 </section>
 
 @if (message()) {
   <p class="alert info">{{ message() }}</p>
 }
 
+<nav class="view-tabs" aria-label="Vista de jornadas">
+  <button type="button" [class.active]="view() === 'day'" (click)="setView('day')">Hoy</button>
+  <button type="button" [class.active]="view() === 'month'" (click)="setView('month')">
+    Este mes
+  </button>
+  <button type="button" class="history-tab" (click)="openHistoryModal()">
+    Historial de trabajo
+  </button>
+</nav>
+
+@if (view() === 'history') {
+  <div class="history-banner">
+    <span>Consultando: <strong>{{ periodLabel() }}</strong></span>
+    <button type="button" class="btn-link" (click)="backToCurrentMonth()">Volver a este mes</button>
+  </div>
+}
+
+
 <div class="summary">
   <article class="summary-card">
-    <span>Jornadas</span>
+    <span>Jornadas ({{ periodLabel() }})</span>
     <strong>{{ summary().totalRecords }}</strong>
   </article>
-  <article class="summary-card warn">
-    <span>Abiertas hoy</span>
-    <strong>{{ summary().openRecords }}</strong>
-  </article>
+  @if (view() === 'day') {
+    <article class="summary-card warn">
+      <span>Abiertas hoy</span>
+      <strong>{{ summary().openRecords }}</strong>
+    </article>
+  }
   <article class="summary-card">
     <span>Horas trabajadas</span>
     <strong>{{ summary().totalHours | number: '1.0-0' }} h</strong>
   </article>
+  @if (auth.isAdmin()) {
+    <article class="summary-card">
+      <span>Total estimado</span>
+      <strong>{{ summary().totalOwed | number: '1.0-0' }}</strong>
+    </article>
+  }
 </div>
 
 <div class="panel table-panel">
   <div class="table-header">
-    <h3>Historial de jornadas</h3>
-    <button type="button" class="btn-register" (click)="openRegisterModal()">
-      + Registrar jornada
-    </button>
+    <h3>
+      @if (view() === 'day') {
+        Jornadas de hoy
+      } @else {
+        Jornadas de {{ periodLabel() }}
+      }
+    </h3>
+    @if (canManageToday()) {
+      <button type="button" class="btn-register" (click)="openRegisterModal()">
+        + Registrar jornada
+      </button>
+    }
   </div>
 
   @if (loading()) {
     <p>Cargando...</p>
   } @else if (records().length === 0) {
-    <p class="empty-state">Aún no hay jornadas hoy. Pulsa «Registrar jornada» para empezar.</p>
+    <p class="empty-state">
+      @if (view() === 'day') {
+        Aún no hay jornadas hoy. Pulsa «Registrar jornada» para empezar.
+      } @else {
+        No hay jornadas registradas en {{ periodLabel() }}.
+      }
+    </p>
   } @else {
     <div class="table-wrap">
-      <table class="attendance-table">
+      <table class="attendance-table" [class.view-day]="view() === 'day'">
+        <colgroup>
+          <col class="col-employee" />
+          @if (view() !== 'day') {
+            <col class="col-date" />
+          }
+          <col class="col-time" />
+          <col class="col-time" />
+          <col class="col-hours" />
+          @if (canManageToday()) {
+            <col class="col-actions" />
+          }
+        </colgroup>
         <thead>
           <tr>
-            <th class="col-date">Fecha</th>
             <th class="col-employee">Entrenador</th>
+            @if (view() !== 'day') {
+              <th class="col-date">Fecha</th>
+            }
             <th class="col-time">Entrada</th>
             <th class="col-time">Salida</th>
             <th class="col-hours">Horas</th>
-            <th class="col-actions">Acciones</th>
+            @if (canManageToday()) {
+              <th class="col-actions">Acciones</th>
+            }
           </tr>
         </thead>
         <tbody>
           @for (r of records(); track r.id) {
             <tr [class.open]="!r.clockOut">
-              <td class="col-date">
-                {{ r.workDate | date: 'dd/MM/yyyy' }}
-                <small>{{ r.dayTypeLabel }}</small>
+              <td class="col-employee">
+                <div class="employee-cell">
+                  <span class="employee-initial" aria-hidden="true">{{ employeeInitial(r.employeeName) }}</span>
+                  <div class="employee-meta">
+                    <span class="employee-name">{{ r.employeeName }}</span>
+                    @if (view() === 'day') {
+                      <small class="employee-day-type">{{ r.dayTypeLabel }}</small>
+                    }
+                  </div>
+                </div>
               </td>
-              <td class="col-employee">{{ r.employeeName }}</td>
-              <td class="col-time">{{ formatHour(r.clockIn) }}</td>
-              <td class="col-time">{{ r.clockOut ? formatHour(r.clockOut) : '—' }}</td>
-              <td class="col-hours">{{ r.hoursWorked != null ? (r.hoursWorked | number: '1.0-0') + ' h' : '—' }}</td>
-              <td class="col-actions row-actions">
-                @if (isToday(r.workDate)) {
-                  <button type="button" class="btn-edit" (click)="openEditModal(r)">Editar</button>
-                  <button type="button" class="btn-delete" (click)="remove(r.id)">Eliminar</button>
-                }
+              @if (view() !== 'day') {
+                <td class="col-date">
+                  <span class="date-main">{{ r.workDate | date: 'dd/MM/yyyy' }}</span>
+                  <small>{{ r.dayTypeLabel }}</small>
+                </td>
+              }
+              <td class="col-time">
+                <span class="time-value">{{ formatHour(r.clockIn) }}</span>
               </td>
+              <td class="col-time">
+                <span class="time-value" [class.pending]="!r.clockOut">
+                  {{ r.clockOut ? formatHour(r.clockOut) : 'En curso' }}
+                </span>
+              </td>
+              <td class="col-hours">
+                <span class="hours-badge">
+                  {{ r.hoursWorked != null ? (r.hoursWorked | number: '1.0-0') + ' h' : '—' }}
+                </span>
+              </td>
+              @if (canManageToday()) {
+                <td class="col-actions">
+                  @if (canEditRecord(r)) {
+                    <div class="row-actions">
+                      <button type="button" class="btn-edit" (click)="openEditModal(r)">Editar</button>
+                      <button type="button" class="btn-delete" (click)="remove(r.id)">Eliminar</button>
+                    </div>
+                  }
+                </td>
+              }
             </tr>
           }
         </tbody>
@@ -72,6 +160,76 @@
     </div>
   }
 </div>
+
+@if (historyModalOpen()) {
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    (click)="historyModalOpen.set(false)"
+    (keydown.escape)="historyModalOpen.set(false)"
+  >
+    <div
+      class="modal modal-styled modal-history"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="history-modal-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-header">
+        <div class="modal-header-main">
+          <span class="modal-icon" aria-hidden="true">📅</span>
+          <div>
+            <span class="modal-kicker">Consulta</span>
+            <h3 id="history-modal-title">Historial de trabajo</h3>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="modal-close"
+          aria-label="Cerrar"
+          (click)="historyModalOpen.set(false)"
+        >
+          ×
+        </button>
+      </header>
+      <div class="modal-body">
+        <p class="modal-intro">Elige mes y año para revisar jornadas anteriores.</p>
+        <div class="history-filters">
+          <label class="filter-field">
+            <span class="field-label">Mes</span>
+            <select
+              class="field-control"
+              [value]="historyMonth()"
+              (change)="historyMonth.set(+$any($event.target).value)"
+            >
+              @for (m of monthOptions; track m.value) {
+                <option [value]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="filter-field">
+            <span class="field-label">Año</span>
+            <select
+              class="field-control"
+              [value]="historyYear()"
+              (change)="historyYear.set(+$any($event.target).value)"
+            >
+              @for (y of historyYears; track y) {
+                <option [value]="y">{{ y }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" (click)="applyHistory()">Ver jornadas</button>
+          <button type="button" class="btn secondary" (click)="historyModalOpen.set(false)">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
 
 @if (modalOpen()) {
   <div
@@ -81,65 +239,96 @@
     (keydown.escape)="closeModal()"
   >
     <div
-      class="modal"
+      class="modal modal-styled modal-attendance"
       role="dialog"
       aria-modal="true"
       [attr.aria-labelledby]="'attendance-modal-title'"
       (click)="$event.stopPropagation()"
     >
       <header class="modal-header">
-        <h3 id="attendance-modal-title">
-          {{ editingId() ? 'Editar jornada' : 'Registrar jornada' }}
-        </h3>
+        <div class="modal-header-main">
+          <span class="modal-icon" aria-hidden="true">🕐</span>
+          <div>
+            <span class="modal-kicker">{{ editingId() ? 'Edición' : 'Nuevo registro' }}</span>
+            <h3 id="attendance-modal-title">
+              {{ editingId() ? 'Editar jornada' : 'Registrar jornada' }}
+            </h3>
+          </div>
+        </div>
         <button type="button" class="modal-close" aria-label="Cerrar" (click)="closeModal()">×</button>
       </header>
 
       <form class="modal-form" [formGroup]="form" (ngSubmit)="save()">
-        <label>
-          Entrenador
-          <select formControlName="employeeId">
-            <option [ngValue]="null">Seleccione entrenador</option>
-            @for (emp of employees(); track emp.id) {
-              <option [ngValue]="emp.id">{{ emp.fullName }}</option>
-            }
-          </select>
-        </label>
-        <label>
-          Fecha (solo hoy)
-          <input type="date" formControlName="workDate" readonly />
-        </label>
-        <label>
-          Hora entrada
-          <select formControlName="clockInHour">
-            <option [ngValue]="null">Seleccione hora</option>
-            @for (h of hourOptions; track h) {
-              <option [ngValue]="h">{{ hourLabel(h) }}</option>
-            }
-          </select>
-        </label>
-        <label>
-          Hora salida
-          <select formControlName="clockOutHour">
-            <option [ngValue]="null">Sin salida aún</option>
-            @for (h of hourOptions; track h) {
-              <option [ngValue]="h">{{ hourLabel(h) }}</option>
-            }
-          </select>
-        </label>
-        <label>
-          Notas
-          <textarea formControlName="notes" rows="3"></textarea>
+        @if (auth.isAdmin()) {
+          <label class="field-block">
+            <span class="field-label">Entrenador</span>
+            <select class="field-control" formControlName="employeeId">
+              <option [ngValue]="null">Seleccione entrenador</option>
+              @for (emp of employees(); track emp.id) {
+                <option [ngValue]="emp.id">{{ emp.fullName }}</option>
+              }
+            </select>
+          </label>
+        } @else {
+          <div class="employee-card">
+            <span class="employee-avatar" aria-hidden="true">👤</span>
+            <div>
+              <span class="employee-card-label">Entrenador</span>
+              <strong>{{ auth.currentUser()?.fullName }}</strong>
+            </div>
+          </div>
+        }
+
+        <div class="date-chip">
+          <span class="date-chip-icon" aria-hidden="true">📆</span>
+          <div>
+            <span class="date-chip-label">Fecha</span>
+            <strong>Solo hoy</strong>
+          </div>
+          <input type="date" formControlName="workDate" readonly class="date-chip-input" />
+        </div>
+
+        <div class="time-grid">
+          <label class="field-block">
+            <span class="field-label">Hora entrada</span>
+            <select class="field-control" formControlName="clockInHour">
+              <option [ngValue]="null">Seleccione hora</option>
+              @for (h of hourOptions; track h) {
+                <option [ngValue]="h">{{ hourLabel(h) }}</option>
+              }
+            </select>
+          </label>
+          <label class="field-block">
+            <span class="field-label">Hora salida</span>
+            <select class="field-control" formControlName="clockOutHour">
+              <option [ngValue]="null">Sin salida aún</option>
+              @for (h of hourOptions; track h) {
+                <option [ngValue]="h">{{ hourLabel(h) }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <label class="field-block field-notes">
+          <span class="field-label">Notas (opcional)</span>
+          <textarea
+            class="field-control"
+            formControlName="notes"
+            rows="3"
+            placeholder="Ej: cubre turno de la tarde"
+          ></textarea>
         </label>
 
-        <p class="psych-reassurance">
+        <p class="info-tip">
+          <span class="info-tip-icon" aria-hidden="true">ℹ️</span>
           Solo se registran jornadas del día de hoy, en horas completas (sin minutos).
         </p>
 
         <div class="modal-actions">
-          <button type="button" class="secondary" (click)="closeModal()">Cancelar</button>
-          <button type="submit" [disabled]="saving()">
-            {{ saving() ? 'Guardando...' : editingId() ? 'Actualizar' : 'Guardar' }}
+          <button type="submit" class="btn btn-primary" [disabled]="saving()">
+            {{ saving() ? 'Guardando...' : editingId() ? 'Actualizar' : 'Guardar jornada' }}
           </button>
+          <button type="button" class="btn secondary" (click)="closeModal()">Cancelar</button>
         </div>
       </form>
     </div>

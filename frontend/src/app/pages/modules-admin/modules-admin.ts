@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { AppModuleItem, ModuleCode } from '../../core/models/module.model';
+import { AppModuleItem, CONFIGURABLE_ROLES, ConfigurableRole, ModuleCode, RoleModulePermission } from '../../core/models/module.model';
 import { ModuleService } from '../../core/services/module.service';
 
 @Component({
@@ -10,13 +10,20 @@ import { ModuleService } from '../../core/services/module.service';
 export class ModulesAdminPage implements OnInit {
   private readonly moduleService = inject(ModuleService);
 
+  protected readonly configurableRoles = CONFIGURABLE_ROLES;
+  protected readonly selectedRole = signal<ConfigurableRole>('TRAINER');
+
   protected readonly modules = signal<AppModuleItem[]>([]);
+  protected readonly rolePermissions = signal<RoleModulePermission[]>([]);
   protected readonly loading = signal(true);
+  protected readonly loadingRole = signal(false);
   protected readonly saving = signal<string | null>(null);
+  protected readonly savingRole = signal<string | null>(null);
   protected readonly message = signal<string | null>(null);
 
   ngOnInit(): void {
     this.load();
+    this.loadRolePermissions();
   }
 
   load(): void {
@@ -33,6 +40,25 @@ export class ModulesAdminPage implements OnInit {
     });
   }
 
+  selectRole(role: ConfigurableRole): void {
+    this.selectedRole.set(role);
+    this.loadRolePermissions();
+  }
+
+  loadRolePermissions(): void {
+    this.loadingRole.set(true);
+    this.moduleService.findRolePermissions(this.selectedRole()).subscribe({
+      next: (list) => {
+        this.rolePermissions.set(list);
+        this.loadingRole.set(false);
+      },
+      error: () => {
+        this.message.set('No se pudieron cargar los permisos del rol');
+        this.loadingRole.set(false);
+      },
+    });
+  }
+
   toggle(mod: AppModuleItem): void {
     if (mod.code === 'MODULOS_SISTEMA') {
       return;
@@ -45,12 +71,42 @@ export class ModulesAdminPage implements OnInit {
         this.modules.update((list) => list.map((m) => (m.code === updated.code ? updated : m)));
         this.moduleService.loadPanel().subscribe();
         this.moduleService.loadPublic().subscribe();
+        this.loadRolePermissions();
         this.saving.set(null);
-        this.message.set(next ? `«${mod.name}» activado` : `«${mod.name}» desactivado`);
+        this.message.set(next ? `«${mod.name}» activado en el sistema` : `«${mod.name}» desactivado en el sistema`);
       },
       error: (err) => {
         this.saving.set(null);
         this.message.set(err.error?.message ?? 'No se pudo actualizar');
+      },
+    });
+  }
+
+  toggleRolePermission(perm: RoleModulePermission): void {
+    if (!perm.globallyEnabled) {
+      return;
+    }
+    const next = !perm.allowed;
+    const role = this.selectedRole();
+    this.savingRole.set(perm.moduleCode);
+    this.message.set(null);
+    this.moduleService.setRolePermission(role, perm.moduleCode, next).subscribe({
+      next: (updated) => {
+        this.rolePermissions.update((list) =>
+          list.map((p) => (p.moduleCode === updated.moduleCode ? updated : p)),
+        );
+        this.moduleService.loadPanel().subscribe();
+        this.savingRole.set(null);
+        const roleLabel = this.configurableRoles.find((r) => r.value === role)?.label ?? role;
+        this.message.set(
+          next
+            ? `«${perm.moduleName}» habilitado para ${roleLabel}`
+            : `«${perm.moduleName}» deshabilitado para ${roleLabel}`,
+        );
+      },
+      error: (err) => {
+        this.savingRole.set(null);
+        this.message.set(err.error?.message ?? 'No se pudo actualizar el permiso');
       },
     });
   }
@@ -61,5 +117,9 @@ export class ModulesAdminPage implements OnInit {
 
   publicModules(): AppModuleItem[] {
     return this.modules().filter((m) => m.category === 'PUBLIC');
+  }
+
+  selectedRoleLabel(): string {
+    return this.configurableRoles.find((r) => r.value === this.selectedRole())?.label ?? '';
   }
 }

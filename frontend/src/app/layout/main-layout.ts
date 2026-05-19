@@ -14,10 +14,17 @@ export class MainLayout implements OnInit {
   protected readonly modules = inject(ModuleService);
 
   ngOnInit(): void {
-    this.modules.loadPanel().subscribe();
+    this.refreshModules();
     if (this.auth.isLoggedIn()) {
-      this.auth.loadProfile().subscribe({ error: () => this.auth.logout() });
+      this.auth.loadProfile().subscribe({
+        next: () => this.refreshModules(),
+        error: () => this.auth.logout(),
+      });
     }
+  }
+
+  private refreshModules(): void {
+    this.modules.reloadPanelForUser().subscribe();
   }
 
   logout(): void {

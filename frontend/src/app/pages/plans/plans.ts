@@ -1,4 +1,4 @@
-import { CurrencyPipe } from '@angular/common';
+import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MembershipPlan, MembershipPlanRequest } from '../../core/models/plan.model';
@@ -6,7 +6,7 @@ import { PlanService } from '../../core/services/plan.service';
 
 @Component({
   selector: 'app-plans',
-  imports: [ReactiveFormsModule, CurrencyPipe],
+  imports: [ReactiveFormsModule, CopCurrencyPipe],
   templateUrl: './plans.html',
   styleUrl: './plans.scss',
 })
@@ -18,6 +18,7 @@ export class Plans implements OnInit {
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly message = signal<string | null>(null);
+  protected readonly editingId = signal<number | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(80)]],
@@ -45,6 +46,22 @@ export class Plans implements OnInit {
     });
   }
 
+  startCreate(): void {
+    this.editingId.set(null);
+    this.form.reset({ name: '', description: '', durationDays: 30, price: 0, active: true });
+  }
+
+  startEdit(plan: MembershipPlan): void {
+    this.editingId.set(plan.id);
+    this.form.patchValue({
+      name: plan.name,
+      description: plan.description ?? '',
+      durationDays: plan.durationDays,
+      price: plan.price,
+      active: plan.active,
+    });
+  }
+
   save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -53,17 +70,40 @@ export class Plans implements OnInit {
 
     const request: MembershipPlanRequest = this.form.getRawValue();
     this.saving.set(true);
-    this.planService.create(request).subscribe({
+    const id = this.editingId();
+    const action = id ? this.planService.update(id, request) : this.planService.create(request);
+
+    action.subscribe({
       next: () => {
-        this.message.set('Plan creado correctamente');
+        this.message.set(id ? 'Plan actualizado' : 'Plan creado correctamente');
         this.saving.set(false);
-        this.form.reset({ name: '', description: '', durationDays: 30, price: 0, active: true });
+        this.startCreate();
         this.loadPlans();
       },
       error: () => {
-        this.message.set('No se pudo crear el plan');
+        this.message.set(id ? 'No se pudo actualizar el plan' : 'No se pudo crear el plan');
         this.saving.set(false);
       },
+    });
+  }
+
+  remove(plan: MembershipPlan): void {
+    if (
+      !confirm(
+        `¿Eliminar el plan «${plan.name}»?\n\nLos afiliados con este plan quedarán sin plan asignado.`,
+      )
+    ) {
+      return;
+    }
+    this.planService.delete(plan.id).subscribe({
+      next: () => {
+        this.message.set('Plan eliminado');
+        if (this.editingId() === plan.id) {
+          this.startCreate();
+        }
+        this.loadPlans();
+      },
+      error: () => this.message.set('No se pudo eliminar el plan'),
     });
   }
 }

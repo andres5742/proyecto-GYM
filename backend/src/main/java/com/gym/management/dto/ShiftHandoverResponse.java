@@ -1,0 +1,36 @@
+package com.gym.management.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+public record ShiftHandoverResponse(
+        Long id,
+        Long workShiftId,
+        String workShiftName,
+        Long employeeId,
+        String employeeName,
+        Instant submittedAt,
+        int bill2000,
+        int bill5000,
+        int bill10000,
+        int bill20000,
+        int bill50000,
+        int bill100000,
+        int coin1000,
+        int coin500,
+        int coin200,
+        int coin100,
+        int coin50,
+        BigDecimal cashCountedTotal,
+        BigDecimal auxAmount,
+        BigDecimal nequiAmount,
+        BigDecimal bankAmount,
+        BigDecimal expensesTotal,
+        BigDecimal priorPaymentsTotal,
+        BigDecimal declaredGrandTotal,
+        String notes,
+        List<ShiftHandoverExpenseResponse> expenses,
+        List<ShiftHandoverPriorPaymentResponse> priorPayments,
+        ShiftDetailResponse shiftDetail,
+        List<ShiftHandoverComparisonResponse> comparisons) {}

@@ -6,9 +6,49 @@
   }
 }
 
-.hint {
+.hint,
+.section-hint {
   color: var(--color-text-muted);
   margin: 0;
+}
+
+.section-hint {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.role-panel {
+  border: 2px solid var(--color-primary-soft, #fde8d8);
+}
+
+.role-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.role-tab {
+  padding: 0.45rem 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.active {
+    border-color: var(--color-primary);
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark, #9a3412);
+  }
+}
+
+.module-info .warn {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: #b45309;
+  font-weight: 600;
 }
 
 .banner-info {

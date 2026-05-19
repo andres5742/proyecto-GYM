@@ -64,7 +64,7 @@ export class AccessControlPage implements OnInit {
       })
       .subscribe({
         next: () => {
-          this.message.set('Huella vinculada al socio correctamente');
+          this.message.set('Huella vinculada al afiliado correctamente');
           this.saving.set(false);
           this.enrollForm.reset({ memberId: null, fingerprintUserId: '', deviceLabel: '' });
           this.loadAll();
@@ -77,7 +77,7 @@ export class AccessControlPage implements OnInit {
   }
 
   removeEnrollment(memberId: number): void {
-    if (!confirm('¿Quitar la huella de este socio?')) {
+    if (!confirm('¿Quitar la huella de este afiliado?')) {
       return;
     }
     this.accessService.removeEnrollment(memberId).subscribe({

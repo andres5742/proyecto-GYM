@@ -1,4 +1,4 @@
-import { CurrencyPipe } from '@angular/common';
+import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Product, ProductRequest } from '../../core/models/product.model';
@@ -6,7 +6,7 @@ import { ProductService } from '../../core/services/product.service';
 
 @Component({
   selector: 'app-inventory',
-  imports: [ReactiveFormsModule, CurrencyPipe],
+  imports: [ReactiveFormsModule, CopCurrencyPipe],
   templateUrl: './inventory.html',
   styleUrl: './inventory.scss',
 })
@@ -122,18 +122,19 @@ export class Inventory implements OnInit {
     });
   }
 
-  applyStockAdjustment(product: Product, delta: number): void {
-    if (!delta) {
+  applyStockAdjustment(product: Product, rawValue: string | number): void {
+    const delta = Math.floor(Number(rawValue));
+    if (!Number.isFinite(delta) || delta < 1) {
+      this.message.set('Ingresa una cantidad entera mayor a 0 para agregar stock');
       return;
     }
     this.productService.adjustStock(product.id, { delta }).subscribe({
       next: () => {
-        this.message.set(
-          delta > 0 ? `Entrada de ${delta} unidades` : `Salida de ${Math.abs(delta)} unidades`,
-        );
+        this.message.set(`Entrada de ${delta} unidad${delta === 1 ? '' : 'es'} registrada`);
         this.loadProducts();
       },
-      error: () => this.message.set('No se pudo ajustar el stock'),
+      error: (err) =>
+        this.message.set(err?.error?.message ?? 'No se pudo agregar stock'),
     });
   }
 

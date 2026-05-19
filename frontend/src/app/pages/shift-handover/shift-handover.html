@@ -1,0 +1,345 @@
+<section class="page-header">
+  <h2>Entrega de turno</h2>
+  <p>
+    Cuenta el dinero físico, registra AUX, Nequi, banco, gastos y cobros de deudas anteriores. El
+    sistema compara con las ventas del turno.
+  </p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+@if (loading()) {
+  <p class="muted">Cargando...</p>
+} @else if (!openShift() && !alreadySubmitted()) {
+  <div class="panel empty-shift">
+    <p>No hay un turno abierto. Abre un turno en <a routerLink="/panel/ventas">Ventas</a> antes de entregar.</p>
+  </div>
+} @else if (preview(); as data) {
+  <div class="handover-layout">
+    <section class="panel sales-ref">
+      <header>
+        <h3>Ventas del turno · {{ data.shiftDetail.shift.name }}</h3>
+        <span class="meta">
+          {{ data.shiftDetail.shift.employeeName }} ·
+          {{ data.shiftDetail.shift.shiftDate | date: 'dd/MM/yyyy' }}
+        </span>
+      </header>
+      <div class="sales-totals">
+        @for (pm of paymentMethods; track pm.value) {
+          @if (data.shiftDetail.summary.amountByPaymentMethod[pm.value]; as amt) {
+            @if (amt > 0) {
+              <article>
+                <span>{{ pm.label }}</span>
+                <strong>{{ amt | cop }}</strong>
+              </article>
+            }
+          }
+        }
+        @if (data.shiftDetail.summary.amountByPaymentMethod['PENDING']; as pending) {
+          @if (pending > 0) {
+            <article class="warn">
+              <span>Pendiente / deuda</span>
+              <strong>{{ pending | cop }}</strong>
+            </article>
+          }
+        }
+        <article class="total">
+          <span>Total ventas</span>
+          <strong>{{ data.shiftDetail.summary.totalAmount | cop }}</strong>
+        </article>
+      </div>
+
+      @if (data.shiftDetail.productRows.length > 0) {
+        <h4>Por producto</h4>
+        <div class="product-mini-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of data.shiftDetail.productRows; track row.productId) {
+                <tr>
+                  <td>{{ row.productName }}</td>
+                  <td>{{ row.totalQuantity }}</td>
+                  <td>{{ row.totalAmount | cop }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <form class="panel handover-form" (ngSubmit)="submit()">
+      @if (alreadySubmitted()) {
+        <p class="submitted-banner">✓ Entrega registrada el {{ preview()!.submittedAt | date: 'short' }}</p>
+      }
+
+      <h3>Conteo de efectivo</h3>
+
+      <div class="denom-section bills-section">
+        <h4 class="denom-section-title">Billetes</h4>
+        <div class="denom-grid">
+          @for (d of billDenominations; track d.key) {
+            <label class="denom-field bill">
+              <span>{{ d.label }}</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                [disabled]="alreadySubmitted()"
+                [ngModel]="cash()[d.key]"
+                (ngModelChange)="updateCash(d.key, $event)"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <small>= {{ (cash()[d.key] || 0) * d.value | cop }}</small>
+            </label>
+          }
+        </div>
+        <p class="denom-subtotal">Subtotal billetes: <strong>{{ billTotal() | cop }}</strong></p>
+      </div>
+
+      <div class="denom-section coins-section">
+        <h4 class="denom-section-title">Monedas</h4>
+        <div class="denom-grid">
+          @for (d of coinDenominations; track d.key) {
+            <label class="denom-field coin">
+              <span>{{ d.label }}</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                [disabled]="alreadySubmitted()"
+                [ngModel]="cash()[d.key]"
+                (ngModelChange)="updateCash(d.key, $event)"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <small>= {{ (cash()[d.key] || 0) * d.value | cop }}</small>
+            </label>
+          }
+        </div>
+        <p class="denom-subtotal">Subtotal monedas: <strong>{{ coinTotal() | cop }}</strong></p>
+      </div>
+
+      <p class="cash-total">Total efectivo contado: <strong>{{ cashTotal() | cop }}</strong></p>
+      <h3>Otros medios declarados</h3>
+      <div class="amount-row">
+        <label>
+          Sistema AUX
+          <input
+            type="number"
+            min="0"
+            step="1"
+            [disabled]="alreadySubmitted()"
+            [ngModel]="auxAmount()"
+            (ngModelChange)="auxAmount.set(+$event || 0)"
+            name="aux"
+          />
+        </label>
+        <label>
+          Nequi
+          <input
+            type="number"
+            min="0"
+            step="1"
+            [disabled]="alreadySubmitted()"
+            [ngModel]="nequiAmount()"
+            (ngModelChange)="nequiAmount.set(+$event || 0)"
+            name="nequi"
+          />
+        </label>
+        <label>
+          Bancolombia
+          <input
+            type="number"
+            min="0"
+            step="1"
+            [disabled]="alreadySubmitted()"
+            [ngModel]="bankAmount()"
+            (ngModelChange)="bankAmount.set(+$event || 0)"
+            name="bank"
+          />
+        </label>
+      </div>
+
+      @if (preview()?.shiftDetail?.summary) {
+        <p
+          class="cash-expected"
+          [class.cash-ok]="cashMatchesDeclared()"
+          [class.cash-diff]="!cashMatchesDeclared()"
+        >
+          Ventas en efectivo ({{ salesCashTotal() | cop }}) + Sistema AUX declarado
+          ({{ auxAmount() | cop }}) = <strong>{{ expectedCashInDrawer() | cop }}</strong>
+          — debe coincidir con el dinero contado ({{ cashTotal() | cop }})
+        </p>
+      }
+
+      <h3>Gastos del turno</h3>
+      @for (exp of expenses(); track $index) {
+        <div class="line-row">
+          <input
+            placeholder="¿En qué se gastó?"
+            [disabled]="alreadySubmitted()"
+            [(ngModel)]="exp.description"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          <input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="Monto"
+            [disabled]="alreadySubmitted()"
+            [(ngModel)]="exp.amount"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          @if (!alreadySubmitted()) {
+            <button type="button" class="btn-remove" (click)="removeExpense($index)">×</button>
+          }
+        </div>
+      }
+      @if (!alreadySubmitted()) {
+        <button type="button" class="btn-add" (click)="addExpense()">+ Agregar gasto</button>
+      }
+      <p class="line-total">Total gastos: <strong>{{ expensesTotal() | cop }}</strong></p>
+
+      <h3>Cobros de productos / deudas anteriores</h3>
+      <p class="hint">Ventas que debían de antes y se pagaron en este turno (no van en ventas del sistema).</p>
+      @for (pay of priorPayments(); track $index) {
+        <div class="line-row prior-row">
+          <input
+            placeholder="Cliente o producto"
+            [disabled]="alreadySubmitted()"
+            [(ngModel)]="pay.description"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          <input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="Monto"
+            [disabled]="alreadySubmitted()"
+            [(ngModel)]="pay.amount"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          <select
+            [disabled]="alreadySubmitted()"
+            [(ngModel)]="pay.paymentMethod"
+            [ngModelOptions]="{ standalone: true }"
+          >
+            @for (pm of paymentMethods; track pm.value) {
+              <option [value]="pm.value">{{ pm.label }}</option>
+            }
+          </select>
+          @if (!alreadySubmitted()) {
+            <button type="button" class="btn-remove" (click)="removePriorPayment($index)">×</button>
+          }
+        </div>
+      }
+      @if (!alreadySubmitted()) {
+        <button type="button" class="btn-add" (click)="addPriorPayment()">+ Agregar cobro de deuda</button>
+      }
+      <p class="line-total">Total cobros anteriores: <strong>{{ priorTotal() | cop }}</strong></p>
+
+      <label class="notes-field">
+        Notas (opcional)
+        <textarea rows="2" [disabled]="alreadySubmitted()" [(ngModel)]="notes" name="notes"></textarea>
+      </label>
+
+      @if (!alreadySubmitted()) {
+        <button type="submit" class="btn btn-primary btn-submit" [disabled]="saving()">
+          {{ saving() ? 'Registrando...' : 'Registrar entrega y cerrar turno' }}
+        </button>
+      }
+    </form>
+
+    <section class="panel compare-panel">
+      <h3>Comparación con ventas</h3>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Concepto</th>
+            <th>Declarado</th>
+            <th>Esperado</th>
+            <th>Diferencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of liveComparisons(); track row.label) {
+            <tr [class]="diffClass(row.difference)">
+              <td>{{ row.label }}</td>
+              <td>{{ row.declared | cop }}</td>
+              <td>{{ row.expected | cop }}</td>
+              <td>{{ row.difference | cop }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p class="compare-hint">
+        El dinero contado (billetes y monedas) debe coincidir con las ventas en efectivo del
+        sistema más el monto que declares en Sistema AUX. Diferencia 0 = cuadra.
+      </p>
+    </section>
+  </div>
+}
+
+@if (history().length > 0) {
+  <section class="panel history-panel">
+    <h3>Historial de entregas</h3>
+  @if (authService.isAdmin()) {
+      <div class="history-list">
+        @for (h of history(); track h.id) {
+          <button
+            type="button"
+            class="history-item"
+            [class.active]="selectedHistoryId() === h.id"
+            (click)="selectedHistoryId.set(h.id!)"
+          >
+            <strong>{{ h.workShiftName }}</strong>
+            <span>{{ h.employeeName }} · {{ h.submittedAt | date: 'short' }}</span>
+          </button>
+        }
+      </div>
+    }
+    @if (selectedHistory(); as h) {
+      <div class="history-detail">
+        <div class="history-detail-header">
+          <p>
+            <strong>{{ h.employeeName }}</strong> · {{ h.workShiftName }} ·
+            {{ h.declaredGrandTotal | cop }} declarado
+          </p>
+          @if (isSuperAdmin()) {
+            <button type="button" class="btn btn-delete btn-sm" (click)="deleteHistoryItem(h)">
+              Eliminar entrega
+            </button>
+          }
+        </div>
+        <table class="compare-table compact">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Declarado</th>
+              <th>Ventas</th>
+              <th>Dif.</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of h.comparisons; track row.label) {
+              <tr [class]="diffClass(row.difference)">
+                <td>{{ row.label }}</td>
+                <td>{{ row.declared | cop }}</td>
+                <td>{{ row.expected | cop }}</td>
+                <td>{{ row.difference | cop }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+}

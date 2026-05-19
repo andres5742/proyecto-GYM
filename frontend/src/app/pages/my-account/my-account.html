@@ -1,0 +1,184 @@
+<div class="my-account-page">
+  <header class="my-account-header">
+    <a routerLink="/" class="back-link">← Volver al inicio</a>
+    <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo header-logo" />
+    @if (auth.currentUser(); as user) {
+      <div class="user-chip">
+        <strong>{{ user.fullName }}</strong>
+        <span>{{ user.roleLabel }}</span>
+        <button type="button" class="btn-logout" (click)="logout()">Cerrar sesión</button>
+      </div>
+    }
+  </header>
+
+  <main class="my-account-main">
+    <header class="page-head">
+      <h1>Mi cuenta</h1>
+      <p class="intro">Elige una sección para ver solo lo que necesitas.</p>
+    </header>
+
+    @if (loading()) {
+      <p class="muted">Cargando tu información...</p>
+    } @else if (loadError()) {
+      <p class="alert error">{{ loadError() }}</p>
+      <button type="button" class="secondary" (click)="loadProfile()">Reintentar</button>
+    } @else if (profile(); as p) {
+      <div class="account-summary panel">
+        <div class="summary-main">
+          <span class="summary-label">Socio</span>
+          <strong>{{ p.firstName }} {{ p.lastName }}</strong>
+          <span class="summary-doc">Doc. {{ p.documentId }}</span>
+        </div>
+        <div class="summary-meta">
+          <span>{{ p.planName || 'Sin plan' }}</span>
+          <span class="status-badge" [class.inactive]="p.status !== 'ACTIVE'">{{ p.statusLabel }}</span>
+        </div>
+      </div>
+
+      <div class="account-tabs" role="tablist" aria-label="Secciones de mi cuenta">
+        <button
+          type="button"
+          role="tab"
+          class="account-tab"
+          [class.active]="activeTab() === 'perfil'"
+          [attr.aria-selected]="activeTab() === 'perfil'"
+          (click)="selectTab('perfil')"
+        >
+          <span class="tab-icon" aria-hidden="true">👤</span>
+          Tu perfil
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="account-tab"
+          [class.active]="activeTab() === 'avances'"
+          [attr.aria-selected]="activeTab() === 'avances'"
+          (click)="selectTab('avances')"
+        >
+          <span class="tab-icon" aria-hidden="true">📈</span>
+          Cuadro de avances
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="account-tab"
+          [class.active]="activeTab() === 'seguridad'"
+          [attr.aria-selected]="activeTab() === 'seguridad'"
+          (click)="selectTab('seguridad')"
+        >
+          <span class="tab-icon" aria-hidden="true">🔒</span>
+          Seguridad
+        </button>
+      </div>
+
+      <div class="tab-panels">
+        @if (activeTab() === 'perfil') {
+          <section class="tab-panel panel" role="tabpanel" id="perfil">
+            <header class="tab-panel-head">
+              <h2>Tu perfil</h2>
+              <p>Información registrada en el gimnasio.</p>
+            </header>
+
+            <div class="profile-cards">
+              <article class="profile-card">
+                <h3>Datos personales</h3>
+                <dl class="profile-grid">
+                  <div>
+                    <dt>Nombre completo</dt>
+                    <dd>{{ p.firstName }} {{ p.lastName }}</dd>
+                  </div>
+                  <div>
+                    <dt>Documento</dt>
+                    <dd>{{ p.documentId }}</dd>
+                    <span class="field-note">También es tu usuario para ingresar</span>
+                  </div>
+                  <div>
+                    <dt>Género</dt>
+                    <dd>{{ genderLabel(p.gender) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Teléfono</dt>
+                    <dd>{{ p.phone || '—' }}</dd>
+                  </div>
+                </dl>
+              </article>
+
+              <article class="profile-card">
+                <h3>Tu membresía</h3>
+                <dl class="profile-grid">
+                  <div>
+                    <dt>Plan activo</dt>
+                    <dd>{{ p.planName || 'Sin plan' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Estado</dt>
+                    <dd>
+                      <span class="status-badge" [class.inactive]="p.status !== 'ACTIVE'">{{ p.statusLabel }}</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Inicio</dt>
+                    <dd>{{ p.membershipStart ? (p.membershipStart | date: 'mediumDate') : '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Vence</dt>
+                    <dd>{{ p.membershipEnd ? (p.membershipEnd | date: 'mediumDate') : '—' }}</dd>
+                  </div>
+                </dl>
+              </article>
+            </div>
+          </section>
+        }
+
+        @if (activeTab() === 'avances') {
+          <section class="tab-panel tab-panel--flush" role="tabpanel" id="cuadro-avances">
+            <app-affiliate-progress [embedded]="true" />
+          </section>
+        }
+
+        @if (activeTab() === 'seguridad') {
+          <section class="tab-panel panel" role="tabpanel" id="seguridad">
+            <header class="tab-panel-head">
+              <h2>Seguridad</h2>
+              <p>Cambia tu contraseña de acceso al portal.</p>
+            </header>
+
+            <div class="security-card">
+              <p class="security-note">
+                <strong>Usuario:</strong> {{ p.documentId }}
+              </p>
+
+              @if (passwordMessage()) {
+                <p class="alert info">{{ passwordMessage() }}</p>
+              }
+              @if (passwordError()) {
+                <p class="alert error">{{ passwordError() }}</p>
+              }
+
+              <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+                <label>
+                  Contraseña actual
+                  <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+                </label>
+                <label>
+                  Nueva contraseña
+                  <input type="password" formControlName="newPassword" autocomplete="new-password" />
+                </label>
+                <label>
+                  Confirmar nueva contraseña
+                  <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
+                </label>
+                @if (passwordForm.hasError('passwordMismatch') && passwordForm.touched) {
+                  <p class="field-error">Las contraseñas nuevas no coinciden</p>
+                }
+                <button type="submit" class="btn-primary" [disabled]="passwordSaving()">
+                  {{ passwordSaving() ? 'Guardando...' : 'Actualizar contraseña' }}
+                </button>
+              </form>
+            </div>
+          </section>
+        }
+      </div>
+    }
+  </main>
+</div>

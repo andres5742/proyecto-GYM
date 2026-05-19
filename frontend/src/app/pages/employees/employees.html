@@ -1,7 +1,11 @@
 <section class="page-header">
-  <h2>Entrenadores</h2>
+  <h2>{{ isTrainerSelfOnly() ? 'Mi perfil' : 'Entrenadores' }}</h2>
   <p>
-    Registra a cada entrenador con acceso al sistema, rol y datos de pago (Nequi o cuenta bancaria).
+    @if (isTrainerSelfOnly()) {
+      Actualiza tus datos personales, acceso al sistema y dónde recibes el pago.
+    } @else {
+      Registra a cada entrenador con acceso al sistema, rol y datos de pago (Nequi o cuenta bancaria).
+    }
   </p>
 </section>
 
@@ -9,9 +13,9 @@
   <p class="alert info">{{ message() }}</p>
 }
 
-<div class="grid">
+<div class="grid" [class.trainer-profile]="isTrainerSelfOnly()">
   <form class="panel form-panel" [formGroup]="form" (ngSubmit)="save()">
-    <h3>{{ editingId() ? 'Editar entrenador' : 'Nuevo entrenador' }}</h3>
+    <h3>{{ isTrainerSelfOnly() ? 'Editar mi información' : editingId() ? 'Editar entrenador' : 'Nuevo entrenador' }}</h3>
 
     <p class="form-section-title">Datos personales</p>
 
@@ -43,17 +47,25 @@
         autocomplete="new-password"
       />
     </label>
-    <label>
-      Rol
-      <select formControlName="role">
-        @for (opt of roleOptions; track opt.value) {
-          <option [ngValue]="opt.value">{{ opt.label }}</option>
-        }
-      </select>
-    </label>
+    @if (!isTrainerSelfOnly()) {
+      <label>
+        Rol
+        <select formControlName="role">
+          @for (opt of roleOptions; track opt.value) {
+            <option [ngValue]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </label>
+    }
 
     <p class="form-section-title">Dónde consignar el pago</p>
-    <p class="payment-hint">Solo visible para administración. Indica Nequi, cuenta o ambos.</p>
+    <p class="payment-hint">
+      @if (isTrainerSelfOnly()) {
+        Indica Nequi, cuenta bancaria o ambos para recibir tu pago.
+      } @else {
+        Solo visible para administración. Indica Nequi, cuenta o ambos.
+      }
+    </p>
 
     <label>
       Nequi (número)
@@ -68,65 +80,79 @@
       <input formControlName="bankAccountNumber" placeholder="Cuenta bancaria" inputmode="numeric" />
     </label>
 
-    <label class="checkbox">
-      <input type="checkbox" formControlName="active" />
-      Entrenador activo
-    </label>
+    @if (!isTrainerSelfOnly()) {
+      <label class="checkbox">
+        <input type="checkbox" formControlName="active" />
+        Entrenador activo
+      </label>
+    }
 
     <div class="actions">
       <button type="submit" class="btn-primary" [disabled]="saving()">
-        {{ saving() ? 'Guardando...' : editingId() ? '✓ Guardar cambios' : '✓ Registrar entrenador' }}
+        {{
+          saving()
+            ? 'Guardando...'
+            : isTrainerSelfOnly()
+              ? '✓ Guardar mi información'
+              : editingId()
+                ? '✓ Guardar cambios'
+                : '✓ Registrar entrenador'
+        }}
       </button>
-      <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
+      @if (!isTrainerSelfOnly()) {
+        <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
+      }
     </div>
   </form>
 
-  <div class="panel table-panel">
-    <h3>Equipo registrado</h3>
-    @if (loading()) {
-      <p>Cargando...</p>
-    } @else if (employees().length === 0) {
-      <p class="empty-state">Agrega entrenadores para ventas y jornadas.</p>
-    } @else {
-      <div class="table-wrap">
-        <table class="employees-table">
-          <thead>
-            <tr>
-              <th>Entrenador</th>
-              <th>Usuario</th>
-              <th>Rol</th>
-              <th>Teléfono</th>
-              <th>Nequi</th>
-              <th>Banco</th>
-              <th>Cuenta</th>
-              <th>Estado</th>
-              <th class="col-actions">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (emp of employees(); track emp.id) {
+  @if (!isTrainerSelfOnly()) {
+    <div class="panel table-panel">
+      <h3>Equipo registrado</h3>
+      @if (loading()) {
+        <p>Cargando...</p>
+      } @else if (employees().length === 0) {
+        <p class="empty-state">Agrega entrenadores para ventas y jornadas.</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="employees-table">
+            <thead>
               <tr>
-                <td class="col-name"><strong>{{ emp.fullName }}</strong></td>
-                <td>{{ emp.username || '—' }}</td>
-                <td>{{ emp.roleLabel || '—' }}</td>
-                <td>{{ emp.phone || '—' }}</td>
-                <td class="col-payment">{{ emp.nequiNumber || '—' }}</td>
-                <td>{{ emp.bankName || '—' }}</td>
-                <td class="col-payment">{{ emp.bankAccountNumber || '—' }}</td>
-                <td>
-                  <span class="badge" [class.inactive]="!emp.active">
-                    {{ emp.active ? 'Activo' : 'Inactivo' }}
-                  </span>
-                </td>
-                <td class="row-actions">
-                  <button type="button" class="btn-edit" (click)="startEdit(emp)">Editar</button>
-                  <button type="button" class="btn-delete" (click)="remove(emp.id)">Eliminar</button>
-                </td>
+                <th>Entrenador</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Teléfono</th>
+                <th>Nequi</th>
+                <th>Banco</th>
+                <th>Cuenta</th>
+                <th>Estado</th>
+                <th class="col-actions">Acciones</th>
               </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
-  </div>
+            </thead>
+            <tbody>
+              @for (emp of employees(); track emp.id) {
+                <tr>
+                  <td class="col-name"><strong>{{ emp.fullName }}</strong></td>
+                  <td>{{ emp.username || '—' }}</td>
+                  <td>{{ emp.roleLabel || '—' }}</td>
+                  <td>{{ emp.phone || '—' }}</td>
+                  <td class="col-payment">{{ emp.nequiNumber || '—' }}</td>
+                  <td>{{ emp.bankName || '—' }}</td>
+                  <td class="col-payment">{{ emp.bankAccountNumber || '—' }}</td>
+                  <td>
+                    <span class="badge" [class.inactive]="!emp.active">
+                      {{ emp.active ? 'Activo' : 'Inactivo' }}
+                    </span>
+                  </td>
+                  <td class="row-actions">
+                    <button type="button" class="btn-edit" (click)="startEdit(emp)">Editar</button>
+                    <button type="button" class="btn-delete" (click)="remove(emp.id)">Eliminar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
 </div>

@@ -1,7 +1,8 @@
 .grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: minmax(280px, 340px) 1fr;
   gap: 1rem;
+  align-items: start;
 }
 
 .panel {
@@ -10,33 +11,103 @@
   .checkbox {
     flex-direction: row;
     align-items: center;
-  }
-
-  button[type='submit'] {
-    width: 100%;
-    padding: 0.55rem;
-    cursor: pointer;
-    border-radius: 0.5rem;
+    gap: 0.5rem;
   }
 }
 
-.plan-list li {
+.form-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid var(--color-border);
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+
+  .btn-primary {
+    width: 100%;
+  }
+
+  .secondary {
+    width: 100%;
+    min-height: 2.75rem;
+    text-align: center;
+  }
+}
+
+.plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--color-border, #e5e5e5);
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.plan-info {
+  min-width: 0;
 
   p {
     margin: 0.25rem 0 0;
-    color: var(--color-text-muted);
+    color: var(--color-text-muted, #666);
     font-size: 0.9rem;
   }
 }
 
-.badge.inactive {
-  background: var(--color-surface-muted);
-  color: var(--color-text-muted);
+.plan-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+
+  .price {
+    font-weight: 600;
+  }
+}
+
+.plan-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-end;
+
+  .link {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.9rem;
+
+    &.danger {
+      color: var(--color-danger, #c0392b);
+    }
+  }
+}
+
+.badge {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-success-soft, #e8f5e9);
+  color: var(--color-success, #2e7d32);
+
+  &.inactive {
+    background: var(--color-surface-muted, #f0f0f0);
+    color: var(--color-text-muted, #666);
+  }
+}
+
+.muted {
+  color: var(--color-text-muted, #666);
 }
 
 @media (max-width: 960px) {

@@ -33,7 +33,8 @@ public final class SaleMapper {
             case CASH -> "Efectivo";
             case NEQUI -> "Nequi";
             case BANCOLOMBIA -> "Bancolombia";
-            case PENDING -> "Pendiente de pago";
+            case AUX -> "Sistema AUX";
+            case PENDING -> "Pendiente de pago / deuda";
         };
     }
 }

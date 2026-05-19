@@ -3,17 +3,16 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, AuthUser, LoginRequest } from '../models/auth.model';
-
-const TOKEN_KEY = 'gym_auth_token';
-const USER_KEY = 'gym_auth_user';
+import { AuthResponse, AuthUser, LoginRequest, ROLE_LABELS } from '../models/auth.model';
+import { TokenStorageService } from './token-storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly storage = inject(TokenStorageService);
 
-  private readonly currentUserSignal = signal<AuthUser | null>(this.loadStoredUser());
+  private readonly currentUserSignal = signal<AuthUser | null>(this.storage.getUser());
 
   readonly currentUser = this.currentUserSignal.asReadonly();
 
@@ -30,14 +29,13 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    this.storage.clear();
     this.currentUserSignal.set(null);
     this.router.navigate(['/']);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    return this.storage.getToken();
   }
 
   isLoggedIn(): boolean {
@@ -49,6 +47,14 @@ export class AuthService {
     return !!user && roles.includes(user.role);
   }
 
+  isAffiliate(): boolean {
+    return this.hasRole('AFFILIATE');
+  }
+
+  isStaff(): boolean {
+    return this.isLoggedIn() && !this.isAffiliate();
+  }
+
   isAdmin(): boolean {
     return this.hasRole('ADMIN', 'SUPER_ADMIN');
   }
@@ -57,31 +63,21 @@ export class AuthService {
     return this.hasRole('SUPER_ADMIN');
   }
 
+  homeRoute(): string {
+    return this.isAffiliate() ? '/mi-cuenta' : '/panel';
+  }
+
   private persistSession(response: AuthResponse): void {
     const user: AuthUser = {
       token: response.token,
-      employeeId: response.employeeId,
+      employeeId: response.employeeId ?? null,
+      memberId: response.memberId ?? null,
       fullName: response.fullName,
       username: response.username,
       role: response.role,
-      roleLabel: response.roleLabel,
+      roleLabel: response.roleLabel || ROLE_LABELS[response.role],
     };
-    if (response.token) {
-      localStorage.setItem(TOKEN_KEY, response.token);
-    }
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.storage.save(response.token, user);
     this.currentUserSignal.set(user);
-  }
-
-  private loadStoredUser(): AuthUser | null {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw) as AuthUser;
-    } catch {
-      return null;
-    }
   }
 }

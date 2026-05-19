@@ -1,8 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { AppModuleItem, ModuleCode, ModuleFlags } from '../models/module.model';
+import {
+  AppModuleItem,
+  ConfigurableRole,
+  ModuleCode,
+  ModuleFlags,
+  RoleModulePermission,
+} from '../models/module.model';
 import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
@@ -17,6 +24,7 @@ export class ModuleService {
 
   readonly publicModules = this.publicFlags.asReadonly();
   readonly panelModules = this.panelFlags.asReadonly();
+  readonly isPanelLoaded = this.loadedPanel.asReadonly();
 
   loadPublic(): Observable<ModuleFlags> {
     return this.http.get<ModuleFlags>(`${environment.apiUrl}/modules/public`).pipe(
@@ -28,6 +36,10 @@ export class ModuleService {
   }
 
   loadPanel(): Observable<ModuleFlags> {
+    if (this.auth.isAffiliate()) {
+      this.loadedPanel.set(true);
+      return of({});
+    }
     return this.http.get<ModuleFlags>(`${environment.apiUrl}/modules`).pipe(
       tap((flags) => {
         this.panelFlags.set(flags);
@@ -44,16 +56,54 @@ export class ModuleService {
     return this.http.patch<AppModuleItem>(`${environment.apiUrl}/modules/${code}`, { enabled });
   }
 
+  findRolePermissions(role: ConfigurableRole): Observable<RoleModulePermission[]> {
+    return this.http.get<RoleModulePermission[]>(`${environment.apiUrl}/modules/roles/${role}/permissions`);
+  }
+
+  setRolePermission(
+    role: ConfigurableRole,
+    code: ModuleCode,
+    allowed: boolean,
+  ): Observable<RoleModulePermission> {
+    return this.http.patch<RoleModulePermission>(
+      `${environment.apiUrl}/modules/roles/${role}/permissions/${code}`,
+      { enabled: allowed },
+    );
+  }
+
+  ensurePanelLoaded(): Observable<void> {
+    if (this.loadedPanel() || !this.auth.isLoggedIn() || this.auth.isAffiliate()) {
+      return of(undefined);
+    }
+    return this.loadPanel().pipe(map(() => undefined));
+  }
+
   isEnabled(code: ModuleCode, scope: 'panel' | 'public' = 'panel'): boolean {
     if (this.auth.hasRole('SUPER_ADMIN')) {
       return true;
     }
-    const flags = scope === 'public' ? this.publicFlags() : this.panelFlags();
-    return flags[code] ?? true;
+    if (scope === 'panel') {
+      if (!this.loadedPanel()) {
+        return false;
+      }
+      return this.panelFlags()[code] === true;
+    }
+    if (!this.loadedPublic()) {
+      return false;
+    }
+    return this.publicFlags()[code] === true;
   }
 
   resetPanel(): void {
     this.panelFlags.set({});
     this.loadedPanel.set(false);
+  }
+
+  reloadPanelForUser(): Observable<ModuleFlags> {
+    this.resetPanel();
+    if (!this.auth.isLoggedIn() || this.auth.isAffiliate()) {
+      return of({});
+    }
+    return this.loadPanel();
   }
 }

@@ -5,7 +5,9 @@ import com.gym.management.dto.WorkAttendanceRequest;
 import com.gym.management.dto.WorkAttendanceResponse;
 import com.gym.management.service.WorkAttendanceService;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,13 +29,21 @@ public class WorkAttendanceController {
     private final WorkAttendanceService attendanceService;
 
     @GetMapping
-    public List<WorkAttendanceResponse> findAll(@RequestParam(required = false) Long employeeId) {
-        return attendanceService.findAll(employeeId);
+    public List<WorkAttendanceResponse> findAll(
+            @RequestParam(required = false) Long employeeId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return attendanceService.findAll(employeeId, year, month, date);
     }
 
     @GetMapping("/summary")
-    public AttendanceSummaryResponse getSummary() {
-        return attendanceService.getSummary();
+    public AttendanceSummaryResponse getSummary(
+            @RequestParam(required = false) Long employeeId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return attendanceService.getSummary(employeeId, year, month, date);
     }
 
     @PostMapping("/clock-in/{employeeId}")

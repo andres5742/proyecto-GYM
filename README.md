@@ -46,10 +46,10 @@ API disponible en `http://localhost:8081`
 | Método | Ruta              | Descripción        |
 |--------|-------------------|--------------------|
 | GET    | /api/health       | Estado del servicio|
-| GET    | /api/members      | Listar socios      |
-| POST   | /api/members      | Crear socio        |
-| PUT    | /api/members/{id} | Actualizar socio   |
-| DELETE | /api/members/{id} | Eliminar socio     |
+| GET    | /api/members      | Listar afiliados      |
+| POST   | /api/members      | Crear afiliado        |
+| PUT    | /api/members/{id} | Actualizar afiliado   |
+| DELETE | /api/members/{id} | Eliminar afiliado     |
 | GET    | /api/plans        | Listar planes      |
 | POST   | /api/plans        | Crear plan         |
 | GET    | /api/products     | Listar productos   |

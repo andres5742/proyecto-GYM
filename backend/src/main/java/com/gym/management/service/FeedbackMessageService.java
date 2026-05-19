@@ -6,9 +6,11 @@ import com.gym.management.dto.FeedbackStatusUpdateRequest;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.model.FeedbackMessage;
+import com.gym.management.model.FeedbackMessageImage;
 import com.gym.management.model.FeedbackStatus;
 import com.gym.management.model.FeedbackType;
 import com.gym.management.repository.FeedbackMessageRepository;
+import com.gym.management.security.SecurityUtils;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class FeedbackMessageService {
+
+    private static final int MAX_IMAGES = 4;
 
     private final FeedbackMessageRepository feedbackMessageRepository;
 
@@ -36,6 +40,7 @@ public class FeedbackMessageService {
                 .authorName(name)
                 .status(FeedbackStatus.PENDING)
                 .build();
+        syncImages(message, request.imageUrls());
         return toResponse(feedbackMessageRepository.save(message));
     }
 
@@ -67,13 +72,41 @@ public class FeedbackMessageService {
 
     @Transactional
     public void delete(Long id) {
+        if (!SecurityUtils.isSuperAdmin()) {
+            throw new BusinessException("Solo el super administrador puede eliminar mensajes del buzón");
+        }
         if (!feedbackMessageRepository.existsById(id)) {
             throw new ResourceNotFoundException("Mensaje no encontrado: " + id);
         }
         feedbackMessageRepository.deleteById(id);
     }
 
+    private void syncImages(FeedbackMessage message, List<String> imageUrls) {
+        message.getImages().clear();
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+        List<String> cleaned = imageUrls.stream()
+                .filter(url -> url != null && !url.isBlank())
+                .map(String::trim)
+                .distinct()
+                .limit(MAX_IMAGES)
+                .toList();
+        int order = 0;
+        for (String url : cleaned) {
+            message.getImages()
+                    .add(FeedbackMessageImage.builder()
+                            .feedbackMessage(message)
+                            .imageUrl(url)
+                            .displayOrder(order++)
+                            .build());
+        }
+    }
+
     private FeedbackMessageResponse toResponse(FeedbackMessage message) {
+        List<String> imageUrls = message.getImages().stream()
+                .map(FeedbackMessageImage::getImageUrl)
+                .toList();
         return new FeedbackMessageResponse(
                 message.getId(),
                 message.getType(),
@@ -86,7 +119,8 @@ public class FeedbackMessageService {
                 statusLabel(message.getStatus()),
                 message.getAdminNote(),
                 message.getCreatedAt(),
-                message.getResolvedAt());
+                message.getResolvedAt(),
+                imageUrls);
     }
 
     private static String displayName(FeedbackMessage message) {

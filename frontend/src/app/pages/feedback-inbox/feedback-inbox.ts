@@ -1,20 +1,26 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { ImageLightbox } from '../../components/image-lightbox/image-lightbox';
 import { FeedbackMessage, FeedbackStatus } from '../../core/models/feedback.model';
+import { UploadUrlPipe } from '../../core/pipes/upload-url.pipe';
+import { AuthService } from '../../core/services/auth.service';
 import { FeedbackService } from '../../core/services/feedback.service';
 
 type FilterStatus = 'ALL' | FeedbackStatus;
 
 @Component({
   selector: 'app-feedback-inbox',
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule, DatePipe, UploadUrlPipe, ImageLightbox],
   templateUrl: './feedback-inbox.html',
   styleUrl: './feedback-inbox.scss',
 })
 export class FeedbackInboxPage implements OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
   private readonly feedbackService = inject(FeedbackService);
+
+  protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
 
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
@@ -22,6 +28,8 @@ export class FeedbackInboxPage implements OnInit {
   protected readonly items = signal<FeedbackMessage[]>([]);
   protected readonly filter = signal<FilterStatus>('ALL');
   protected readonly selectedId = signal<number | null>(null);
+  protected readonly lightboxSrc = signal<string | null>(null);
+  protected readonly lightboxAlt = signal('Foto adjunta al mensaje');
 
   protected readonly noteForm = this.fb.nonNullable.group({
     adminNote: [''],
@@ -115,5 +123,18 @@ export class FeedbackInboxPage implements OnInit {
 
   statusClass(status: FeedbackStatus): string {
     return `status-${status.toLowerCase()}`;
+  }
+
+  hasImages(item: FeedbackMessage): boolean {
+    return (item.imageUrls?.length ?? 0) > 0;
+  }
+
+  openLightbox(url: string, index: number): void {
+    this.lightboxAlt.set(`Foto ${index + 1} del mensaje`);
+    this.lightboxSrc.set(url);
+  }
+
+  closeLightbox(): void {
+    this.lightboxSrc.set(null);
   }
 }

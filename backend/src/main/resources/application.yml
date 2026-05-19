@@ -2,7 +2,7 @@ spring:
   application:
     name: gym-management
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gym_db}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gym_db}?sslmode=disable
     username: ${DB_USER:gym_user}
     password: ${DB_PASSWORD:gym_pass}
   jpa:

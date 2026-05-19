@@ -1,7 +1,7 @@
 <section class="page-header">
   <h2>Acceso con huella y torniquete</h2>
   <p>
-    Vincula el ID de huella del lector biométrico con cada socio. Al escanear, el sistema valida la
+    Vincula el ID de huella del lector biométrico con cada afiliado. Al escanear, el sistema valida la
     membresía y envía la señal para abrir el torniquete.
   </p>
   <a routerLink="/acceso" target="_blank" class="kiosk-link">Abrir pantalla del torniquete ↗</a>
@@ -13,16 +13,16 @@
 
 <div class="access-grid">
   <form class="panel enroll-panel" [formGroup]="enrollForm" (ngSubmit)="enroll()">
-    <h3>Registrar huella de un socio</h3>
+    <h3>Registrar huella de un afiliado</h3>
     <ol class="steps-hint">
       <li>Registra la huella en el lector físico (ZKTeco, etc.)</li>
       <li>Anota el <strong>ID de usuario</strong> que muestra el dispositivo</li>
-      <li>Vincúlalo aquí con el socio del sistema</li>
+      <li>Vincúlalo aquí con el afiliado del sistema</li>
     </ol>
     <label>
-      Socio
+      Afiliado
       <select formControlName="memberId">
-        <option [ngValue]="null">Selecciona un socio</option>
+        <option [ngValue]="null">Selecciona un afiliado</option>
         @for (m of members(); track m.id) {
           <option [ngValue]="m.id">{{ m.firstName }} {{ m.lastName }}</option>
         }
@@ -42,7 +42,7 @@
   </form>
 
   <section class="panel">
-    <h3>Socios con huella registrada</h3>
+    <h3>Afiliados con huella registrada</h3>
     @if (enrollments().length === 0) {
       <p class="muted">Aún no hay huellas vinculadas.</p>
     } @else {
@@ -81,7 +81,7 @@
         <thead>
           <tr>
             <th>Fecha</th>
-            <th>Socio</th>
+            <th>Afiliado</th>
             <th>ID huella</th>
             <th>Resultado</th>
             <th>Mensaje</th>

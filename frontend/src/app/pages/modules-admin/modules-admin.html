@@ -1,8 +1,8 @@
 <div class="page-head">
   <h1>Módulos del sistema</h1>
   <p class="hint">
-    Solo el super administrador puede activar o desactivar funciones. Los demás roles dejarán de ver
-    lo que esté apagado. Tú siempre ves todo para poder configurar.
+    Activa o desactiva funciones para todo el gimnasio y define qué puede ver cada rol en el panel.
+    El super administrador siempre ve todo.
   </p>
 </div>
 
@@ -14,7 +14,8 @@
   <p class="muted">Cargando módulos...</p>
 } @else {
   <section class="panel">
-    <h2>Panel de administración</h2>
+    <h2>Activación global</h2>
+    <p class="section-hint">Si un módulo está inactivo aquí, nadie puede usarlo (salvo super admin).</p>
     <ul class="module-list">
       @for (m of panelModules(); track m.code) {
         <li [class.disabled-row]="!m.enabled">
@@ -37,6 +38,57 @@
         </li>
       }
     </ul>
+  </section>
+
+  <section class="panel role-panel">
+    <h2>Permisos por rol</h2>
+    <p class="section-hint">
+      Elige el rol y marca qué módulos del panel puede ver. Solo aplica si el módulo está activo
+      globalmente.
+    </p>
+
+    <div class="role-tabs">
+      @for (r of configurableRoles; track r.value) {
+        <button
+          type="button"
+          class="role-tab"
+          [class.active]="selectedRole() === r.value"
+          (click)="selectRole(r.value)"
+        >
+          {{ r.label }}
+        </button>
+      }
+    </div>
+
+    @if (loadingRole()) {
+      <p class="muted">Cargando permisos de {{ selectedRoleLabel() }}...</p>
+    } @else {
+      <ul class="module-list">
+        @for (p of rolePermissions(); track p.moduleCode) {
+          <li [class.disabled-row]="!p.allowed || !p.globallyEnabled">
+            <div class="module-info">
+              <strong>{{ p.moduleName }}</strong>
+              <span class="code">{{ p.moduleCode }}</span>
+              @if (p.description) {
+                <p>{{ p.description }}</p>
+              }
+              @if (!p.globallyEnabled) {
+                <p class="warn">Desactivado globalmente — actívalo arriba primero.</p>
+              }
+            </div>
+            <label class="toggle" [class.locked]="!p.globallyEnabled">
+              <input
+                type="checkbox"
+                [checked]="p.allowed && p.globallyEnabled"
+                [disabled]="savingRole() === p.moduleCode || !p.globallyEnabled"
+                (change)="toggleRolePermission(p)"
+              />
+              <span>{{ p.allowed && p.globallyEnabled ? 'Visible' : 'Oculto' }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    }
   </section>
 
   <section class="panel">

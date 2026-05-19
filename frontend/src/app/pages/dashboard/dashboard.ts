@@ -1,4 +1,4 @@
-import { CurrencyPipe } from '@angular/common';
+import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -10,7 +10,7 @@ import { ProductService } from '../../core/services/product.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, CurrencyPipe],
+  imports: [RouterLink, CopCurrencyPipe],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
@@ -38,7 +38,7 @@ export class Dashboard implements OnInit {
     if (this.auth.isAdmin() && this.modules.isEnabled('SOCIOS')) {
       this.memberService.findAll().subscribe({
         next: (members) => this.memberCount.set(members.length),
-        error: () => this.error.set('No se pudieron cargar los socios'),
+        error: () => this.error.set('No se pudieron cargar los afiliados'),
       });
     }
 

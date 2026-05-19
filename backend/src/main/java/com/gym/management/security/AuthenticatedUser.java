@@ -10,11 +10,25 @@ import java.util.List;
 
 public record AuthenticatedUser(
         Long employeeId,
+        Long memberId,
         String username,
         String passwordHash,
         UserRole role,
-        boolean active
+        boolean active,
+        String fullName
 ) implements UserDetails {
+
+    public String fullName() {
+        return fullName != null ? fullName.trim() : username;
+    }
+
+    public boolean isAffiliate() {
+        return role == UserRole.AFFILIATE;
+    }
+
+    public boolean isEmployee() {
+        return employeeId != null;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

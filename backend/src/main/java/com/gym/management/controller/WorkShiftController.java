@@ -1,6 +1,7 @@
 package com.gym.management.controller;
 
 import com.gym.management.dto.SalesSummaryResponse;
+import com.gym.management.dto.ShiftDetailResponse;
 import com.gym.management.dto.WorkShiftRequest;
 import com.gym.management.dto.WorkShiftResponse;
 import com.gym.management.service.SaleService;
@@ -10,6 +11,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,5 +56,16 @@ public class WorkShiftController {
     @GetMapping("/{id}/sales-summary")
     public SalesSummaryResponse salesSummary(@PathVariable Long id) {
         return saleService.getSummary(id);
+    }
+
+    @GetMapping("/{id}/detail")
+    public ShiftDetailResponse detail(@PathVariable Long id) {
+        return saleService.getShiftDetail(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        workShiftService.delete(id);
     }
 }

@@ -13,6 +13,7 @@ import localeEsCo from '@angular/common/locales/es-CO';
 
 import { APP_CURRENCY, APP_LOCALE } from './core/constants/currency';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { AuthService } from './core/services/auth.service';
 import { ModuleService } from './core/services/module.service';
 import { routes } from './app.routes';
 
@@ -25,7 +26,12 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor])),
     provideAppInitializer(() => {
       const modules = inject(ModuleService);
-      return modules.loadPublic();
+      const auth = inject(AuthService);
+      modules.loadPublic().subscribe();
+      if (auth.isLoggedIn() && auth.isStaff()) {
+        return modules.loadPanel();
+      }
+      return Promise.resolve();
     }),
     { provide: LOCALE_ID, useValue: APP_LOCALE },
     { provide: DEFAULT_CURRENCY_CODE, useValue: APP_CURRENCY },

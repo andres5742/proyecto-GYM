@@ -1,4 +1,4 @@
-export type PaymentMethod = 'CASH' | 'NEQUI' | 'BANCOLOMBIA' | 'PENDING';
+export type PaymentMethod = 'CASH' | 'NEQUI' | 'BANCOLOMBIA' | 'AUX' | 'PENDING';
 
 export interface Sale {
   id: number;
@@ -28,6 +28,17 @@ export interface SaleRequest {
   notes?: string;
 }
 
+export interface BatchSaleLine {
+  productId: number;
+  paymentMethod: PaymentMethod;
+  quantity: number;
+}
+
+export interface BatchSaleRequest {
+  workShiftId: number;
+  lines: BatchSaleLine[];
+}
+
 export interface SalesSummary {
   totalSales: number;
   totalUnits: number;
@@ -39,5 +50,9 @@ export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'CASH', label: 'Efectivo' },
   { value: 'NEQUI', label: 'Nequi' },
   { value: 'BANCOLOMBIA', label: 'Bancolombia' },
-  { value: 'PENDING', label: 'Pendiente de pago' },
+  { value: 'AUX', label: 'Sistema AUX' },
+  { value: 'PENDING', label: 'Pendiente / deuda' },
 ];
+
+/** Medios registrables en ventas (AUX se declara solo en entrega de turno). */
+export const SALES_PAYMENT_METHODS = PAYMENT_METHODS.filter((pm) => pm.value !== 'AUX');

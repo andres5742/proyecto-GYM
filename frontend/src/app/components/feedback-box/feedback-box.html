@@ -5,8 +5,8 @@
       <span class="hero-badge">📬 Tu voz importa</span>
       <h2>Buzón de sugerencias</h2>
       <p>
-        Ayúdanos a mejorar Sport Gym R.IO. En 3 pasos puedes enviar una sugerencia, queja o
-        felicitación — con tu nombre o en total confidencialidad.
+        Ayúdanos a mejorar Sport Gym R.IO. En pocos pasos puedes enviar una sugerencia, queja o
+        felicitación — con fotos opcionales, tu nombre o en total confidencialidad.
       </p>
     </div>
   </div>
@@ -14,7 +14,8 @@
   <ol class="steps-strip" aria-label="Pasos para enviar">
     <li><span class="step-num">1</span> Elige el tipo</li>
     <li><span class="step-num">2</span> Cuéntanos</li>
-    <li><span class="step-num">3</span> Identificación</li>
+    <li><span class="step-num">3</span> Fotos (opcional)</li>
+    <li><span class="step-num">4</span> Identificación</li>
   </ol>
 
   @if (success()) {
@@ -68,9 +69,59 @@
       </label>
     </div>
 
-    <div class="form-step identity-step">
+    <div class="form-step photos-step">
       <h3 class="step-title">
         <span class="step-badge">Paso 3</span>
+        Fotos (opcional)
+      </h3>
+      <p class="step-help">
+        Puedes adjuntar hasta {{ maxPhotos }} imágenes para que el equipo entienda mejor (JPG, PNG,
+        WEBP o GIF · máx. 5 MB c/u).
+      </p>
+
+      @if (pendingPhotos().length > 0) {
+        <ul class="photo-previews">
+          @for (photo of pendingPhotos(); track photo.id) {
+            <li class="photo-thumb-wrap">
+              <img [src]="photoDisplayUrl(photo)" alt="Vista previa de foto adjunta" />
+              @if (photo.uploading) {
+                <span class="photo-status uploading">Subiendo...</span>
+              } @else if (photo.error) {
+                <span class="photo-status error">{{ photo.error }}</span>
+              }
+              <button
+                type="button"
+                class="photo-remove"
+                (click)="removePhoto(photo.id)"
+                aria-label="Quitar foto"
+              >
+                ×
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (canAddPhotos()) {
+        <label class="photo-upload-btn">
+          <span class="upload-icon">📷</span>
+          <span>Agregar fotos</span>
+          <span class="upload-hint"
+            >{{ photosRemaining() }} disponible{{ photosRemaining() === 1 ? '' : 's' }}</span
+          >
+          <input
+            type="file"
+            [attr.accept]="acceptedTypes"
+            multiple
+            (change)="onPhotosSelected($event)"
+          />
+        </label>
+      }
+    </div>
+
+    <div class="form-step identity-step">
+      <h3 class="step-title">
+        <span class="step-badge">Paso 4</span>
         ¿Cómo te identificamos?
       </h3>
       <div class="identity-picker">
@@ -106,7 +157,11 @@
       }
     </div>
 
-    <button type="submit" class="btn btn-primary btn-send" [disabled]="saving()">
+    <button
+      type="submit"
+      class="btn btn-primary btn-send"
+      [disabled]="saving() || uploadingPhotos()"
+    >
       <span class="send-icon">{{ saving() ? '⏳' : '📨' }}</span>
       {{ saving() ? 'Enviando tu mensaje...' : 'Enviar al buzón del gym' }}
     </button>

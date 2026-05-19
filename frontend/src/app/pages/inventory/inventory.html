@@ -9,123 +9,173 @@
 
 <div class="summary">
   <article class="summary-card">
-    <span>Productos</span>
-    <strong>{{ products().length }}</strong>
+    <span class="summary-icon" aria-hidden="true">📦</span>
+    <div>
+      <span>Productos</span>
+      <strong>{{ products().length }}</strong>
+    </div>
   </article>
   <article class="summary-card">
-    <span>Unidades en stock</span>
-    <strong>{{ totalUnits() }}</strong>
+    <span class="summary-icon" aria-hidden="true">🔢</span>
+    <div>
+      <span>Unidades en stock</span>
+      <strong>{{ totalUnits() }}</strong>
+    </div>
   </article>
   <article class="summary-card">
-    <span>Valor total inventario</span>
-    <strong>{{ totalValue() | currency }}</strong>
+    <span class="summary-icon" aria-hidden="true">💰</span>
+    <div>
+      <span>Valor total inventario</span>
+      <strong>{{ totalValue() | cop }}</strong>
+    </div>
   </article>
   <article class="summary-card warn">
-    <span>Stock bajo</span>
-    <strong>{{ lowStockCount() }}</strong>
+    <span class="summary-icon" aria-hidden="true">⚠️</span>
+    <div>
+      <span>Stock bajo</span>
+      <strong>{{ lowStockCount() }}</strong>
+    </div>
   </article>
 </div>
 
-<div class="grid">
-  <form class="panel" [formGroup]="form" (ngSubmit)="save()">
-    <h3>{{ editingId() ? 'Editar producto' : 'Nuevo producto' }}</h3>
+<div class="inventory-layout">
+  <form class="panel form-panel" [formGroup]="form" (ngSubmit)="save()">
+    <header class="form-panel-header">
+      <span class="form-icon" aria-hidden="true">{{ editingId() ? '✏️' : '➕' }}</span>
+      <h3>{{ editingId() ? 'Editar producto' : 'Nuevo producto' }}</h3>
+    </header>
 
-    <label>
-      Nombre
-      <input formControlName="name" />
-    </label>
-    <label>
-      Categoría
-      <input formControlName="category" placeholder="Ej: Suplementos, Ropa" />
-    </label>
-    <label>
-      Descripción
-      <textarea formControlName="description" rows="2"></textarea>
-    </label>
-    <label>
-      Cantidad en stock
-      <input type="number" formControlName="quantity" min="0" />
-    </label>
-    <label>
-      Precio unitario (COP)
-      <input type="number" formControlName="unitPrice" min="0" step="0.01" />
-    </label>
-    <label>
-      Stock mínimo (alerta)
-      <input type="number" formControlName="minStock" min="0" />
-    </label>
-    <label class="checkbox">
-      <input type="checkbox" formControlName="active" />
-      Producto activo
-    </label>
-
-    <div class="actions">
-      <button type="submit" [disabled]="saving()">
-        {{ saving() ? 'Guardando...' : editingId() ? '✓ Guardar cambios' : '✓ Registrar producto' }}
-      </button>
-      <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
-      <p class="psych-reassurance">Al vender, el stock se descuenta solo. Si te equivocas, puedes anular la venta.</p>
+    <div class="form-section">
+      <h4 class="section-label">Datos del producto</h4>
+      <label class="field-block">
+        <span class="field-label">Nombre</span>
+        <input class="field-control" formControlName="name" />
+      </label>
+      <label class="field-block">
+        <span class="field-label">Categoría</span>
+        <input class="field-control" formControlName="category" placeholder="Ej: Suplementos, Ropa" />
+      </label>
+      <label class="field-block">
+        <span class="field-label">Descripción</span>
+        <textarea class="field-control" formControlName="description" rows="2"></textarea>
+      </label>
     </div>
+
+    <div class="form-section">
+      <h4 class="section-label">Stock y precio</h4>
+      <div class="form-row-2">
+        <label class="field-block">
+          <span class="field-label">Cantidad</span>
+          <input class="field-control" type="number" formControlName="quantity" min="0" />
+        </label>
+        <label class="field-block">
+          <span class="field-label">Stock mínimo</span>
+          <input class="field-control" type="number" formControlName="minStock" min="0" />
+        </label>
+      </div>
+      <label class="field-block">
+        <span class="field-label">Precio unitario (COP)</span>
+        <input class="field-control" type="number" formControlName="unitPrice" min="0" step="1" />
+      </label>
+    </div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" formControlName="active" />
+      <span>Producto activo</span>
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Guardando...' : editingId() ? 'Guardar cambios' : 'Registrar producto' }}
+      </button>
+      <button type="button" class="btn secondary" (click)="startCreate()">Empezar de nuevo</button>
+    </div>
+
+    <p class="info-tip">
+      Al vender, el stock se descuenta solo. Si te equivocas, puedes anular la venta.
+    </p>
   </form>
 
-  <div class="panel table-panel">
-    <h3>Listado de productos</h3>
+  <div class="panel list-panel">
+    <header class="list-header">
+      <h3>Listado de productos</h3>
+      <span class="list-count">{{ products().length }} producto{{ products().length === 1 ? '' : 's' }}</span>
+    </header>
+
     @if (loading()) {
-      <p>Cargando...</p>
+      <p class="muted">Cargando...</p>
     } @else if (products().length === 0) {
       <p class="empty-state">Agrega tu primer producto con el formulario de la izquierda.</p>
     } @else {
-      <table>
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th>Stock</th>
-            <th>P. unitario</th>
-            <th>Valor stock</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (product of products(); track product.id) {
-            <tr [class.low-stock]="product.lowStock">
-              <td>
-                <strong>{{ product.name }}</strong>
-                @if (product.category) {
-                  <small>{{ product.category }}</small>
-                }
-              </td>
-              <td>
-                <span class="badge" [class.warn]="product.lowStock">
-                  {{ product.quantity }}
-                </span>
-                @if (product.lowStock) {
-                  <small class="warn-text">Stock bajo</small>
-                }
-              </td>
-              <td>{{ product.unitPrice | currency }}</td>
-              <td>{{ product.stockValue | currency }}</td>
-              <td class="row-actions">
-                <button type="button" class="link" (click)="startEdit(product)">Editar</button>
-                <button type="button" class="link danger" (click)="remove(product.id)">
-                  Eliminar
-                </button>
-              </td>
+      <div class="table-wrap">
+        <table class="inventory-table">
+          <colgroup>
+            <col class="col-product" />
+            <col class="col-stock" />
+            <col class="col-price" />
+            <col class="col-value" />
+            <col class="col-actions" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Stock</th>
+              <th>P. unitario</th>
+              <th>Valor stock</th>
+              <th>Acciones</th>
             </tr>
-            <tr class="stock-row">
-              <td colspan="5">
-                <div class="stock-adjust">
-                  <span>Ajuste rápido:</span>
-                  <input #delta type="number" placeholder="+10 / -5" />
-                  <button type="button" class="small" (click)="applyStockAdjustment(product, +delta.value)">
-                    Aplicar
-                  </button>
-                  <small>Positivo = entrada, negativo = salida</small>
-                </div>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (product of products(); track product.id) {
+              <tr [class.low-stock]="product.lowStock" [class.editing]="editingId() === product.id">
+                <td class="col-product">
+                  <strong class="product-name">{{ product.name }}</strong>
+                  @if (product.category) {
+                    <span class="product-category">{{ product.category }}</span>
+                  }
+                </td>
+                <td class="col-stock">
+                  <div class="stock-cell">
+                    <span class="stock-badge" [class.warn]="product.lowStock">{{ product.quantity }}</span>
+                    @if (product.lowStock) {
+                      <span class="low-tag">Bajo</span>
+                    }
+                    <div class="stock-adjust">
+                      <input
+                        #delta
+                        type="number"
+                        class="adjust-input"
+                        min="1"
+                        step="1"
+                        placeholder="+10"
+                        [attr.aria-label]="'Unidades a agregar para ' + product.name"
+                      />
+                      <button
+                        type="button"
+                        class="btn-adjust"
+                        (click)="applyStockAdjustment(product, delta.value); delta.value = ''"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                </td>
+                <td class="col-price">{{ product.unitPrice | cop }}</td>
+                <td class="col-value">
+                  <span class="value-badge">{{ product.stockValue | cop }}</span>
+                </td>
+                <td class="col-actions">
+                  <div class="row-actions">
+                    <button type="button" class="btn-edit" (click)="startEdit(product)">Editar</button>
+                    <button type="button" class="btn-delete" (click)="remove(product.id)">Eliminar</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="adjust-hint">Ajuste rápido: solo entradas. Indica cuántas unidades quieres sumar al stock.</p>
     }
   </div>
 </div>

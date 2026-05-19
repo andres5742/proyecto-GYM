@@ -134,7 +134,7 @@ public class TrainerRatingService {
                 employee.getId(),
                 employee.getFirstName() + " " + employee.getLastName(),
                 employee.getRole(),
-                AuthService.roleLabel(employee.getRole()),
+                employee.getRole().displayLabel(),
                 employee.getActive(),
                 employee.getRatingEligible(),
                 employee.getPhotoUrl());

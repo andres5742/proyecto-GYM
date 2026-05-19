@@ -49,6 +49,28 @@ public class Member {
     @Column(length = 20, unique = true)
     private String documentId;
 
+    @Column(length = 100)
+    private String passwordHash;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean portalAccessEnabled = true;
+
+    @Column(length = 30)
+    private String memberCode;
+
+    private LocalDate birthDate;
+
+    @Column(length = 80)
+    private String eps;
+
+    @Column(length = 20)
+    private String landlinePhone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id")
     private MembershipPlan plan;

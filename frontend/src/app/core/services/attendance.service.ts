@@ -8,21 +8,50 @@ import {
   WorkAttendanceRequest,
 } from '../models/attendance.model';
 
+export interface AttendanceQuery {
+  employeeId?: number;
+  year?: number;
+  month?: number;
+  date?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AttendanceService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/attendance`;
 
-  findAll(employeeId?: number | null): Observable<WorkAttendance[]> {
+  findAll(query: AttendanceQuery = {}): Observable<WorkAttendance[]> {
     let params = new HttpParams();
-    if (employeeId) {
-      params = params.set('employeeId', employeeId);
+    if (query.employeeId != null) {
+      params = params.set('employeeId', query.employeeId);
+    }
+    if (query.year != null) {
+      params = params.set('year', query.year);
+    }
+    if (query.month != null) {
+      params = params.set('month', query.month);
+    }
+    if (query.date) {
+      params = params.set('date', query.date);
     }
     return this.http.get<WorkAttendance[]>(this.baseUrl, { params });
   }
 
-  getSummary(): Observable<AttendanceSummary> {
-    return this.http.get<AttendanceSummary>(`${this.baseUrl}/summary`);
+  getSummary(query: AttendanceQuery = {}): Observable<AttendanceSummary> {
+    let params = new HttpParams();
+    if (query.employeeId != null) {
+      params = params.set('employeeId', query.employeeId);
+    }
+    if (query.year != null) {
+      params = params.set('year', query.year);
+    }
+    if (query.month != null) {
+      params = params.set('month', query.month);
+    }
+    if (query.date) {
+      params = params.set('date', query.date);
+    }
+    return this.http.get<AttendanceSummary>(`${this.baseUrl}/summary`, { params });
   }
 
   create(request: WorkAttendanceRequest): Observable<WorkAttendance> {

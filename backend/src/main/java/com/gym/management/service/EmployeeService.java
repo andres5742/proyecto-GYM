@@ -8,6 +8,7 @@ import com.gym.management.mapper.EmployeeMapper;
 import com.gym.management.model.Employee;
 import com.gym.management.model.UserRole;
 import com.gym.management.repository.EmployeeRepository;
+import com.gym.management.security.AuthenticatedUser;
 import com.gym.management.security.SecurityUtils;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,9 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<EmployeeResponse> findAll() {
+        if (isTrainerOnly()) {
+            return List.of(EmployeeMapper.toResponse(getEmployee(requireCurrentEmployeeId())));
+        }
         return employeeRepository.findAll().stream()
                 .map(EmployeeMapper::toResponse)
                 .toList();
@@ -38,6 +42,7 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeResponse create(EmployeeRequest request) {
+        ensureCanManageTeam();
         validatePaymentInfo(request);
         validateAccessFields(request, null);
         Employee employee = Employee.builder()
@@ -59,6 +64,10 @@ public class EmployeeService {
     @Transactional
     public EmployeeResponse update(Long id, EmployeeRequest request) {
         Employee employee = getEmployee(id);
+        ensureCanModify(employee);
+        if (isTrainerOnly()) {
+            return updateOwnProfile(employee, request);
+        }
         String nequi = coalescePayment(blankToNull(request.nequiNumber()), employee.getNequiNumber());
         String bankName = coalescePayment(blankToNull(request.bankName()), employee.getBankName());
         String bankAccount =
@@ -162,6 +171,7 @@ public class EmployeeService {
 
     @Transactional
     public void delete(Long id) {
+        ensureCanManageTeam();
         if (!employeeRepository.existsById(id)) {
             throw new ResourceNotFoundException("Entrenador no encontrado: " + id);
         }
@@ -169,7 +179,59 @@ public class EmployeeService {
     }
 
     public Employee getEmployee(Long id) {
-        return employeeRepository.findById(id)
+        Employee employee = employeeRepository
+                .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado: " + id));
+        ensureCanModify(employee);
+        return employee;
+    }
+
+    private EmployeeResponse updateOwnProfile(Employee employee, EmployeeRequest request) {
+        String nequi = coalescePayment(blankToNull(request.nequiNumber()), employee.getNequiNumber());
+        String bankName = coalescePayment(blankToNull(request.bankName()), employee.getBankName());
+        String bankAccount =
+                coalescePayment(blankToNull(request.bankAccountNumber()), employee.getBankAccountNumber());
+        validatePaymentInfo(nequi, bankName, bankAccount);
+        validateAccessFields(request, employee.getId());
+        employee.setFirstName(request.firstName());
+        employee.setLastName(request.lastName());
+        employee.setPhone(blankToNull(request.phone()));
+        employee.setUsername(blankToNull(request.username()));
+        if (request.password() != null && !request.password().isBlank()) {
+            employee.setPasswordHash(passwordEncoder.encode(request.password().trim()));
+        }
+        employee.setNequiNumber(nequi);
+        employee.setBankName(bankName);
+        employee.setBankAccountNumber(bankAccount);
+        validateLoginConfigured(employee);
+        return EmployeeMapper.toResponse(employeeRepository.save(employee));
+    }
+
+    private void ensureCanManageTeam() {
+        if (!SecurityUtils.isAdmin()) {
+            throw new BusinessException("No tienes permiso para administrar el equipo");
+        }
+    }
+
+    private void ensureCanModify(Employee employee) {
+        if (SecurityUtils.isAdmin()) {
+            return;
+        }
+        if (isTrainerOnly() && employee.getId().equals(requireCurrentEmployeeId())) {
+            return;
+        }
+        throw new BusinessException("Solo puedes editar tu propia información");
+    }
+
+    private boolean isTrainerOnly() {
+        return SecurityUtils.currentRole() == UserRole.TRAINER;
+    }
+
+    private Long requireCurrentEmployeeId() {
+        AuthenticatedUser user = SecurityUtils.currentUser();
+        if (user == null || user.employeeId() == null) {
+            throw new BusinessException("Sesión no válida");
+        }
+        return user.employeeId();
     }
 }

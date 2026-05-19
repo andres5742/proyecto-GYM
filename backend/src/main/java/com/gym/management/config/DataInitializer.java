@@ -20,6 +20,7 @@ import com.gym.management.repository.HolidayRepository;
 import com.gym.management.repository.MembershipPlanRepository;
 import com.gym.management.repository.SiteFooterRepository;
 import com.gym.management.repository.WallPostRepository;
+import com.gym.management.service.AppModuleService;
 import com.gym.management.service.BusinessHoursService;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -35,6 +36,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class DataInitializer {
 
     private final AppModuleRepository appModuleRepository;
+    private final AppModuleService appModuleService;
     private final MembershipPlanRepository planRepository;
     private final EmployeeRepository employeeRepository;
     private final HolidayRepository holidayRepository;
@@ -56,6 +58,12 @@ public class DataInitializer {
             saveModule("PLANES", "Planes", "Planes de membresía", ModuleCategory.PANEL, order++);
             saveModule("INVENTARIO", "Inventario", "Productos y stock", ModuleCategory.PANEL, order++);
             saveModule("VENTAS", "Ventas", "Registro de ventas", ModuleCategory.PANEL, order++);
+            saveModule(
+                    "ENTREGA_TURNO",
+                    "Entrega de turno",
+                    "Cierre de caja y entrega de dinero del entrenador",
+                    ModuleCategory.PANEL,
+                    order++);
             saveModule("JORNADA", "Jornada", "Control de jornada del equipo", ModuleCategory.PANEL, order++);
             saveModule("ENTRENADORES", "Entrenadores", "Personal y accesos del equipo", ModuleCategory.PANEL, order++);
             saveModule("NOMINA", "Pago por hora", "Configuración de nómina", ModuleCategory.PANEL, order++);
@@ -93,6 +101,26 @@ public class DataInitializer {
                     ModuleCategory.PUBLIC,
                     102);
         };
+    }
+
+    @Bean
+    CommandLineRunner ensureEntregaTurnoModule() {
+        return args -> {
+            if (!appModuleRepository.existsById("ENTREGA_TURNO")) {
+                saveModule(
+                        "ENTREGA_TURNO",
+                        "Entrega de turno",
+                        "Cierre de caja y entrega de dinero del entrenador",
+                        ModuleCategory.PANEL,
+                        6);
+            }
+            appModuleService.ensureDefaultRolePermissions();
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureRoleModulePermissions() {
+        return args -> appModuleService.ensureDefaultRolePermissions();
     }
 
     private void saveModule(

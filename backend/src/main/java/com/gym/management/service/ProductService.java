@@ -46,6 +46,9 @@ public class ProductService {
 
     @Transactional
     public ProductResponse adjustStock(Long id, StockAdjustmentRequest request) {
+        if (request.delta() == null || request.delta() < 1) {
+            throw new BusinessException("Solo se permiten entradas de stock (cantidad mayor a 0)");
+        }
         Product product = getProduct(id);
         int newQuantity = product.getQuantity() + request.delta();
         if (newQuantity < 0) {

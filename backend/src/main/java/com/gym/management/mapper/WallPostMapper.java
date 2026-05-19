@@ -3,7 +3,6 @@ package com.gym.management.mapper;
 import com.gym.management.dto.WallPostResponse;
 import com.gym.management.model.WallPost;
 import com.gym.management.model.WallPostImage;
-import com.gym.management.service.AuthService;
 import java.util.List;
 
 public final class WallPostMapper {
@@ -20,7 +19,7 @@ public final class WallPostMapper {
                 categoryLabel(post.getCategory()),
                 post.getAuthor().getId(),
                 post.getAuthor().getFirstName() + " " + post.getAuthor().getLastName(),
-                AuthService.roleLabel(post.getAuthor().getRole()),
+                post.getAuthor().getRole().displayLabel(),
                 post.getPublishedAt(),
                 post.isPermanent(),
                 post.getDisplayDays(),

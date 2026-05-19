@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UserRole } from '../../core/models/auth.model';
 import { Employee, EmployeeRequest } from '../../core/models/employee.model';
@@ -21,6 +21,10 @@ export class Employees implements OnInit {
   protected readonly saving = signal(false);
   protected readonly message = signal<string | null>(null);
   protected readonly editingId = signal<number | null>(null);
+
+  protected readonly isTrainerSelfOnly = computed(
+    () => this.auth.hasRole('TRAINER') && !this.auth.isAdmin(),
+  );
 
   private readonly allRoleOptions: { value: UserRole; label: string }[] = [
     { value: 'TRAINER', label: 'Entrenador' },
@@ -57,6 +61,9 @@ export class Employees implements OnInit {
     this.employeeService.findAll().subscribe({
       next: (employees) => {
         this.employees.set(employees);
+        if (this.isTrainerSelfOnly() && employees.length === 1) {
+          this.startEdit(employees[0]);
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -67,6 +74,9 @@ export class Employees implements OnInit {
   }
 
   startCreate(): void {
+    if (this.isTrainerSelfOnly()) {
+      return;
+    }
     this.editingId.set(null);
     this.form.reset({
       firstName: '',
@@ -105,31 +115,44 @@ export class Employees implements OnInit {
     }
 
     const raw = this.form.getRawValue();
+    const id = this.editingId();
+    if (!id && this.isTrainerSelfOnly()) {
+      return;
+    }
+
     const request: EmployeeRequest = {
       firstName: raw.firstName,
       lastName: raw.lastName,
       phone: raw.phone || undefined,
       username: raw.username || undefined,
       password: raw.password || undefined,
-      role: raw.role ?? undefined,
       nequiNumber: raw.nequiNumber || undefined,
       bankName: raw.bankName || undefined,
       bankAccountNumber: raw.bankAccountNumber || undefined,
-      active: raw.active,
     };
 
+    if (!this.isTrainerSelfOnly()) {
+      request.role = raw.role ?? undefined;
+      request.active = raw.active;
+    }
+
     this.saving.set(true);
-    const id = this.editingId();
     const action = id
       ? this.employeeService.update(id, request)
       : this.employeeService.create(request);
 
     action.subscribe({
       next: () => {
-        this.message.set(id ? 'Entrenador actualizado' : 'Entrenador registrado');
+        this.message.set(
+          this.isTrainerSelfOnly() ? 'Tu información fue actualizada' : id ? 'Entrenador actualizado' : 'Entrenador registrado',
+        );
         this.saving.set(false);
-        this.startCreate();
-        this.loadEmployees();
+        if (this.isTrainerSelfOnly()) {
+          this.loadEmployees();
+        } else {
+          this.startCreate();
+          this.loadEmployees();
+        }
       },
       error: (err) => {
         this.message.set(err?.error?.message ?? 'No se pudo guardar el entrenador');
@@ -139,6 +162,9 @@ export class Employees implements OnInit {
   }
 
   remove(id: number): void {
+    if (this.isTrainerSelfOnly()) {
+      return;
+    }
     if (!confirm('¿Eliminar este entrenador?')) {
       return;
     }

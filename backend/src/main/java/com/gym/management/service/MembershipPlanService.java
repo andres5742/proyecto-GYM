@@ -6,6 +6,7 @@ import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.MembershipPlanMapper;
 import com.gym.management.model.MembershipPlan;
+import com.gym.management.repository.MemberRepository;
 import com.gym.management.repository.MembershipPlanRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipPlanService {
 
     private final MembershipPlanRepository planRepository;
+    private final MemberRepository memberRepository;
 
     @Transactional(readOnly = true)
     public List<MembershipPlanResponse> findAll() {
@@ -63,10 +65,9 @@ public class MembershipPlanService {
 
     @Transactional
     public void delete(Long id) {
-        if (!planRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Plan no encontrado: " + id);
-        }
-        planRepository.deleteById(id);
+        MembershipPlan plan = getPlan(id);
+        memberRepository.detachPlanFromMembers(plan.getId());
+        planRepository.delete(plan);
     }
 
     public MembershipPlan getPlan(Long id) {

@@ -37,7 +37,12 @@
         }
       }
 
-      @if (modules.isEnabled('VENTAS') || modules.isEnabled('JORNADA') || (auth.isAdmin() && modules.isEnabled('INVENTARIO'))) {
+      @if (
+        modules.isEnabled('VENTAS') ||
+        modules.isEnabled('ENTREGA_TURNO') ||
+        modules.isEnabled('JORNADA') ||
+        modules.isEnabled('INVENTARIO')
+      ) {
         <span class="nav-group-label">Día a día</span>
       }
       @if (modules.isEnabled('VENTAS')) {
@@ -45,7 +50,12 @@
           <span class="nav-icon">💳</span> Ventas
         </a>
       }
-      @if (auth.isAdmin() && modules.isEnabled('INVENTARIO')) {
+      @if (modules.isEnabled('ENTREGA_TURNO')) {
+        <a routerLink="/panel/entrega-turno" routerLinkActive="active">
+          <span class="nav-icon">🧾</span> Entrega de turno
+        </a>
+      }
+      @if (modules.isEnabled('INVENTARIO')) {
         <a routerLink="/panel/inventario" routerLinkActive="active">
           <span class="nav-icon">📦</span> Inventario
         </a>
@@ -53,13 +63,12 @@
 
       @if (
         modules.isEnabled('JORNADA') ||
-        (auth.isAdmin() &&
-          (modules.isEnabled('ENTRENADORES') ||
-            modules.isEnabled('NOMINA') ||
-            modules.isEnabled('CONTENIDO_INICIO') ||
-            modules.isEnabled('BUZON') ||
-            modules.isEnabled('CALIFICACIONES') ||
-            modules.isEnabled('ACCESO')))
+        modules.isEnabled('ENTRENADORES') ||
+        modules.isEnabled('NOMINA') ||
+        modules.isEnabled('CONTENIDO_INICIO') ||
+        modules.isEnabled('BUZON') ||
+        modules.isEnabled('CALIFICACIONES') ||
+        modules.isEnabled('ACCESO')
       ) {
         <span class="nav-group-label">Equipo</span>
       }
@@ -68,37 +77,36 @@
           <span class="nav-icon">🕐</span> Jornada
         </a>
       }
-      @if (auth.isAdmin()) {
-        @if (modules.isEnabled('ENTRENADORES')) {
-          <a routerLink="/panel/entrenadores" routerLinkActive="active">
-            <span class="nav-icon">🏋️</span> Entrenadores
-          </a>
-        }
-        @if (modules.isEnabled('NOMINA')) {
-          <a routerLink="/panel/configuracion-nomina" routerLinkActive="active">
-            <span class="nav-icon">⚙️</span> Pago por hora
-          </a>
-        }
-        @if (modules.isEnabled('CONTENIDO_INICIO')) {
-          <a routerLink="/panel/contenido-inicio" routerLinkActive="active">
-            <span class="nav-icon">🏠</span> Contenido inicio
-          </a>
-        }
-        @if (modules.isEnabled('BUZON')) {
-          <a routerLink="/panel/buzon" routerLinkActive="active">
-            <span class="nav-icon">📬</span> Buzón
-          </a>
-        }
-        @if (modules.isEnabled('CALIFICACIONES')) {
-          <a routerLink="/panel/calificaciones" routerLinkActive="active">
-            <span class="nav-icon">⭐</span> Calificaciones
-          </a>
-        }
-        @if (modules.isEnabled('ACCESO')) {
-          <a routerLink="/panel/acceso" routerLinkActive="active">
-            <span class="nav-icon">👆</span> Acceso / torniquete
-          </a>
-        }
+      @if (modules.isEnabled('ENTRENADORES')) {
+        <a routerLink="/panel/entrenadores" routerLinkActive="active">
+          <span class="nav-icon">🏋️</span>
+          {{ auth.isAdmin() ? 'Entrenadores' : 'Mi perfil' }}
+        </a>
+      }
+      @if (modules.isEnabled('NOMINA')) {
+        <a routerLink="/panel/configuracion-nomina" routerLinkActive="active">
+          <span class="nav-icon">⚙️</span> Pago por hora
+        </a>
+      }
+      @if (modules.isEnabled('CONTENIDO_INICIO')) {
+        <a routerLink="/panel/contenido-inicio" routerLinkActive="active">
+          <span class="nav-icon">🏠</span> Contenido inicio
+        </a>
+      }
+      @if (modules.isEnabled('BUZON')) {
+        <a routerLink="/panel/buzon" routerLinkActive="active">
+          <span class="nav-icon">📬</span> Buzón
+        </a>
+      }
+      @if (modules.isEnabled('CALIFICACIONES')) {
+        <a routerLink="/panel/calificaciones" routerLinkActive="active">
+          <span class="nav-icon">⭐</span> Calificaciones
+        </a>
+      }
+      @if (modules.isEnabled('ACCESO')) {
+        <a routerLink="/panel/acceso" routerLinkActive="active">
+          <span class="nav-icon">👆</span> Acceso / torniquete
+        </a>
       }
 
       @if (auth.isSuperAdmin()) {

@@ -5,9 +5,16 @@ import com.gym.management.dto.WorkShiftResponse;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.WorkShiftMapper;
+import com.gym.management.model.Employee;
+import com.gym.management.model.Sale;
 import com.gym.management.model.ShiftStatus;
+import com.gym.management.model.UserRole;
 import com.gym.management.model.WorkShift;
+import com.gym.management.repository.SaleRepository;
 import com.gym.management.repository.WorkShiftRepository;
+import com.gym.management.security.AuthenticatedUser;
+import com.gym.management.security.SecurityUtils;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,19 +27,26 @@ import org.springframework.transaction.annotation.Transactional;
 public class WorkShiftService {
 
     private final WorkShiftRepository workShiftRepository;
+    private final SaleRepository saleRepository;
+    private final EmployeeService employeeService;
 
     @Transactional(readOnly = true)
     public List<WorkShiftResponse> findAll() {
         return workShiftRepository.findAllByOrderByShiftDateDescOpenedAtDesc().stream()
-                .map(WorkShiftMapper::toResponse)
+                .map(this::toResponseWithTotals)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public WorkShiftResponse findOpen() {
         return workShiftRepository.findFirstByStatusOrderByOpenedAtDesc(ShiftStatus.OPEN)
-                .map(WorkShiftMapper::toResponse)
+                .map(this::toResponseWithTotals)
                 .orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public WorkShiftResponse findById(Long id) {
+        return toResponseWithTotals(getShift(id));
     }
 
     @Transactional
@@ -40,14 +54,16 @@ public class WorkShiftService {
         if (workShiftRepository.existsByStatus(ShiftStatus.OPEN)) {
             throw new BusinessException("Ya hay un turno abierto. Ciérrelo antes de abrir otro.");
         }
-        LocalDate shiftDate = LocalDate.now();
+        Employee seller = resolveSellerForOpen(request.employeeId());
+        LocalDate shiftDate = request.shiftDate() != null ? request.shiftDate() : LocalDate.now();
         WorkShift shift = WorkShift.builder()
                 .shiftDate(shiftDate)
                 .name(request.name())
+                .employee(seller)
                 .openedAt(LocalDateTime.now())
                 .status(ShiftStatus.OPEN)
                 .build();
-        return WorkShiftMapper.toResponse(workShiftRepository.save(shift));
+        return WorkShiftMapper.toResponse(workShiftRepository.save(shift), BigDecimal.ZERO, 0L);
     }
 
     @Transactional
@@ -58,11 +74,11 @@ public class WorkShiftService {
         }
         shift.setStatus(ShiftStatus.CLOSED);
         shift.setClosedAt(LocalDateTime.now());
-        return WorkShiftMapper.toResponse(workShiftRepository.save(shift));
+        return toResponseWithTotals(workShiftRepository.save(shift));
     }
 
     public WorkShift getShift(Long id) {
-        return workShiftRepository.findById(id)
+        return workShiftRepository.findWithEmployeeById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado: " + id));
     }
 
@@ -70,5 +86,42 @@ public class WorkShiftService {
         return workShiftRepository.findFirstByStatusOrderByOpenedAtDesc(ShiftStatus.OPEN)
                 .orElseThrow(() -> new BusinessException(
                         "No hay un turno abierto. Abra un turno antes de registrar ventas."));
+    }
+
+    public Employee getShiftSeller(WorkShift shift) {
+        return shift.getEmployee();
+    }
+
+    private Employee resolveSellerForOpen(Long requestedEmployeeId) {
+        AuthenticatedUser current = SecurityUtils.currentUser();
+        if (current == null) {
+            throw new BusinessException("Sesión no válida");
+        }
+        if (requestedEmployeeId != null
+                && (current.role() == UserRole.ADMIN || current.role() == UserRole.SUPER_ADMIN)) {
+            return employeeService.getEmployee(requestedEmployeeId);
+        }
+        return employeeService.getEmployee(current.employeeId());
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        WorkShift shift = getShift(id);
+        if (shift.getStatus() == ShiftStatus.OPEN) {
+            throw new BusinessException("Cierra el turno antes de eliminarlo del historial");
+        }
+        List<Sale> sales = saleRepository.findByWorkShiftIdOrderBySaleDateDescCreatedAtDesc(id);
+        for (Sale sale : sales) {
+            var product = sale.getProduct();
+            product.setQuantity(product.getQuantity() + sale.getQuantity());
+            saleRepository.delete(sale);
+        }
+        workShiftRepository.delete(shift);
+    }
+
+    private WorkShiftResponse toResponseWithTotals(WorkShift shift) {
+        BigDecimal total = saleRepository.sumTotalAmountByShift(shift.getId());
+        long count = saleRepository.countByShift(shift.getId());
+        return WorkShiftMapper.toResponse(shift, total, count);
     }
 }

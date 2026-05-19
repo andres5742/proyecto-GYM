@@ -34,6 +34,23 @@
 
 .time-cell {
   min-width: 9rem;
+  vertical-align: middle;
+}
+
+.preview-cell {
+  min-width: 10rem;
+  vertical-align: middle;
+}
+
+.row-preview {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary-hover);
+
+  &.closed {
+    color: var(--color-text-soft);
+    font-weight: 500;
+  }
 }
 
 .time-12-wrap {
@@ -48,6 +65,8 @@
     border-radius: var(--radius-sm);
     background: var(--color-surface);
     font-size: 0.88rem;
+    font-family: inherit;
+    color: var(--color-text);
 
     &:first-child {
       flex: 1;
@@ -56,6 +75,11 @@
 
     &:last-child {
       min-width: 3.5rem;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 }

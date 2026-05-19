@@ -16,4 +16,12 @@ export class PlanService {
   create(request: MembershipPlanRequest): Observable<MembershipPlan> {
     return this.http.post<MembershipPlan>(this.baseUrl, request);
   }
+
+  update(id: number, request: MembershipPlanRequest): Observable<MembershipPlan> {
+    return this.http.put<MembershipPlan>(`${this.baseUrl}/${id}`, request);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
 }

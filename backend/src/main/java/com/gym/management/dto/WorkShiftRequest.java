@@ -6,5 +6,6 @@ import java.time.LocalDate;
 
 public record WorkShiftRequest(
         @NotBlank @Size(max = 80) String name,
-        LocalDate shiftDate
+        LocalDate shiftDate,
+        Long employeeId
 ) {}

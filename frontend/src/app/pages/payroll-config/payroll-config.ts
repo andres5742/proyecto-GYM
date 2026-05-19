@@ -1,11 +1,12 @@
-import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PayrollService } from '../../core/services/payroll.service';
 
 @Component({
   selector: 'app-payroll-config',
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe],
+  imports: [ReactiveFormsModule, CopCurrencyPipe, DatePipe],
   templateUrl: './payroll-config.html',
   styleUrl: './payroll-config.scss',
 })

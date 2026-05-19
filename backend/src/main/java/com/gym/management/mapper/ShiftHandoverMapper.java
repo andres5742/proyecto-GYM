@@ -1,0 +1,76 @@
+package com.gym.management.mapper;
+
+import com.gym.management.dto.ShiftHandoverExpenseResponse;
+import com.gym.management.dto.ShiftHandoverPriorPaymentResponse;
+import com.gym.management.dto.ShiftHandoverResponse;
+import com.gym.management.model.ShiftHandover;
+import com.gym.management.model.ShiftHandoverExpense;
+import com.gym.management.model.ShiftHandoverPriorPayment;
+import com.gym.management.util.CashCountUtil;
+import java.math.BigDecimal;
+import java.util.List;
+
+public final class ShiftHandoverMapper {
+
+    private ShiftHandoverMapper() {}
+
+    public static ShiftHandoverResponse toResponse(
+            ShiftHandover handover,
+            BigDecimal expensesTotal,
+            BigDecimal priorPaymentsTotal,
+            com.gym.management.dto.ShiftDetailResponse shiftDetail,
+            List<com.gym.management.dto.ShiftHandoverComparisonResponse> comparisons) {
+        BigDecimal cashTotal = CashCountUtil.totalCash(handover);
+        BigDecimal declaredGrand = cashTotal
+                .add(handover.getAuxAmount())
+                .add(handover.getNequiAmount())
+                .add(handover.getBankAmount())
+                .add(priorPaymentsTotal)
+                .subtract(expensesTotal);
+
+        return new ShiftHandoverResponse(
+                handover.getId(),
+                handover.getWorkShift().getId(),
+                handover.getWorkShift().getName(),
+                handover.getEmployee().getId(),
+                handover.getEmployee().getFirstName() + " " + handover.getEmployee().getLastName(),
+                handover.getSubmittedAt(),
+                handover.getBill2000(),
+                handover.getBill5000(),
+                handover.getBill10000(),
+                handover.getBill20000(),
+                handover.getBill50000(),
+                handover.getBill100000(),
+                handover.getCoin1000(),
+                handover.getCoin500(),
+                handover.getCoin200(),
+                handover.getCoin100(),
+                handover.getCoin50(),
+                cashTotal,
+                handover.getAuxAmount(),
+                handover.getNequiAmount(),
+                handover.getBankAmount(),
+                expensesTotal,
+                priorPaymentsTotal,
+                declaredGrand,
+                handover.getNotes(),
+                handover.getExpenses().stream().map(ShiftHandoverMapper::toExpenseResponse).toList(),
+                handover.getPriorPayments().stream().map(ShiftHandoverMapper::toPriorPaymentResponse).toList(),
+                shiftDetail,
+                comparisons);
+    }
+
+    public static ShiftHandoverExpenseResponse toExpenseResponse(ShiftHandoverExpense expense) {
+        return new ShiftHandoverExpenseResponse(expense.getId(), expense.getDescription(), expense.getAmount());
+    }
+
+    public static ShiftHandoverPriorPaymentResponse toPriorPaymentResponse(ShiftHandoverPriorPayment payment) {
+        return new ShiftHandoverPriorPaymentResponse(
+                payment.getId(),
+                payment.getDescription(),
+                payment.getAmount(),
+                payment.getPaymentMethod(),
+                SaleMapper.paymentMethodLabel(payment.getPaymentMethod()),
+                payment.getNotes());
+    }
+}

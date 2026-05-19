@@ -1,5 +1,5 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { WorkAttendance } from '../../core/models/attendance.model';
@@ -11,9 +11,18 @@ import {
   hourFromIso,
   hourOptionLabel,
 } from '../../core/utils/attendance-hour';
+import {
+  currentYearMonth,
+  historyYearOptions,
+  monthYearLabel,
+  MONTH_OPTIONS,
+} from '../../core/utils/attendance-period';
 import { todayIsoDate } from '../../core/utils/today-date';
-import { AttendanceService } from '../../core/services/attendance.service';
+import { AttendanceQuery, AttendanceService } from '../../core/services/attendance.service';
+import { AuthService } from '../../core/services/auth.service';
 import { EmployeeService } from '../../core/services/employee.service';
+
+type AttendanceView = 'day' | 'month' | 'history';
 
 @Component({
   selector: 'app-attendance',
@@ -25,6 +34,7 @@ export class Attendance implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly attendanceService = inject(AttendanceService);
   private readonly employeeService = inject(EmployeeService);
+  protected readonly auth = inject(AuthService);
 
   protected readonly employees = signal<Employee[]>([]);
   protected readonly records = signal<WorkAttendance[]>([]);
@@ -39,10 +49,29 @@ export class Attendance implements OnInit {
   protected readonly message = signal<string | null>(null);
   protected readonly editingId = signal<number | null>(null);
   protected readonly modalOpen = signal(false);
+  protected readonly historyModalOpen = signal(false);
+
+  protected readonly view = signal<AttendanceView>('day');
+  protected readonly historyYear = signal(currentYearMonth().year);
+  protected readonly historyMonth = signal(currentYearMonth().month);
 
   protected readonly hourOptions = ATTENDANCE_HOUR_OPTIONS;
   protected readonly formatHour = formatAttendanceHour;
   protected readonly hourLabel = hourOptionLabel;
+  protected readonly monthOptions = MONTH_OPTIONS;
+  protected readonly historyYears = historyYearOptions();
+
+  protected readonly periodLabel = computed(() => {
+    const mode = this.view();
+    if (mode === 'day') {
+      return 'Hoy';
+    }
+    const y = this.historyYear();
+    const m = this.historyMonth();
+    return monthYearLabel(m, y);
+  });
+
+  protected readonly canManageToday = computed(() => this.view() === 'day');
 
   protected readonly form = this.fb.nonNullable.group({
     employeeId: [null as number | null, Validators.required],
@@ -53,23 +82,64 @@ export class Attendance implements OnInit {
   });
 
   ngOnInit(): void {
-    this.employeeService.findActive().subscribe({
-      next: (employees) => this.employees.set(employees),
-    });
+    if (this.auth.isAdmin()) {
+      this.employeeService.findActive().subscribe({
+        next: (employees) => this.employees.set(employees),
+      });
+    } else {
+      const user = this.auth.currentUser();
+      if (user) {
+        this.form.controls.employeeId.setValue(user.employeeId);
+      }
+    }
     this.loadData();
   }
 
   loadData(): void {
+    const query = this.buildQuery();
     this.loading.set(true);
-    this.attendanceService.findAll().subscribe({
+    this.attendanceService.findAll(query).subscribe({
       next: (records) => {
         this.records.set(records);
         this.loading.set(false);
       },
+      error: (err) => {
+        this.message.set(err?.error?.message ?? 'No se pudieron cargar las jornadas');
+        this.loading.set(false);
+      },
     });
-    this.attendanceService.getSummary().subscribe({
+    this.attendanceService.getSummary(query).subscribe({
       next: (summary) => this.summary.set(summary),
+      error: () => {},
     });
+  }
+
+  setView(mode: AttendanceView): void {
+    this.view.set(mode);
+    if (mode === 'month') {
+      const { year, month } = currentYearMonth();
+      this.historyYear.set(year);
+      this.historyMonth.set(month);
+    }
+    this.loadData();
+  }
+
+  openHistoryModal(): void {
+    const { year, month } = currentYearMonth();
+    const prev = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+    this.historyYear.set(prev.year);
+    this.historyMonth.set(prev.month);
+    this.historyModalOpen.set(true);
+  }
+
+  applyHistory(): void {
+    this.view.set('history');
+    this.historyModalOpen.set(false);
+    this.loadData();
+  }
+
+  backToCurrentMonth(): void {
+    this.setView('month');
   }
 
   isToday(workDate: string): boolean {
@@ -78,19 +148,30 @@ export class Attendance implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.historyModalOpen()) {
+      this.historyModalOpen.set(false);
+      return;
+    }
     if (this.modalOpen()) {
       this.closeModal();
     }
   }
 
   openRegisterModal(): void {
+    if (!this.canManageToday()) {
+      return;
+    }
     this.startCreate();
     this.modalOpen.set(true);
   }
 
   openEditModal(record: WorkAttendance): void {
-    if (!this.isToday(record.workDate)) {
+    if (!this.canManageToday() || !this.isToday(record.workDate)) {
       this.message.set('Solo se pueden editar jornadas del día actual');
+      return;
+    }
+    if (!this.auth.isAdmin() && record.employeeId !== this.auth.currentUser()?.employeeId) {
+      this.message.set('Solo puedes editar tus propias jornadas');
       return;
     }
     this.editingId.set(record.id);
@@ -112,8 +193,11 @@ export class Attendance implements OnInit {
 
   startCreate(): void {
     this.editingId.set(null);
+    const defaultEmployee = this.auth.isAdmin()
+      ? null
+      : (this.auth.currentUser()?.employeeId ?? null);
     this.form.reset({
-      employeeId: null,
+      employeeId: defaultEmployee,
       workDate: todayIsoDate(),
       clockInHour: null,
       clockOutHour: null,
@@ -168,8 +252,12 @@ export class Attendance implements OnInit {
 
   remove(id: number): void {
     const record = this.records().find((r) => r.id === id);
-    if (record && !this.isToday(record.workDate)) {
+    if (!record || !this.canManageToday() || !this.isToday(record.workDate)) {
       this.message.set('Solo se pueden eliminar jornadas del día actual');
+      return;
+    }
+    if (!this.auth.isAdmin() && record.employeeId !== this.auth.currentUser()?.employeeId) {
+      this.message.set('Solo puedes eliminar tus propias jornadas');
       return;
     }
     if (!confirm('¿Eliminar este registro de jornada?')) {
@@ -180,7 +268,36 @@ export class Attendance implements OnInit {
         this.message.set('Registro eliminado');
         this.loadData();
       },
-      error: () => this.message.set('No se pudo eliminar'),
+      error: (err) => this.message.set(err?.error?.message ?? 'No se pudo eliminar'),
     });
+  }
+
+  canEditRecord(record: WorkAttendance): boolean {
+    return (
+      this.canManageToday() &&
+      this.isToday(record.workDate) &&
+      (this.auth.isAdmin() || record.employeeId === this.auth.currentUser()?.employeeId)
+    );
+  }
+
+  employeeInitial(fullName: string): string {
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      return '?';
+    }
+    if (parts.length === 1) {
+      return parts[0].charAt(0).toUpperCase();
+    }
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  private buildQuery(): AttendanceQuery {
+    if (this.view() === 'day') {
+      return { date: todayIsoDate() };
+    }
+    return {
+      year: this.historyYear(),
+      month: this.historyMonth(),
+    };
   }
 }

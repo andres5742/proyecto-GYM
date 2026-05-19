@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SalesSummary } from '../models/sale.model';
-import { WorkShift, WorkShiftRequest } from '../models/shift.model';
+import { ShiftDetail, WorkShift, WorkShiftRequest } from '../models/shift.model';
 
 @Injectable({ providedIn: 'root' })
 export class ShiftService {
@@ -21,7 +21,7 @@ export class ShiftService {
   }
 
   open(request: WorkShiftRequest): Observable<WorkShift> {
-    return this.http.post<WorkShift>(`${this.baseUrl}/open`, { name: request.name });
+    return this.http.post<WorkShift>(`${this.baseUrl}/open`, request);
   }
 
   close(id: number): Observable<WorkShift> {
@@ -30,5 +30,13 @@ export class ShiftService {
 
   getSalesSummary(shiftId: number): Observable<SalesSummary> {
     return this.http.get<SalesSummary>(`${this.baseUrl}/${shiftId}/sales-summary`);
+  }
+
+  getDetail(shiftId: number): Observable<ShiftDetail> {
+    return this.http.get<ShiftDetail>(`${this.baseUrl}/${shiftId}/detail`);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
 }

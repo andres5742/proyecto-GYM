@@ -1,0 +1,5 @@
+<div class="lightbox-backdrop" (click)="onBackdropClick($event)" role="presentation"></div>
+<div class="lightbox-dialog" role="dialog" aria-modal="true" [attr.aria-label]="alt()">
+  <button type="button" class="lightbox-close" (click)="close()" aria-label="Cerrar imagen">×</button>
+  <img [src]="src()" [alt]="alt()" class="lightbox-image" />
+</div>

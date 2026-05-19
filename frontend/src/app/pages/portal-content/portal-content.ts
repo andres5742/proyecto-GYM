@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { BusinessDaySchedule, DayOfWeek } from '../../core/models/business-hours.model';
 import { Holiday, HolidayRequest } from '../../core/models/holiday.model';
 import { PostCategory, WallPost, WallPostRequest } from '../../core/models/wall-post.model';
@@ -11,6 +11,7 @@ import { WallPostService } from '../../core/services/wall-post.service';
 import {
   AmPm,
   DAY_LABELS,
+  formatTime12,
   HOUR_12_OPTIONS,
   parseTime12Parts,
   toTime24,
@@ -20,6 +21,14 @@ import { UploadUrlPipe } from '../../core/pipes/upload-url.pipe';
 import { PortalHomeAdmin } from './portal-home-admin';
 
 type Tab = 'hours' | 'holidays' | 'posts' | 'slider' | 'media' | 'footer';
+
+/** Fila de horario con campos 12h enlazados al formulario. */
+type ScheduleRow = BusinessDaySchedule & {
+  openHour12: number;
+  openPeriod: AmPm;
+  closeHour12: number;
+  closePeriod: AmPm;
+};
 
 const DAY_ORDER: DayOfWeek[] = [
   'MONDAY',
@@ -40,7 +49,7 @@ const POST_CATEGORIES: { value: PostCategory; label: string }[] = [
 
 @Component({
   selector: 'app-portal-content',
-  imports: [ReactiveFormsModule, DatePipe, PortalHomeAdmin, EmojiPickerComponent, UploadUrlPipe],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, PortalHomeAdmin, EmojiPickerComponent, UploadUrlPipe],
   templateUrl: './portal-content.html',
   styleUrl: './portal-content.scss',
 })
@@ -58,7 +67,8 @@ export class PortalContentPage implements OnInit {
   protected readonly message = signal<string | null>(null);
   protected readonly saving = signal(false);
 
-  protected readonly scheduleRows = signal<BusinessDaySchedule[]>([]);
+  protected readonly scheduleRows = signal<ScheduleRow[]>([]);
+  protected readonly formatTime12 = formatTime12;
   protected readonly holidays = signal<Holiday[]>([]);
   protected readonly posts = signal<WallPost[]>([]);
   protected readonly editingHolidayId = signal<number | null>(null);
@@ -101,19 +111,22 @@ export class PortalContentPage implements OnInit {
   setTab(tab: Tab): void {
     this.activeTab.set(tab);
     this.message.set(null);
+    if (tab === 'hours') {
+      this.loadHours();
+    }
   }
 
   loadHours(): void {
     this.businessHoursService.get().subscribe({
       next: (res) => {
         const days = res.days?.length === 7 ? res.days : this.defaultSchedule();
-        const sorted = [...days].sort(
-          (a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
-        );
+        const sorted = days
+          .map((d) => this.toScheduleRow(d))
+          .sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek));
         this.scheduleRows.set(sorted);
       },
       error: () => {
-        this.scheduleRows.set(this.defaultSchedule());
+        this.scheduleRows.set(this.defaultSchedule().map((d) => this.toScheduleRow(d)));
         this.message.set('No se pudieron cargar los horarios. Puede configurarlos y guardar.');
       },
     });
@@ -128,26 +141,61 @@ export class PortalContentPage implements OnInit {
     }));
   }
 
-  timeParts(time?: string | null) {
-    return parseTime12Parts(time);
+  patchOpenHour(day: ScheduleRow, hour12: number): void {
+    this.patchRow(day.dayOfWeek, (r) => ({
+      ...r,
+      openHour12: hour12,
+      openTime: toTime24(hour12, r.openPeriod),
+    }));
   }
 
-  setTime12(day: BusinessDaySchedule, field: 'openTime' | 'closeTime', hour12: number, period: AmPm): void {
-    this.updateDay(day, field, toTime24(hour12, period));
+  patchOpenPeriod(day: ScheduleRow, period: AmPm): void {
+    this.patchRow(day.dayOfWeek, (r) => ({
+      ...r,
+      openPeriod: period,
+      openTime: toTime24(r.openHour12, period),
+    }));
   }
 
-  updateDay(day: BusinessDaySchedule, field: 'openTime' | 'closeTime', value: string): void {
+  patchCloseHour(day: ScheduleRow, hour12: number): void {
+    this.patchRow(day.dayOfWeek, (r) => ({
+      ...r,
+      closeHour12: hour12,
+      closeTime: toTime24(hour12, r.closePeriod),
+    }));
+  }
+
+  patchClosePeriod(day: ScheduleRow, period: AmPm): void {
+    this.patchRow(day.dayOfWeek, (r) => ({
+      ...r,
+      closePeriod: period,
+      closeTime: toTime24(r.closeHour12, period),
+    }));
+  }
+
+  toggleClosed(day: ScheduleRow): void {
     this.scheduleRows.update((rows) =>
-      rows.map((r) => (r.dayOfWeek === day.dayOfWeek ? { ...r, [field]: value || null } : r)),
+      rows.map((r) => {
+        if (r.dayOfWeek !== day.dayOfWeek) {
+          return r;
+        }
+        const closed = !r.closed;
+        if (closed) {
+          return { ...r, closed: true, openTime: null, closeTime: null };
+        }
+        const defaults = this.toScheduleRow(
+          this.defaultSchedule().find((d) => d.dayOfWeek === r.dayOfWeek)!,
+        );
+        return { ...defaults, closed: false };
+      }),
     );
   }
 
-  toggleClosed(day: BusinessDaySchedule): void {
-    this.scheduleRows.update((rows) =>
-      rows.map((r) =>
-        r.dayOfWeek === day.dayOfWeek ? { ...r, closed: !r.closed, openTime: null, closeTime: null } : r,
-      ),
-    );
+  rowPreview(day: ScheduleRow): string {
+    if (day.closed) {
+      return 'Cerrado';
+    }
+    return `${formatTime12(day.openTime)} – ${formatTime12(day.closeTime)}`;
   }
 
   saveHours(): void {
@@ -165,7 +213,12 @@ export class PortalContentPage implements OnInit {
     }));
     this.businessHoursService.update(payload).subscribe({
       next: (res) => {
-        this.scheduleRows.set(res.days);
+        const days = res.days ?? [];
+        this.scheduleRows.set(
+          days.map((d) => this.toScheduleRow(d)).sort(
+            (a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
+          ),
+        );
         this.message.set('Horarios de atención guardados');
         this.saving.set(false);
       },
@@ -321,6 +374,27 @@ export class PortalContentPage implements OnInit {
       },
       error: () => this.message.set('No se pudo eliminar'),
     });
+  }
+
+  private toScheduleRow(d: BusinessDaySchedule): ScheduleRow {
+    const open = parseTime12Parts(d.openTime);
+    const close = parseTime12Parts(d.closeTime);
+    return {
+      dayOfWeek: d.dayOfWeek,
+      openTime: d.openTime ? d.openTime.slice(0, 5) : null,
+      closeTime: d.closeTime ? d.closeTime.slice(0, 5) : null,
+      closed: d.closed,
+      openHour12: open.hour12,
+      openPeriod: open.period,
+      closeHour12: close.hour12,
+      closePeriod: close.period,
+    };
+  }
+
+  private patchRow(dayOfWeek: DayOfWeek, patch: (row: ScheduleRow) => ScheduleRow): void {
+    this.scheduleRows.update((rows) =>
+      rows.map((r) => (r.dayOfWeek === dayOfWeek ? patch(r) : r)),
+    );
   }
 
   private normalizeTime(value?: string | null): string | null {

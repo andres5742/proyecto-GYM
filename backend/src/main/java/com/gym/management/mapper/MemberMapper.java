@@ -2,6 +2,7 @@ package com.gym.management.mapper;
 
 import com.gym.management.dto.MemberResponse;
 import com.gym.management.model.Member;
+import com.gym.management.service.MemberMembershipRules;
 
 public final class MemberMapper {
 
@@ -12,12 +13,12 @@ public final class MemberMapper {
                 member.getId(),
                 member.getFirstName(),
                 member.getLastName(),
-                member.getEmail(),
+                member.getGender(),
                 member.getPhone(),
                 member.getDocumentId(),
                 member.getPlan() != null ? member.getPlan().getId() : null,
                 member.getPlan() != null ? member.getPlan().getName() : null,
-                member.getStatus(),
+                MemberMembershipRules.effectiveStatus(member),
                 member.getMembershipStart(),
                 member.getMembershipEnd(),
                 member.getCreatedAt(),

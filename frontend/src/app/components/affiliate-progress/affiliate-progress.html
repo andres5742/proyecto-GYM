@@ -1,0 +1,348 @@
+<section class="progress-section" [class.progress-section--embedded]="embedded()" id="cuadro-avances">
+  <header class="progress-header" [class.progress-header--compact]="embedded()">
+    @if (!embedded()) {
+      <div>
+        <p class="section-eyebrow">Tu evolución</p>
+        <h2>Cuadro de avances</h2>
+        <p>
+          Registra peso, medidas y fotos cuando quieras. No hace falta completar todo: guarda solo lo que hayas medido.
+        </p>
+      </div>
+    } @else {
+      <div>
+        <h2>Cuadro de avances</h2>
+        <p>Registra peso, medidas y fotos. Solo completa los campos que hayas medido.</p>
+      </div>
+    }
+    <button type="button" class="btn-primary" (click)="openCreate()">Registrar avance</button>
+  </header>
+
+  @if (message()) {
+    <p class="alert info">{{ message() }}</p>
+  }
+  @if (error() && !showForm()) {
+    <p class="alert error">{{ error() }}</p>
+  }
+
+  @if (showForm()) {
+    <form class="panel progress-form" [formGroup]="form" (ngSubmit)="save()">
+      <h3>{{ editingId() ? 'Actualizar tu registro' : 'Nuevo registro de avance' }}</h3>
+      <p class="form-intro">
+        Mide siempre en el mismo lugar del cuerpo para comparar mejor con el tiempo. Los campos en blanco se omiten.
+      </p>
+
+      @if (error()) {
+        <p class="alert error">{{ error() }}</p>
+      }
+
+      <fieldset class="measure-group">
+        <legend><span class="group-icon">📅</span> ¿Cuándo te mediste?</legend>
+        <label>
+          Fecha
+          <input type="date" formControlName="recordedAt" />
+        </label>
+      </fieldset>
+
+      <fieldset class="measure-group">
+        <legend><span class="group-icon">⚖️</span> Peso y composición</legend>
+        <div class="pair-row">
+          <label>
+            Peso corporal
+            <span class="field-hint">en kilogramos</span>
+            <input type="number" step="0.1" min="0" formControlName="weightKg" placeholder="Ej: 72.5" />
+          </label>
+          <label>
+            Grasa corporal
+            <span class="field-hint">opcional, en %</span>
+            <input type="number" step="0.1" min="0" formControlName="bodyFatPercent" placeholder="Ej: 18" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="measure-group">
+        <legend><span class="group-icon">🧍</span> Torso <span class="legend-hint">(una sola medida)</span></legend>
+        <div class="triple-row">
+          <label>
+            Pecho
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="chestCm" placeholder="—" />
+          </label>
+          <label>
+            Cintura
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="waistCm" placeholder="—" />
+          </label>
+          <label>
+            Cadera
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="hipsCm" placeholder="—" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="measure-group bilateral">
+        <legend><span class="group-icon">💪</span> Brazos</legend>
+        <p class="group-tip">Mide la circunferencia del brazo en la misma zona (por ejemplo, a la altura del bíceps).</p>
+        <div class="pair-row">
+          <label>
+            Brazo derecho
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="armRightCm" placeholder="—" />
+          </label>
+          <label>
+            Brazo izquierdo
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="armLeftCm" placeholder="—" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="measure-group bilateral">
+        <legend><span class="group-icon">🦵</span> Muslos</legend>
+        <p class="group-tip">Mide muslo superior e inferior por separado, siempre en la misma zona de cada pierna.</p>
+
+        <p class="measure-subtitle">Muslo superior</p>
+        <div class="pair-row">
+          <label>
+            Superior derecho
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="thighUpperRightCm" placeholder="—" />
+          </label>
+          <label>
+            Superior izquierdo
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="thighUpperLeftCm" placeholder="—" />
+          </label>
+        </div>
+
+        <p class="measure-subtitle">Muslo inferior</p>
+        <div class="pair-row">
+          <label>
+            Inferior derecho
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="thighLowerRightCm" placeholder="—" />
+          </label>
+          <label>
+            Inferior izquierdo
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="thighLowerLeftCm" placeholder="—" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="measure-group bilateral">
+        <legend><span class="group-icon">🦶</span> Pantorrillas</legend>
+        <p class="group-tip">Parte baja de la pierna. También van derecha e izquierda.</p>
+        <div class="pair-row">
+          <label>
+            Pantorrilla derecha
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="calfRightCm" placeholder="—" />
+          </label>
+          <label>
+            Pantorrilla izquierda
+            <span class="field-hint">cm</span>
+            <input type="number" step="0.1" min="0" formControlName="calfLeftCm" placeholder="—" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="measure-group">
+        <legend><span class="group-icon">📝</span> Notas personales</legend>
+        <label>
+          ¿Cómo te sientes? ¿Qué entrenaste?
+          <textarea
+            formControlName="notes"
+            rows="3"
+            placeholder="Ej: Me siento con más energía. Hice pierna y algo de cardio."
+          ></textarea>
+        </label>
+      </fieldset>
+
+      <fieldset class="measure-group">
+        <legend><span class="group-icon">📷</span> Fotos de tu progreso</legend>
+        <p class="group-tip">Opcional. Hasta {{ maxPhotos }} fotos (frente, perfil, espalda…).</p>
+        <div class="photo-grid">
+          @for (photo of pendingPhotos(); track photo.id) {
+            <div class="photo-thumb" [class.uploading]="photo.uploading" [class.error]="photo.error">
+              <img [src]="photo.serverUrl ? (photo.serverUrl | uploadUrl) : photo.previewUrl" alt="Tu foto de avance" />
+              @if (photo.uploading) {
+                <span class="photo-status">Subiendo...</span>
+              }
+              @if (photo.error) {
+                <span class="photo-status error">{{ photo.error }}</span>
+              }
+              <button type="button" class="photo-remove" (click)="removePhoto(photo.id)" aria-label="Quitar foto">
+                ×
+              </button>
+            </div>
+          }
+          @if (pendingPhotos().length < maxPhotos) {
+            <label class="photo-add">
+              <input type="file" [accept]="acceptedTypes" multiple hidden (change)="onPhotosSelected($event)" />
+              <span>+ Agregar foto</span>
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar mi avance' }}
+        </button>
+        <button type="button" class="secondary" (click)="cancelForm()">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  @if (loading()) {
+    <p class="muted">Cargando tu historial...</p>
+  } @else if (loadError()) {
+    <p class="alert error">{{ loadError() }}</p>
+    <button type="button" class="secondary" (click)="loadEntries()">Reintentar</button>
+  } @else if (entries().length === 0) {
+    <div class="empty-card panel">
+      <span class="empty-icon">📈</span>
+      <p><strong>Aún no tienes registros</strong></p>
+      <p class="empty-hint">Cuando te tomes peso o medidas, guárdalos aquí y verás cómo evolucionas.</p>
+      <button type="button" class="btn-primary" (click)="openCreate()">Registrar mi primer avance</button>
+    </div>
+  } @else {
+    <div class="panel progress-table-panel">
+      <div class="table-panel-head">
+        <h3 class="table-title">Historial de registros</h3>
+        <p class="table-subtitle">Ordenado del más reciente al más antiguo</p>
+      </div>
+      <div class="table-wrap">
+        <table class="progress-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Peso</th>
+              <th>Qué registraste</th>
+              <th>Fotos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of entries(); track entry.id) {
+              <tr>
+                <td data-label="Fecha" class="date-cell">
+                  <span class="date-main">{{ entry.recordedAt | date: 'mediumDate' }}</span>
+                </td>
+                <td data-label="Peso" class="weight-cell">
+                  <span class="weight-value">{{ formatWeight(entry) }}</span>
+                </td>
+                <td data-label="Qué registraste" class="chips-cell">
+                  @if (entryChips(entry).length > 0) {
+                    <div class="chip-row">
+                      @for (chip of entryChips(entry); track chip.label) {
+                        <span class="chip" [class]="'chip-' + chip.kind">{{ chip.label }}</span>
+                      }
+                    </div>
+                  } @else {
+                    <span class="chip chip-muted">Datos parciales</span>
+                  }
+                </td>
+                <td data-label="Fotos" class="photos-cell">
+                  @if (entry.imageUrls.length > 0) {
+                    <span class="photo-count" title="Fotos adjuntas">📷 {{ entry.imageUrls.length }}</span>
+                  } @else {
+                    <span class="muted-inline">—</span>
+                  }
+                </td>
+                <td data-label="Acciones" class="actions-cell">
+                  <button type="button" class="btn-view" (click)="openView(entry)">Ver detalle</button>
+                  <button type="button" class="link-btn" (click)="openEdit(entry)">Editar</button>
+                  <button type="button" class="link-btn danger" (click)="deleteEntry(entry)">Eliminar</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (viewingEntry(); as entry) {
+    <div class="detail-overlay" (click)="closeView()" role="presentation">
+      <article class="detail-modal panel" (click)="$event.stopPropagation()">
+        <header class="detail-header">
+          <div>
+            <p class="detail-eyebrow">Registro del</p>
+            <h3>{{ entry.recordedAt | date: 'longDate' }}</h3>
+          </div>
+          <button type="button" class="detail-close" (click)="closeView()" aria-label="Cerrar">×</button>
+        </header>
+
+        @if (entryChips(entry).length > 0) {
+          <div class="detail-summary-chips">
+            @for (chip of entryChips(entry); track chip.label) {
+              <span class="chip" [class]="'chip-' + chip.kind">{{ chip.label }}</span>
+            }
+          </div>
+        }
+
+        @if (hasMetrics(entry)) {
+          <div class="detail-metrics">
+            @for (group of metricGroups(entry); track group.title) {
+              <section class="metric-block">
+                <header class="metric-block-head">
+                  <span class="metric-icon" aria-hidden="true">{{ group.icon }}</span>
+                  <div>
+                    <h4>{{ group.title }}</h4>
+                    @if (group.hint) {
+                      <p class="metric-hint">{{ group.hint }}</p>
+                    }
+                  </div>
+                </header>
+                <div class="metric-cards">
+                  @for (item of group.items; track item.label) {
+                    <article class="metric-card">
+                      <span class="metric-label">{{ item.label }}</span>
+                      <span class="metric-value">{{ item.value }}</span>
+                    </article>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        } @else {
+          <p class="muted detail-empty">Este registro no incluye medidas numéricas.</p>
+        }
+
+        @if (entry.notes) {
+          <section class="entry-notes-block">
+            <header class="block-head">
+              <span aria-hidden="true">📝</span>
+              <h4>Notas personales</h4>
+            </header>
+            <p>{{ entry.notes }}</p>
+          </section>
+        }
+
+        @if (entry.imageUrls.length > 0) {
+          <section class="entry-photos-block">
+            <header class="block-head">
+              <span aria-hidden="true">📷</span>
+              <h4>Fotos de progreso ({{ entry.imageUrls.length }})</h4>
+            </header>
+            <p class="photos-hint">Toca una imagen para verla en tamaño completo.</p>
+            <div class="entry-photos">
+              @for (url of entry.imageUrls; track url) {
+                <a [href]="url | uploadUrl" target="_blank" rel="noopener">
+                  <img [src]="url | uploadUrl" alt="Foto de tu progreso" />
+                </a>
+              }
+            </div>
+          </section>
+        }
+
+        <div class="detail-footer">
+          <button type="button" class="secondary" (click)="openEdit(entry)">Editar</button>
+          <button type="button" class="btn-primary" (click)="closeView()">Cerrar</button>
+        </div>
+      </article>
+    </div>
+  }
+</section>

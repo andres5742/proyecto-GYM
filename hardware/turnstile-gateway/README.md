@@ -4,8 +4,8 @@ El backend expone `POST /api/access/verify` con el ID de huella que devuelve el 
 
 ## Configuración
 
-1. En el lector, registra cada socio y anota su **ID de usuario** en el dispositivo.
-2. En el panel **Acceso / torniquete**, vincula ese ID con el socio del sistema.
+1. En el lector, registra cada afiliado y anota su **ID de usuario** en el dispositivo.
+2. En el panel **Acceso / torniquete**, vincula ese ID con el afiliado del sistema.
 3. Configura el lector o un mini PC (Raspberry Pi) para que al validar huella llame:
 
 ```http

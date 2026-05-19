@@ -15,7 +15,11 @@
       @if (auth.isLoggedIn(); as _) {
         @if (auth.currentUser(); as user) {
           <span class="user-greeting">Hola, {{ user.fullName }}</span>
-          <a routerLink="/panel" class="btn-panel">Ir al panel</a>
+          @if (auth.isAffiliate()) {
+            <a routerLink="/mi-cuenta" class="btn-panel">Mi cuenta</a>
+          } @else {
+            <a routerLink="/panel" class="btn-panel">Ir al panel</a>
+          }
           <button type="button" class="btn-logout-header" (click)="logout()">Salir</button>
         }
       } @else {
@@ -30,7 +34,7 @@
                 alt="Sport Gym R.IO"
                 class="gym-logo dropdown-logo"
               />
-              <p class="dropdown-title">Acceso al equipo</p>
+              <p class="dropdown-title">Iniciar sesión</p>
               <app-login-panel (closed)="closeLogin()" />
             </div>
           }

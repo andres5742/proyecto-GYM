@@ -1,5 +1,6 @@
 package com.gym.management.dto;
 
+import com.gym.management.model.Gender;
 import com.gym.management.model.MembershipStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -9,9 +10,10 @@ import java.time.LocalDate;
 public record MemberRequest(
         @NotBlank @Size(max = 100) String firstName,
         @NotBlank @Size(max = 100) String lastName,
-        @NotBlank @Email @Size(max = 150) String email,
+        @Email @Size(max = 150) String email,
         @Size(max = 20) String phone,
         @Size(max = 20) String documentId,
+        Gender gender,
         Long planId,
         MembershipStatus status,
         LocalDate membershipStart,

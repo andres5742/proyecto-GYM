@@ -17,6 +17,12 @@ export class FeedbackService {
     return this.http.post<FeedbackMessage>(this.baseUrl, request);
   }
 
+  uploadImage(file: File): Observable<{ url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ url: string }>(`${this.baseUrl}/upload`, formData);
+  }
+
   findAll(): Observable<FeedbackMessage[]> {
     return this.http.get<FeedbackMessage[]>(this.baseUrl);
   }

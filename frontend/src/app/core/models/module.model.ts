@@ -3,6 +3,7 @@ export type ModuleCode =
   | 'PLANES'
   | 'INVENTARIO'
   | 'VENTAS'
+  | 'ENTREGA_TURNO'
   | 'JORNADA'
   | 'ENTRENADORES'
   | 'NOMINA'
@@ -26,3 +27,18 @@ export interface AppModuleItem {
 }
 
 export type ModuleFlags = Record<string, boolean>;
+
+export type ConfigurableRole = 'TRAINER' | 'ADMIN';
+
+export interface RoleModulePermission {
+  moduleCode: ModuleCode;
+  moduleName: string;
+  description?: string;
+  allowed: boolean;
+  globallyEnabled: boolean;
+}
+
+export const CONFIGURABLE_ROLES: { value: ConfigurableRole; label: string }[] = [
+  { value: 'TRAINER', label: 'Entrenador' },
+  { value: 'ADMIN', label: 'Administrador' },
+];

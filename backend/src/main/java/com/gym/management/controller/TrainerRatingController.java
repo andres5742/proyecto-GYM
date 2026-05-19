@@ -53,7 +53,6 @@ public class TrainerRatingController {
     }
 
     @GetMapping("/monthly")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public List<TrainerRatingMonthlySummary> monthly(
             @RequestParam int year, @RequestParam int month) {
         return trainerRatingService.monthlySummary(year, month);

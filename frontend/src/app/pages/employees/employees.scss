@@ -3,6 +3,11 @@
   grid-template-columns: minmax(300px, 340px) 1fr;
   gap: 1.25rem;
   align-items: start;
+
+  &.trainer-profile {
+    grid-template-columns: minmax(280px, 480px);
+    justify-content: start;
+  }
 }
 
 .payment-hint {

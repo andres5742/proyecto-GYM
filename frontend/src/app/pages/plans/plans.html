@@ -1,6 +1,6 @@
 <section class="page-header">
-  <h2>Planes para tus socios</h2>
-  <p>Ofrece opciones claras (mensual, trimestral…) con precios en pesos. Así cada cliente elige con confianza.</p>
+  <h2>Planes para tus afiliados</h2>
+  <p>Crea, edita o elimina tus planes (mensualidad, quincena, etc.) con el nombre y precio que uses en el gimnasio.</p>
 </section>
 
 @if (message()) {
@@ -9,14 +9,14 @@
 
 <div class="grid">
   <form class="panel" [formGroup]="form" (ngSubmit)="save()">
-    <h3>Nuevo plan</h3>
+    <h3>{{ editingId() ? 'Editar plan' : 'Nuevo plan' }}</h3>
     <label>
       Nombre
-      <input formControlName="name" />
+      <input formControlName="name" placeholder="Ej: Mensualidad" />
     </label>
     <label>
       Descripción
-      <textarea formControlName="description" rows="3"></textarea>
+      <textarea formControlName="description" rows="3" placeholder="Opcional"></textarea>
     </label>
     <label>
       Duración (días)
@@ -24,38 +24,45 @@
     </label>
     <label>
       Precio (COP)
-      <input type="number" formControlName="price" min="0" step="0.01" />
+      <input type="number" formControlName="price" min="0" step="1" />
     </label>
     <label class="checkbox">
       <input type="checkbox" formControlName="active" />
       Plan activo
     </label>
-    <button type="submit" [disabled]="saving()">
-      {{ saving() ? 'Guardando...' : '✓ Crear plan' }}
-    </button>
-    <p class="psych-reassurance">Puedes desactivar un plan sin borrarlo si dejas de ofrecerlo.</p>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Guardando...' : editingId() ? 'Guardar cambios' : 'Crear plan' }}
+      </button>
+      <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
+    </div>
   </form>
 
-  <div class="panel">
-    <h3>Planes disponibles</h3>
+  <div class="panel table-panel">
+    <h3>Tus planes</h3>
     @if (loading()) {
-      <p>Cargando...</p>
+      <p class="muted">Cargando...</p>
     } @else if (plans().length === 0) {
-      <p class="empty-state">Crea tu primer plan de membresía (por ejemplo, mensual).</p>
+      <p class="empty-state">No hay planes. Crea el primero con el formulario (por ejemplo «Mensualidad» a $50.000).</p>
     } @else {
       <ul class="plan-list">
         @for (plan of plans(); track plan.id) {
           <li>
-            <div>
+            <div class="plan-info">
               <strong>{{ plan.name }}</strong>
               <p>{{ plan.description || 'Sin descripción' }}</p>
             </div>
-            <div class="meta">
+            <div class="plan-meta">
               <span>{{ plan.durationDays }} días</span>
-              <span>{{ plan.price | currency }}</span>
+              <span class="price">{{ plan.price | cop }}</span>
               <span class="badge" [class.inactive]="!plan.active">
                 {{ plan.active ? 'Activo' : 'Inactivo' }}
               </span>
+            </div>
+            <div class="plan-actions">
+              <button type="button" class="link" (click)="startEdit(plan)">Editar</button>
+              <button type="button" class="link danger" (click)="remove(plan)">Eliminar</button>
             </div>
           </li>
         }

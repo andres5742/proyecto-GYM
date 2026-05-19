@@ -21,7 +21,7 @@ public class TurnstileGatewayService {
 
     public boolean openGate(String memberName, Long memberId) {
         if (webhookUrl.isEmpty()) {
-            log.info("TORNIQUETE ABIERTO (simulado) — socio: {} (id={})", memberName, memberId);
+            log.info("TORNIQUETE ABIERTO (simulado) — afiliado: {} (id={})", memberName, memberId);
             return true;
         }
         try {

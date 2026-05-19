@@ -1,76 +1,82 @@
 <section class="page-header">
-  <h2>Registrar ventas</h2>
-  <p>Un proceso simple en tres pasos. Sin prisa: puedes corregir o anular si te equivocas.</p>
+  <h2>Ventas</h2>
+  <p>Abre tu turno, agrega productos uno a uno y registra cantidades por medio de pago.</p>
 </section>
-
-<ol class="steps-calm">
-  <li>
-    <span class="step-num">1</span>
-    <span>Abre el turno del día (mañana, tarde o noche).</span>
-  </li>
-  <li>
-    <span class="step-num">2</span>
-    <span>Registra cada venta con el entrenador, producto y forma de pago.</span>
-  </li>
-  <li>
-    <span class="step-num">3</span>
-    <span>Al cerrar el turno, revisa el resumen por efectivo, Nequi, Bancolombia o pendiente.</span>
-  </li>
-</ol>
 
 @if (message()) {
   <p class="alert info">{{ message() }}</p>
 }
 
-<section class="shift-panel">
+<section class="shift-panel panel">
   @if (openShift(); as shift) {
     <div class="shift-open">
-      <div>
-        <strong>Turno activo: {{ shift.name }}</strong>
-        <span>
-          {{ shift.shiftDate | date: 'dd/MM/yyyy' }} · Abierto
-          {{ shift.openedAt | date: 'HH:mm' }}
+      <div class="shift-open-info">
+        <span class="shift-badge">Turno activo</span>
+        <strong>{{ shift.name }}</strong>
+        <span class="shift-meta">
+          Vendedor: {{ shift.employeeName ?? currentUserName() }} ·
+          {{ shift.shiftDate | date: 'dd/MM/yyyy' }} · {{ shift.openedAt | date: 'HH:mm' }}
         </span>
       </div>
-      <button type="button" class="btn-close" (click)="closeShiftAction()">Cerrar turno</button>
+      <div class="shift-open-actions">
+        <a routerLink="/panel/entrega-turno" class="btn btn-primary">Entregar turno</a>
+        <button type="button" class="btn btn-warn" (click)="closeShiftAction()">Cerrar turno</button>
+      </div>
     </div>
 
-    <h3 class="summary-title">Totales del turno por medio de pago</h3>
     @if (summary(); as s) {
+      <h3 class="summary-title">Totales del turno</h3>
       <div class="summary">
         <article class="summary-card highlight">
-          <span>Total turno</span>
-          <strong>{{ s.totalAmount | currency }}</strong>
+          <span>Total</span>
+          <strong>{{ s.totalAmount | cop }}</strong>
         </article>
         <article class="summary-card">
-          <span>Ventas</span>
+          <span>Registros</span>
           <strong>{{ s.totalSales }}</strong>
+        </article>
+        <article class="summary-card">
+          <span>Unidades</span>
+          <strong>{{ s.totalUnits }}</strong>
         </article>
         @for (pm of paymentMethods; track pm.value) {
           <article class="summary-card" [class.pending]="pm.value === 'PENDING'">
             <span>{{ pm.label }}</span>
-            <strong>{{ summaryAmount(pm.value) | currency }}</strong>
+            <strong>{{ summaryAmount(pm.value) | cop }}</strong>
           </article>
         }
       </div>
     }
   } @else {
     <div class="shift-closed">
-      <p>Para empezar a vender, elige el turno del día:</p>
+      <p class="seller-hint">
+        <strong>{{ currentUserName() }}</strong> abrirá el turno como vendedor.
+      </p>
       <div class="shift-open-actions">
         @for (preset of shiftPresets; track preset) {
-          <button type="button" (click)="openShiftAction(preset)" [disabled]="openingShift()">
+          <button
+            type="button"
+            class="btn btn-chip"
+            (click)="openShiftAction(preset)"
+            [disabled]="openingShift()"
+          >
             {{ preset }}
           </button>
         }
         <input
           type="text"
+          class="shift-name-input"
           [value]="shiftNameInput()"
           (input)="shiftNameInput.set($any($event.target).value)"
-          placeholder="Nombre del turno"
+          placeholder="Nombre personalizado"
         />
-        <button type="button" class="primary" (click)="openShiftAction()" [disabled]="openingShift()">
-          Abrir turno
+        <button
+          type="button"
+          class="btn btn-primary btn-lg"
+          (click)="openShiftAction()"
+          [disabled]="openingShift()"
+        >
+          {{ openingShift() ? 'Abriendo...' : 'Abrir turno' }}
         </button>
       </div>
     </div>
@@ -78,119 +84,275 @@
 </section>
 
 @if (openShift()) {
-  <div class="grid">
-    <form class="panel" [formGroup]="form" (ngSubmit)="save()">
-      <h3>Nueva venta</h3>
-      <p class="form-section-title">Datos de la venta</p>
+  <section class="panel sales-matrix-panel">
+    <div class="matrix-head">
+      <h3>Registrar ventas</h3>
+      <p class="hint">Elige un producto, agrégalo a la lista y completa las cantidades por medio de pago.</p>
+    </div>
 
-      <label>
-        ¿Qué entrenador vendió?
-        <select formControlName="employeeId">
-          <option [ngValue]="null">Elige un entrenador</option>
-          @for (emp of employees(); track emp.id) {
-            <option [ngValue]="emp.id">{{ emp.fullName }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        ¿Qué producto?
-        <select formControlName="productId">
-          <option [ngValue]="null">Elige un producto</option>
-          @for (product of products(); track product.id) {
-            <option [ngValue]="product.id">
-              {{ product.name }} ({{ product.quantity }}) — {{ product.unitPrice | currency }}
+    <div class="product-picker">
+      <label class="picker-label">
+        <span>Agregar producto</span>
+        <select
+          [ngModel]="pickerProductId()"
+          (ngModelChange)="pickerProductId.set($event)"
+          [disabled]="productsForPicker().length === 0"
+        >
+          <option [ngValue]="null">Selecciona un producto...</option>
+          @for (p of productsForPicker(); track p.id) {
+            <option [ngValue]="p.id">
+              {{ p.name }} — {{ p.unitPrice | cop }} (stock: {{ p.quantity }})
             </option>
           }
         </select>
       </label>
-
-      <label>
-        Cantidad
-        <input type="number" formControlName="quantity" min="1" />
-      </label>
-
-      <label>
-        ¿Cómo pagó el cliente?
-        <select formControlName="paymentMethod">
-          @for (pm of paymentMethods; track pm.value) {
-            <option [value]="pm.value">{{ pm.label }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        Notas
-        <textarea formControlName="notes" rows="2"></textarea>
-      </label>
-
-      @if (selectedProduct(); as product) {
-        <p class="total-preview">
-          Total:
-          <strong>{{ product.unitPrice * form.controls.quantity.value | currency }}</strong>
-        </p>
-      }
-
-      <button type="submit" [disabled]="saving()">
-        {{ saving() ? 'Guardando...' : '✓ Guardar venta' }}
+      <button
+        type="button"
+        class="btn btn-success"
+        (click)="addProductToCart()"
+        [disabled]="pickerProductId() == null"
+      >
+        + Agregar a la venta
       </button>
-      <p class="psych-reassurance">
-        Los datos quedan guardados de inmediato. Puedes anular una venta después si fue un error.
+    </div>
+
+    @if (loading()) {
+      <p>Cargando...</p>
+    } @else if (products().length === 0) {
+      <p class="empty-state">No hay productos activos. Agrega productos en Inventario.</p>
+    } @else if (cartProducts().length === 0) {
+      <p class="empty-state picker-empty">
+        Usa el selector de arriba para ir agregando productos a esta venta.
       </p>
-    </form>
-
-    <div class="panel table-panel">
-      <div class="table-header">
-        <h3>Ventas del turno</h3>
-        <label>
-          Filtrar entrenador
-          <select (change)="onFilterChange($any($event.target).value)">
-            <option value="">Todos</option>
-            @for (emp of employees(); track emp.id) {
-              <option [value]="emp.id">{{ emp.fullName }}</option>
-            }
-          </select>
-        </label>
-      </div>
-
-      @if (loading()) {
-        <p>Cargando...</p>
-      } @else if (sales().length === 0) {
-        <p class="empty-state">Todavía no hay ventas en este turno. ¡Registra la primera arriba!</p>
-      } @else {
-        <table>
+    } @else {
+      <div class="table-scroll">
+        <table class="sales-matrix">
           <thead>
             <tr>
-              <th>Hora</th>
-              <th>Entrenador</th>
-              <th>Producto</th>
-              <th>Cant.</th>
-              <th>Total</th>
-              <th>Pago</th>
-              <th></th>
+              <th class="col-product">Producto</th>
+              <th class="col-price">Precio</th>
+              <th class="col-stock">Stock</th>
+              @for (pm of paymentMethods; track pm.value) {
+                <th class="col-qty">{{ pm.label }}</th>
+              }
+              <th class="col-total">Total</th>
+              <th class="col-actions"></th>
             </tr>
           </thead>
           <tbody>
-            @for (sale of sales(); track sale.id) {
-              <tr [class.pending-row]="sale.paymentMethod === 'PENDING'">
-                <td>{{ sale.saleDate | date: 'HH:mm' }}</td>
-                <td>{{ sale.employeeName }}</td>
-                <td>{{ sale.productName }}</td>
-                <td>{{ sale.quantity }}</td>
-                <td>{{ sale.totalAmount | currency }}</td>
-                <td>
-                  <span class="badge" [class]="sale.paymentMethod.toLowerCase()">
-                    {{ sale.paymentMethodLabel }}
-                  </span>
+            @for (product of cartProducts(); track product.id) {
+              <tr>
+                <td class="col-product">
+                  <strong>{{ product.name }}</strong>
                 </td>
-                <td>
-                  <button type="button" class="link danger" (click)="remove(sale.id)">Anular</button>
+                <td class="col-price">{{ product.unitPrice | cop }}</td>
+                <td class="col-stock">{{ product.quantity }}</td>
+                @for (pm of paymentMethods; track pm.value) {
+                  <td class="col-qty">
+                    @if (soldQty(product.id, pm.value) > 0) {
+                      <span class="sold-badge" title="Ya vendido en el turno">
+                        +{{ soldQty(product.id, pm.value) }}
+                      </span>
+                    }
+                    <input
+                      type="number"
+                      min="0"
+                      [value]="getQty(product.id, pm.value)"
+                      (input)="setQty(product.id, pm.value, $any($event.target).value)"
+                      [attr.aria-label]="product.name + ' — ' + pm.label"
+                    />
+                  </td>
+                }
+                <td class="col-total">
+                  <span class="units">{{ rowTotalUnits(product.id) }} u.</span>
+                  <strong>{{ rowTotalAmount(product) | cop }}</strong>
+                </td>
+                <td class="col-actions">
+                  <button
+                    type="button"
+                    class="btn btn-delete btn-sm"
+                    (click)="removeFromCart(product.id)"
+                    aria-label="Quitar producto"
+                  >
+                    Quitar
+                  </button>
                 </td>
               </tr>
             }
           </tbody>
         </table>
+      </div>
+
+      <div class="matrix-actions">
+        <button
+          type="button"
+          class="btn btn-primary btn-lg"
+          (click)="saveMatrix()"
+          [disabled]="saving() || !hasLinesToSave()"
+        >
+          {{ saving() ? 'Guardando...' : 'Guardar ventas' }}
+        </button>
+      </div>
+    }
+  </section>
+
+  @if (soldRows().length > 0) {
+    <section class="panel sold-summary-panel">
+      <h3>Resumen vendido en el turno</h3>
+      <div class="table-scroll">
+        <table class="sold-matrix">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              @for (pm of paymentMethods; track pm.value) {
+                <th>{{ pm.label }} (cant.)</th>
+              }
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of soldRows(); track row.productId) {
+              <tr>
+                <td>{{ row.productName }}</td>
+                @for (pm of paymentMethods; track pm.value) {
+                  <td>{{ historySoldQty(row, pm.value) }}</td>
+                }
+                <td>{{ row.totalAmount | cop }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+}
+
+@if (isAdmin()) {
+  <section class="panel history-panel">
+    <h3>Historial de turnos</h3>
+    <p class="hint">Revisa cómo le fue a cada vendedor. @if (isSuperAdmin()) { El super admin puede eliminar turnos cerrados. }</p>
+
+    @if (loadingHistory()) {
+      <p>Cargando historial...</p>
+    } @else if (shiftHistory().length === 0) {
+      <p class="empty-state">Aún no hay turnos registrados.</p>
+    } @else {
+      <div class="table-scroll">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Turno</th>
+              <th>Vendedor</th>
+              <th>Estado</th>
+              <th>Ventas</th>
+              <th>Total</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of shiftHistory(); track s.id) {
+              <tr [class.open-row]="s.status === 'OPEN'">
+                <td>{{ s.shiftDate | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.employeeName ?? '—' }}</td>
+                <td>
+                  <span class="status-badge" [class.closed]="s.status === 'CLOSED'">
+                    {{ s.status === 'OPEN' ? 'Abierto' : 'Cerrado' }}
+                  </span>
+                </td>
+                <td>{{ s.totalSales }}</td>
+                <td>{{ s.totalAmount | cop }}</td>
+                <td class="history-actions">
+                  <button type="button" class="btn btn-edit btn-sm" (click)="viewHistoryShift(s.id)">
+                    Ver detalle
+                  </button>
+                  @if (isSuperAdmin() && s.status === 'CLOSED') {
+                    <button
+                      type="button"
+                      class="btn btn-delete btn-sm"
+                      (click)="deleteHistoryShift(s, $event)"
+                      [disabled]="deletingShiftId() === s.id"
+                    >
+                      {{ deletingShiftId() === s.id ? '...' : 'Eliminar' }}
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+}
+
+@if (historyDetail(); as detail) {
+  <div class="history-modal-backdrop" (click)="closeHistoryDetail()" role="presentation"></div>
+  <div class="history-modal" role="dialog" aria-label="Detalle del turno">
+    <div class="modal-head">
+      <div>
+        <strong>{{ detail.shift.name }}</strong>
+        <span>
+          {{ detail.shift.employeeName ?? '—' }} ·
+          {{ detail.shift.shiftDate | date: 'dd/MM/yyyy' }}
+          @if (detail.shift.closedAt) {
+            · Cerrado {{ detail.shift.closedAt | date: 'HH:mm' }}
+          }
+        </span>
+      </div>
+      <button type="button" class="btn btn-warn btn-icon" (click)="closeHistoryDetail()" aria-label="Cerrar">
+        ×
+      </button>
+    </div>
+
+    <div class="summary compact">
+      <article class="summary-card highlight">
+        <span>Total</span>
+        <strong>{{ detail.summary.totalAmount | cop }}</strong>
+      </article>
+      @for (pm of paymentMethods; track pm.value) {
+        <article class="summary-card">
+          <span>{{ pm.label }}</span>
+          <strong>{{ detail.summary.amountByPaymentMethod[pm.value] | cop }}</strong>
+        </article>
       }
     </div>
+
+    @if (detail.productRows.length === 0) {
+      <p class="empty-state">Sin ventas en este turno.</p>
+    } @else {
+      <div class="table-scroll">
+        <table class="sold-matrix">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              @for (pm of paymentMethods; track pm.value) {
+                <th>{{ pm.label }}</th>
+              }
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of detail.productRows; track row.productId) {
+              <tr>
+                <td>{{ row.productName }}</td>
+                @for (pm of paymentMethods; track pm.value) {
+                  <td>
+                    @if (historySoldQty(row, pm.value) > 0) {
+                      {{ historySoldQty(row, pm.value) }}
+                      <small>({{ row.byPaymentMethod[pm.value]?.amount | cop }})</small>
+                    } @else {
+                      —
+                    }
+                  </td>
+                }
+                <td>{{ row.totalAmount | cop }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
   </div>
 }
