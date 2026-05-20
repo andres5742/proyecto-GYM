@@ -5,8 +5,11 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Gender, Member, MemberRequest, MembershipStatus } from '../../core/models/member.model';
 import { MembershipPlan } from '../../core/models/plan.model';
 import { AuthService } from '../../core/services/auth.service';
+import { AccessService } from '../../core/services/access.service';
 import { MemberService } from '../../core/services/member.service';
 import { PlanService } from '../../core/services/plan.service';
+import { buildMemberAccessMap } from '../../core/utils/member-access-status';
+import { MemberAccessBadgesComponent } from '../../components/member-access-badges/member-access-badges';
 
 type SortColumn = 'name' | 'documentId' | 'gender' | 'planName' | 'status' | 'membershipEnd';
 
@@ -14,7 +17,7 @@ const PAGE_SIZES = [10, 25, 50, 100] as const;
 
 @Component({
   selector: 'app-members',
-  imports: [ReactiveFormsModule, DatePipe, CopCurrencyPipe],
+  imports: [ReactiveFormsModule, DatePipe, CopCurrencyPipe, MemberAccessBadgesComponent],
   templateUrl: './members.html',
   styleUrl: './members.scss',
 })
@@ -23,11 +26,13 @@ export class Members implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly memberService = inject(MemberService);
   private readonly planService = inject(PlanService);
+  private readonly accessService = inject(AccessService);
 
   protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
   protected readonly isAdmin = () => this.auth.isAdmin();
 
   protected readonly members = signal<Member[]>([]);
+  protected readonly accessByMemberId = signal(buildMemberAccessMap([], []));
   protected readonly plans = signal<MembershipPlan[]>([]);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
@@ -122,6 +127,7 @@ export class Members implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.loadAccessFlags();
     this.planService.findAll().subscribe({
       next: (plans) => this.plans.set(plans),
     });
@@ -140,6 +146,20 @@ export class Members implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  loadAccessFlags(): void {
+    this.accessService.listEnrollments().subscribe({
+      next: (enrollments) => {
+        this.accessService.listWebcamEnrollments().subscribe({
+          next: (webcam) => this.accessByMemberId.set(buildMemberAccessMap(enrollments, webcam)),
+        });
+      },
+    });
+  }
+
+  protected accessFlags(memberId: number) {
+    return this.accessByMemberId()[memberId];
   }
 
   onSearchChange(value: string): void {

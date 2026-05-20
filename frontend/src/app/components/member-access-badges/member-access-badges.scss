@@ -1,0 +1,43 @@
+.access-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+
+  &__chip {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    background: var(--color-surface, #f0f0f0);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+
+    &.on {
+      background: var(--color-success-soft, #e8f5e9);
+      color: var(--color-success, #2e7d32);
+      border-color: var(--color-success, #2e7d32);
+    }
+  }
+
+  &__count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    margin-left: 0.15rem;
+
+    &.full {
+      color: var(--color-success, #2e7d32);
+    }
+  }
+
+  &--none {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+  }
+
+  &.compact .access-badges__chip {
+    font-size: 0.62rem;
+    padding: 0.08rem 0.32rem;
+  }
+}

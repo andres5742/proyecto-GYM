@@ -1,0 +1,65 @@
+<div class="member-search" #root>
+  <span class="member-search__label">{{ label() }}</span>
+  <div class="member-search__field">
+    <input
+      type="text"
+      class="member-search__input"
+      [placeholder]="placeholder()"
+      [value]="searchQuery()"
+      [disabled]="disabled()"
+      (input)="onSearchInput($any($event.target).value)"
+      (focus)="onFocus()"
+      autocomplete="off"
+    />
+    @if (selectedId() != null && !disabled()) {
+      <button
+        type="button"
+        class="member-search__clear"
+        (mousedown)="$event.preventDefault()"
+        (click)="clearSelection($event)"
+        title="Quitar selección"
+      >
+        ×
+      </button>
+    }
+  </div>
+
+  @if (open() && !disabled()) {
+    <ul class="member-search__results" role="listbox">
+      @if (filteredMembers().length === 0) {
+        <li class="member-search__empty">Sin coincidencias</li>
+      } @else {
+        @for (m of filteredMembers(); track m.id) {
+          <li>
+            <button
+              type="button"
+              class="member-search__option"
+              (pointerdown)="pickMember(m, $event)"
+            >
+              <span class="member-search__row">
+                <span class="member-search__name">{{ m.firstName }} {{ m.lastName }}</span>
+                @if (m.documentId) {
+                  <span class="member-search__doc">CC {{ m.documentId }}</span>
+                }
+              </span>
+              <app-member-access-badges [flags]="accessFlags(m.id)" [compact]="true" />
+            </button>
+          </li>
+        }
+      }
+    </ul>
+  }
+
+  @if (selectedMember(); as sel) {
+    <p class="member-search__selected">
+      Seleccionado: <strong>{{ sel.firstName }} {{ sel.lastName }}</strong>
+      @if (sel.documentId) {
+        <span> — CC {{ sel.documentId }}</span>
+      }
+    </p>
+    <p class="member-search__access-line">
+      <app-member-access-badges [flags]="accessFlags(sel.id)" />
+      <span class="member-search__access-summary">{{ accessSummary(sel.id) }}</span>
+    </p>
+  }
+</div>

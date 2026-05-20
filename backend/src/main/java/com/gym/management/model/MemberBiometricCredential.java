@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,41 +21,39 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "access_logs")
+@Table(
+        name = "member_biometric_credentials",
+        uniqueConstraints = {
+            @UniqueConstraint(columnNames = {"member_id", "credential_type"}),
+            @UniqueConstraint(columnNames = {"credential_type", "device_user_id"})
+        })
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AccessLog {
+public class MemberBiometricCredential {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fingerprint_user_id", length = 64)
-    private String fingerprintUserId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "credential_type", length = 20)
-    private BiometricCredentialType credentialType;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private AccessResult result;
+    @Column(name = "credential_type", nullable = false, length = 20)
+    private BiometricCredentialType credentialType;
 
-    @Column(nullable = false, length = 300)
-    private String message;
+    /** ID de usuario en el lector (huella, rostro, etc.). */
+    @Column(name = "device_user_id", nullable = false, length = 64)
+    private String deviceUserId;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean gateOpened = false;
+    @Column(length = 120)
+    private String deviceLabel;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
-    private Instant createdAt;
+    private Instant enrolledAt;
 }

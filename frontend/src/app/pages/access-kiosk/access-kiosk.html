@@ -1,4 +1,9 @@
-<div class="kiosk" [class.granted]="lastResult()?.result === 'GRANTED'" [class.denied]="lastResult()?.result === 'DENIED'">
+<div
+  class="kiosk"
+  [class.granted]="lastResult()?.result === 'GRANTED'"
+  [class.denied]="lastResult()?.result === 'DENIED'"
+  [class.waiting]="!lastResult() && !facePresent()"
+>
   <header class="kiosk-header">
     <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo kiosk-logo" />
     <div>
@@ -8,9 +13,23 @@
   </header>
 
   <div class="scan-zone">
-    <div class="fingerprint-icon" [class.pulse]="scanning()">👆</div>
-    <p class="scan-title">Coloca tu dedo en el lector</p>
-    <p class="scan-sub">El torniquete se abrirá si tu membresía está activa</p>
+    <p class="scan-title">Identifícate para entrar</p>
+    <p class="scan-sub" [class.scan-sub--waiting]="!lastResult() && !facePresent() && !scanning()">
+      {{ statusLine() }}
+    </p>
+
+    <div class="scan-camera" [class.scan-camera--active]="facePresent()">
+      <app-face-webcam-capture
+        (statusChange)="onFaceStatus($event)"
+        (faceDetected)="onFaceDetected($event)"
+      />
+    </div>
+
+    <p class="scan-hint">
+      <span>👆 Huella en el lector</span>
+      <span class="scan-hint__sep">·</span>
+      <span>🙂 Rostro en la cámara</span>
+    </p>
 
     @if (lastResult(); as r) {
       <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">
@@ -28,19 +47,20 @@
     }
   </div>
 
-  <div class="dev-sim panel">
-    <p class="dev-label">Modo prueba (lector conectado usará el ID automáticamente)</p>
+  <details class="dev-sim panel">
+    <summary>Modo prueba (huella)</summary>
+    <p class="dev-label">El lector real enviará el ID automáticamente. Aquí solo para pruebas.</p>
     <div class="dev-row">
       <input
         type="text"
-        [value]="fingerprintId()"
-        (input)="fingerprintId.set($any($event.target).value)"
-        placeholder="ID de huella del lector"
+        [value]="deviceUserId()"
+        (input)="deviceUserId.set($any($event.target).value)"
+        placeholder="ID de huella en el lector"
         (keyup.enter)="simulateScan()"
       />
       <button type="button" class="btn btn-primary" [disabled]="scanning()" (click)="simulateScan()">
-        {{ scanning() ? 'Verificando...' : 'Simular lectura' }}
+        {{ scanning() ? 'Verificando...' : 'Simular huella' }}
       </button>
     </div>
-  </div>
+  </details>
 </div>

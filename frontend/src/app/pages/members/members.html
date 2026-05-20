@@ -224,6 +224,7 @@
                 Vence{{ sortIndicator('membershipEnd') }}
               </button>
             </th>
+            <th>Acceso</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -240,6 +241,9 @@
                 </span>
               </td>
               <td>{{ member.membershipEnd ? (member.membershipEnd | date: 'dd/MM/yyyy') : '—' }}</td>
+              <td class="access-cell">
+                <app-member-access-badges [flags]="accessFlags(member.id)" />
+              </td>
               <td class="row-actions">
                 <button type="button" class="link" (click)="startEdit(member)">Editar</button>
                 <button type="button" class="link danger" (click)="remove(member.id)">Eliminar</button>

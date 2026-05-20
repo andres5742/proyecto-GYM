@@ -1,0 +1,19 @@
+<div class="face-capture" [class.compact]="compact()">
+  <div
+    class="face-capture__frame"
+    [class.face-capture__frame--hidden]="modelsLoading() || !!cameraError()"
+    [class.face-capture__frame--locked]="faceInFrame()"
+  >
+    <video #video playsinline muted autoplay class="face-capture__video"></video>
+    <div class="face-capture__overlay" aria-hidden="true"></div>
+  </div>
+
+  @if (cameraError()) {
+    <p class="face-capture__error">{{ cameraError() }}</p>
+    <button type="button" class="btn btn-primary face-capture__retry" (click)="retryCamera()">
+      Reintentar cámara
+    </button>
+  } @else if (modelsLoading()) {
+    <p class="face-capture__hint">Cargando inteligencia facial…</p>
+  }
+</div>

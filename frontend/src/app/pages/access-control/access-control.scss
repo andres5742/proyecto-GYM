@@ -1,68 +1,194 @@
 .kiosk-link {
   display: inline-block;
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
   font-weight: 600;
   color: var(--color-trust);
 }
 
-.access-grid {
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.2fr);
+.access-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
   gap: 1rem;
+  margin-bottom: 0.75rem;
+
+  h2 {
+    margin: 0 0 0.25rem;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.access-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0;
+  padding: 0.65rem 1rem;
+  list-style: none;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+
+  strong {
+    font-size: 1.1rem;
+    margin-right: 0.2rem;
+  }
+}
+
+.access-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-bottom: 1rem;
+  padding: 0.35rem;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+
+  &__btn {
+    flex: 1;
+    min-width: 8rem;
+    padding: 0.55rem 0.85rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+
+    &.active {
+      background: var(--color-primary-soft);
+      color: var(--color-primary-hover);
+    }
+  }
+
+  &__badge {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--color-border);
+    font-weight: 700;
+  }
+
+  &__btn.active &__badge {
+    background: var(--color-primary);
+    color: #fff;
+  }
+}
+
+.access-register-grid,
+.access-lists-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
   align-items: start;
 }
 
-.steps-hint {
-  margin: 0 0 1rem;
-  padding-left: 1.2rem;
-  font-size: 0.88rem;
-  color: var(--color-text-muted);
-  line-height: 1.55;
+.access-card {
+  margin-bottom: 0;
 
-  li {
-    margin-bottom: 0.35rem;
-  }
-}
-
-.enroll-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li {
+  &__head {
     display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem 0;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.65rem;
     border-bottom: 1px solid var(--color-border);
 
-    strong {
-      display: block;
+    h3 {
+      margin: 0;
+      font-size: 1.05rem;
     }
+  }
+
+  &__count {
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: var(--color-primary-soft);
+    color: var(--color-primary-hover);
   }
 }
 
-.fp-id {
-  display: block;
+.access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.face-selected {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-sm);
   font-size: 0.88rem;
-  color: var(--color-primary-hover);
+}
+
+.face-status {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.access-legend {
+  margin: 0.75rem 0 0;
+  text-align: center;
+}
+
+.legend-chip {
+  display: inline-block;
+  font-size: 0.68rem;
   font-weight: 600;
-  margin-top: 0.2rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  margin: 0 0.15rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+
+  &.on {
+    background: var(--color-success-soft, #e8f5e9);
+    color: var(--color-success, #2e7d32);
+    border-color: var(--color-success, #2e7d32);
+  }
 }
 
-.logs-panel .badge.ok {
-  background: var(--color-success-soft);
-  color: var(--color-success);
+.logs-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  h3 {
+    margin: 0;
+  }
 }
 
-.row-granted td {
-  background: rgb(184 223 196 / 25%);
+.btn-sm {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.82rem;
 }
 
-@media (max-width: 900px) {
-  .access-grid {
+@media (max-width: 960px) {
+  .access-register-grid,
+  .access-lists-grid {
     grid-template-columns: 1fr;
+  }
+
+  .access-nav__btn {
+    flex: 1 1 100%;
   }
 }

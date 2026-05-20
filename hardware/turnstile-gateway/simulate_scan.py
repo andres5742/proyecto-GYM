@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Simula una lectura de huella contra el API del gym (pruebas locales)."""
+"""Simula lectura de huella contra el API del gym."""
+import argparse
 import json
 import sys
 import urllib.request
@@ -9,10 +10,15 @@ KEY = "gym-turnstile-dev-key"
 
 
 def main():
-    fp_id = sys.argv[1] if len(sys.argv) > 1 else input("ID de huella en el lector: ").strip()
+    parser = argparse.ArgumentParser(description="Simular acceso por huella")
+    parser.add_argument("device_user_id", nargs="?", help="ID en el lector de huella")
+    args = parser.parse_args()
+
+    device_id = args.device_user_id or input("ID en el lector de huella: ").strip()
+    body = {"deviceUserId": device_id, "credentialType": "FINGERPRINT"}
     req = urllib.request.Request(
         API,
-        data=json.dumps({"fingerprintUserId": fp_id}).encode(),
+        data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json", "X-Device-Key": KEY},
         method="POST",
     )

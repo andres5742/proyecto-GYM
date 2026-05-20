@@ -10,7 +10,8 @@ import com.gym.management.model.Member;
 import com.gym.management.model.MembershipPlan;
 import com.gym.management.model.MembershipStatus;
 import com.gym.management.repository.AccessLogRepository;
-import com.gym.management.repository.MemberFingerprintRepository;
+import com.gym.management.repository.MemberBiometricCredentialRepository;
+import com.gym.management.repository.MemberFaceEmbeddingRepository;
 import com.gym.management.repository.MemberRepository;
 import com.gym.management.security.SecurityUtils;
 import java.time.LocalDate;
@@ -25,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
-    private final MemberFingerprintRepository fingerprintRepository;
+    private final MemberBiometricCredentialRepository biometricCredentialRepository;
+    private final MemberFaceEmbeddingRepository faceEmbeddingRepository;
     private final AccessLogRepository accessLogRepository;
     private final MembershipPlanService planService;
     private final PasswordEncoder passwordEncoder;
@@ -69,7 +71,8 @@ public class MemberService {
         if (!memberRepository.existsById(id)) {
             throw new ResourceNotFoundException("Afiliado no encontrado: " + id);
         }
-        fingerprintRepository.findByMemberId(id).ifPresent(fingerprintRepository::delete);
+        biometricCredentialRepository.deleteByMemberId(id);
+        faceEmbeddingRepository.deleteByMemberId(id);
         memberRepository.deleteById(id);
     }
 
@@ -82,7 +85,8 @@ public class MemberService {
         if (count == 0) {
             return new MemberBulkDeleteResponse(0);
         }
-        fingerprintRepository.deleteAllInBatch();
+        biometricCredentialRepository.deleteAllInBatch();
+        faceEmbeddingRepository.deleteAllInBatch();
         accessLogRepository.deleteAllInBatch();
         memberRepository.deleteAllInBatch();
         return new MemberBulkDeleteResponse(count);

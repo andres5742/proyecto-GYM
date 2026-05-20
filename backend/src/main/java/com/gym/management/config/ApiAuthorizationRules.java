@@ -26,6 +26,10 @@ public final class ApiAuthorizationRules {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/access/verify")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/access/webcam/verify")
+                .permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/access/logs")
+                .hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/modules/public")
                 .permitAll()
                 .requestMatchers(

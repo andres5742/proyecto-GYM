@@ -1,12 +1,14 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AccessLogEntry,
   AccessVerifyResponse,
-  FingerprintEnrollRequest,
-  FingerprintEnrollResponse,
+  BiometricCredentialType,
+  BiometricEnrollRequest,
+  BiometricEnrollResponse,
+  FaceWebcamEnrollResponse,
 } from '../models/access.model';
 
 @Injectable({ providedIn: 'root' })
@@ -14,34 +16,80 @@ export class AccessService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/access`;
 
-  verifyFingerprint(fingerprintUserId: string): Observable<AccessVerifyResponse> {
+  verify(
+    deviceUserId: string,
+    credentialType: BiometricCredentialType = 'FINGERPRINT',
+  ): Observable<AccessVerifyResponse> {
     const headers = new HttpHeaders({
       'X-Device-Key': environment.accessDeviceKey ?? '',
     });
     return this.http.post<AccessVerifyResponse>(
       `${this.baseUrl}/verify`,
-      { fingerprintUserId },
+      { deviceUserId, credentialType },
       { headers },
     );
   }
 
-  listEnrollments(): Observable<FingerprintEnrollResponse[]> {
-    return this.http.get<FingerprintEnrollResponse[]>(`${this.baseUrl}/enrollments`);
+  /** @deprecated Use verify(id, 'FINGERPRINT') */
+  verifyFingerprint(fingerprintUserId: string): Observable<AccessVerifyResponse> {
+    return this.verify(fingerprintUserId, 'FINGERPRINT');
   }
 
-  enroll(request: FingerprintEnrollRequest): Observable<FingerprintEnrollResponse> {
-    return this.http.post<FingerprintEnrollResponse>(`${this.baseUrl}/enroll`, request);
+  verifyFace(deviceUserId: string): Observable<AccessVerifyResponse> {
+    return this.verify(deviceUserId, 'FACE');
   }
 
-  removeEnrollment(memberId: number): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/enroll/${memberId}`);
+  listEnrollments(): Observable<BiometricEnrollResponse[]> {
+    return this.http.get<BiometricEnrollResponse[]>(`${this.baseUrl}/enrollments`);
+  }
+
+  enroll(request: BiometricEnrollRequest): Observable<BiometricEnrollResponse> {
+    return this.http.post<BiometricEnrollResponse>(`${this.baseUrl}/enroll`, request);
+  }
+
+  removeEnrollment(
+    memberId: number,
+    credentialType: BiometricCredentialType = 'FINGERPRINT',
+  ): Observable<void> {
+    const params = new HttpParams().set('type', credentialType);
+    return this.http.delete<void>(`${this.baseUrl}/enroll/${memberId}`, { params });
   }
 
   logs(): Observable<AccessLogEntry[]> {
     return this.http.get<AccessLogEntry[]>(`${this.baseUrl}/logs`);
   }
 
+  clearLogs(): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/logs`);
+  }
+
   manualOpen(memberId: number): Observable<AccessVerifyResponse> {
     return this.http.post<AccessVerifyResponse>(`${this.baseUrl}/manual-open/${memberId}`, {});
+  }
+
+  verifyWebcam(descriptor: number[]): Observable<AccessVerifyResponse> {
+    const headers = new HttpHeaders({
+      'X-Device-Key': environment.accessDeviceKey ?? '',
+    });
+    return this.http.post<AccessVerifyResponse>(
+      `${this.baseUrl}/webcam/verify`,
+      { descriptor },
+      { headers },
+    );
+  }
+
+  enrollWebcam(memberId: number, descriptor: number[]): Observable<FaceWebcamEnrollResponse> {
+    return this.http.post<FaceWebcamEnrollResponse>(`${this.baseUrl}/webcam/enroll`, {
+      memberId,
+      descriptor,
+    });
+  }
+
+  listWebcamEnrollments(): Observable<FaceWebcamEnrollResponse[]> {
+    return this.http.get<FaceWebcamEnrollResponse[]>(`${this.baseUrl}/webcam/enrollments`);
+  }
+
+  removeWebcamEnrollment(memberId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/webcam/enroll/${memberId}`);
   }
 }

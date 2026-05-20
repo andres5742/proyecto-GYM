@@ -3,15 +3,17 @@ package com.gym.management.controller;
 import com.gym.management.dto.AccessLogResponse;
 import com.gym.management.dto.AccessVerifyRequest;
 import com.gym.management.dto.AccessVerifyResponse;
-import com.gym.management.dto.FingerprintEnrollRequest;
-import com.gym.management.dto.FingerprintEnrollResponse;
+import com.gym.management.dto.BiometricEnrollRequest;
+import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.exception.BusinessException;
+import com.gym.management.model.BiometricCredentialType;
 import com.gym.management.service.AccessControlService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,7 +35,7 @@ public class AccessControlController {
     @Value("${app.access.device-api-key:gym-turnstile-dev-key}")
     private String deviceApiKey;
 
-    /** Llamado por el lector de huellas / torniquete al detectar una huella. */
+    /** Llamado por lector de huella, facial o torniquete al identificar al afiliado. */
     @PostMapping("/verify")
     public AccessVerifyResponse verify(
             @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,
@@ -42,25 +45,34 @@ public class AccessControlController {
     }
 
     @GetMapping("/enrollments")
-    public List<FingerprintEnrollResponse> listEnrollments() {
+    public List<BiometricEnrollResponse> listEnrollments() {
         return accessControlService.listEnrollments();
     }
 
     @PostMapping("/enroll")
     @ResponseStatus(HttpStatus.CREATED)
-    public FingerprintEnrollResponse enroll(@Valid @RequestBody FingerprintEnrollRequest request) {
+    public BiometricEnrollResponse enroll(@Valid @RequestBody BiometricEnrollRequest request) {
         return accessControlService.enroll(request);
     }
 
     @DeleteMapping("/enroll/{memberId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeEnrollment(@PathVariable Long memberId) {
-        accessControlService.removeEnrollment(memberId);
+    public void removeEnrollment(
+            @PathVariable Long memberId,
+            @RequestParam(defaultValue = "FINGERPRINT") BiometricCredentialType type) {
+        accessControlService.removeEnrollment(memberId, type);
     }
 
     @GetMapping("/logs")
     public List<AccessLogResponse> logs() {
         return accessControlService.recentLogs();
+    }
+
+    @DeleteMapping("/logs")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public void clearLogs() {
+        accessControlService.clearAllLogs();
     }
 
     @PostMapping("/manual-open/{memberId}")

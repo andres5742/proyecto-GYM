@@ -1,0 +1,81 @@
+<div class="data-table">
+  <div class="data-table__toolbar">
+    <label class="data-table__search">
+      Buscar
+      <input
+        type="search"
+        [placeholder]="searchPlaceholder()"
+        [value]="searchQuery()"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+    <label class="data-table__pagesize">
+      Filas
+      <select [value]="pageSize()" (change)="onPageSizeChange($any($event.target).value)">
+        @for (size of pageSizeOptions; track size) {
+          <option [value]="size">{{ size }}</option>
+        }
+      </select>
+    </label>
+    <span class="data-table__count">{{ sortedRows().length }} registro(s)</span>
+  </div>
+
+  @if (sortedRows().length === 0) {
+    <p class="data-table__empty muted">{{ emptyMessage() }}</p>
+  } @else {
+    <div class="table-wrap data-table__wrap">
+      <table class="data-table__table">
+        <thead>
+          <tr>
+            @for (col of columns(); track col.id) {
+              <th>
+                @if (col.sortable) {
+                  <button type="button" class="data-table__sort" (click)="sortBy(col.id)">
+                    {{ col.header }}{{ sortIndicator(col.id) }}
+                  </button>
+                } @else {
+                  {{ col.header }}
+                }
+              </th>
+            }
+            @if (showActions()) {
+              <th>Acciones</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of paginatedRows(); track $index) {
+            <tr [class]="rowClass()?.(row) ?? ''">
+              @for (col of columns(); track col.id) {
+                <td [class]="cellClass(row, col)">{{ col.cell(row) }}</td>
+              }
+              @if (showActions() && actionsTemplate(); as actions) {
+                <td class="data-table__actions">
+                  <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="data-table__footer">
+      <span>Mostrando {{ pageStart() }}–{{ pageEnd() }} de {{ sortedRows().length }}</span>
+      <div class="data-table__pager">
+        <button type="button" class="secondary" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
+          Anterior
+        </button>
+        <span>Página {{ page() }} / {{ totalPages() }}</span>
+        <button
+          type="button"
+          class="secondary"
+          [disabled]="page() >= totalPages()"
+          (click)="goToPage(page() + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </footer>
+  }
+</div>
