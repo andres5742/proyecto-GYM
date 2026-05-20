@@ -95,7 +95,11 @@
           </p>
         }
         <p class="face-status">{{ faceStatus() }}</p>
-        <app-face-webcam-capture [compact]="true" (statusChange)="onFaceStatus($event)" />
+        <app-face-webcam-capture
+          [compact]="true"
+          [allowCameraSwitch]="true"
+          (statusChange)="onFaceStatus($event)"
+        />
         <button
           type="button"
           class="btn btn-primary"

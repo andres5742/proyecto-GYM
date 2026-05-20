@@ -1,3 +1,6 @@
+/** Cámara frontal (selfie) o trasera en móvil. */
+export type CameraFacing = 'user' | 'environment';
+
 /** Mensajes claros para errores de getUserMedia. */
 export function cameraErrorMessage(error: unknown): string {
   if (!isSecureCameraContext()) {
@@ -29,7 +32,7 @@ export function cameraErrorMessage(error: unknown): string {
         'Ciérrala y pulsa Reintentar.'
       );
     case 'OverconstrainedError':
-      return 'La cámara no aceptó la resolución pedida. Pulsa Reintentar.';
+      return 'Esa cámara no está disponible en este dispositivo. Prueba la otra.';
     case 'AbortError':
       return 'Acceso a la cámara cancelado. Pulsa Reintentar.';
     default:
@@ -44,13 +47,21 @@ export function isSecureCameraContext(): boolean {
   return typeof window !== 'undefined' && window.isSecureContext;
 }
 
+export interface OpenCameraOptions {
+  /** `user` = frontal, `environment` = trasera (móvil). */
+  facingMode?: CameraFacing;
+}
+
 /** Prueba varias restricciones (algunas webcams fallan con max width/height). */
-export async function openCameraStream(): Promise<MediaStream> {
+export async function openCameraStream(options?: OpenCameraOptions): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new DOMException('getUserMedia no disponible', 'NotSupportedError');
   }
 
+  const preferred = options?.facingMode ?? 'user';
   const attempts: MediaStreamConstraints[] = [
+    { video: { facingMode: preferred }, audio: false },
+    { video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: preferred }, audio: false },
     { video: { facingMode: 'user' }, audio: false },
     { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
     { video: true, audio: false },

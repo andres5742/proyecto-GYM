@@ -1,10 +1,40 @@
 <div class="face-capture" [class.compact]="compact()">
+  @if (allowCameraSwitch() && !cameraError()) {
+    <div class="face-capture__camera-switch" role="group" aria-label="Elegir cámara">
+      <button
+        type="button"
+        class="face-capture__camera-btn"
+        [class.face-capture__camera-btn--active]="facingMode() === 'user'"
+        [disabled]="switchingCamera() || modelsLoading()"
+        (click)="selectCamera('user')"
+      >
+        Cámara frontal
+      </button>
+      <button
+        type="button"
+        class="face-capture__camera-btn"
+        [class.face-capture__camera-btn--active]="facingMode() === 'environment'"
+        [disabled]="switchingCamera() || modelsLoading()"
+        (click)="selectCamera('environment')"
+      >
+        Cámara trasera
+      </button>
+    </div>
+  }
+
   <div
     class="face-capture__frame"
     [class.face-capture__frame--hidden]="modelsLoading() || !!cameraError()"
     [class.face-capture__frame--locked]="faceInFrame()"
   >
-    <video #video playsinline muted autoplay class="face-capture__video"></video>
+    <video
+      #video
+      playsinline
+      muted
+      autoplay
+      class="face-capture__video"
+      [class.face-capture__video--mirror]="facingMode() === 'user'"
+    ></video>
     <div class="face-capture__overlay" aria-hidden="true"></div>
   </div>
 
