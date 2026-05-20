@@ -23,6 +23,8 @@ import { PortalContentPage } from './pages/portal-content/portal-content';
 import { BillingPage } from './pages/billing/billing';
 import { Sales } from './pages/sales/sales';
 import { ShiftHandoverPage } from './pages/shift-handover/shift-handover';
+import { CashShortfallsPage } from './pages/cash-shortfalls/cash-shortfalls';
+import { ProductCreditsPage } from './pages/product-credits/product-credits';
 import { Login } from './pages/login/login';
 import { MyAccount } from './pages/my-account/my-account';
 
@@ -60,9 +62,9 @@ export const routes: Routes = [
     canActivate: [staffGuard],
     children: [
       { path: '', component: Dashboard },
-      { path: 'afiliados', redirectTo: 'socios', pathMatch: 'full' },
+      { path: 'socios', redirectTo: 'afiliados', pathMatch: 'full' },
       {
-        path: 'socios',
+        path: 'afiliados',
         component: Members,
         canActivate: [moduleGuard],
         data: { moduleKey: 'SOCIOS' },
@@ -103,6 +105,18 @@ export const routes: Routes = [
         component: ShiftHandoverPage,
         canActivate: [moduleGuard],
         data: { moduleKey: 'ENTREGA_TURNO' },
+      },
+      {
+        path: 'descuadres-caja',
+        component: CashShortfallsPage,
+        canActivate: [moduleGuard],
+        data: { moduleKey: 'DESCUADRES_CAJA' },
+      },
+      {
+        path: 'fiado',
+        component: ProductCreditsPage,
+        canActivate: [moduleGuard],
+        data: { moduleKey: 'FIADO' },
       },
       {
         path: 'jornada',

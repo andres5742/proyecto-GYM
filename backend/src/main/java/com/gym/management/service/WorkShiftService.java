@@ -88,6 +88,17 @@ public class WorkShiftService {
                         "No hay un turno abierto. Abra un turno antes de registrar ventas."));
     }
 
+    @Transactional(readOnly = true)
+    public boolean isGlobalOpenShift(Long shiftId) {
+        if (shiftId == null) {
+            return false;
+        }
+        return workShiftRepository
+                .findFirstByStatusOrderByOpenedAtDesc(ShiftStatus.OPEN)
+                .map(open -> open.getId().equals(shiftId))
+                .orElse(false);
+    }
+
     public Employee getShiftSeller(WorkShift shift) {
         return shift.getEmployee();
     }

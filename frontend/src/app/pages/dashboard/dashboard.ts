@@ -35,20 +35,20 @@ export class Dashboard implements OnInit {
       error: () => this.apiStatus.set('Sin conexión'),
     });
 
-    if (this.auth.isAdmin() && this.modules.isEnabled('SOCIOS')) {
+    if (this.modules.isEnabled('SOCIOS')) {
       this.memberService.findAll().subscribe({
         next: (members) => this.memberCount.set(members.length),
         error: () => this.error.set('No se pudieron cargar los afiliados'),
       });
     }
 
-    if (this.auth.isAdmin() && this.modules.isEnabled('PLANES')) {
+    if (this.modules.isEnabled('PLANES')) {
       this.planService.findAll().subscribe({
         next: (plans) => this.planCount.set(plans.length),
       });
     }
 
-    if (this.auth.isAdmin() && this.modules.isEnabled('INVENTARIO')) {
+    if (this.modules.isEnabled('INVENTARIO')) {
       this.productService.findAll().subscribe({
         next: (products) => {
           this.productCount.set(products.length);

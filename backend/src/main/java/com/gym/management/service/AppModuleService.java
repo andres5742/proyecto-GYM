@@ -29,7 +29,7 @@ public class AppModuleService {
     public static final String CODE_MODULE_ADMIN = "MODULOS_SISTEMA";
 
     private static final Set<String> TRAINER_DEFAULT_ALLOWED =
-            Set.of("VENTAS", "FACTURACION", "ENTREGA_TURNO", "JORNADA");
+            Set.of("VENTAS", "FACTURACION", "ENTREGA_TURNO", "FIADO", "JORNADA");
 
     private final AppModuleRepository appModuleRepository;
     private final RoleModulePermissionRepository roleModulePermissionRepository;
@@ -144,11 +144,15 @@ public class AppModuleService {
                             .role(role)
                             .moduleCode("FACTURACION")
                             .build());
-            if (!roleModulePermissionRepository.existsByRoleAndModuleCode(role, "FACTURACION")) {
-                permission.setAllowed(defaultAllowedForRole(role, "FACTURACION"));
-                roleModulePermissionRepository.save(permission);
-            }
+            permission.setAllowed(true);
+            roleModulePermissionRepository.save(permission);
         }
+        appModuleRepository.findById("FACTURACION").ifPresent(module -> {
+            if (!Boolean.TRUE.equals(module.getEnabled())) {
+                module.setEnabled(true);
+                appModuleRepository.save(module);
+            }
+        });
     }
 
     @Transactional

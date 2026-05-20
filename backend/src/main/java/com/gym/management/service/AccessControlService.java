@@ -15,12 +15,14 @@ import com.gym.management.model.Employee;
 import com.gym.management.model.EmployeeBiometricCredential;
 import com.gym.management.model.Member;
 import com.gym.management.model.MemberBiometricCredential;
+import com.gym.management.model.MembershipPlan;
 import com.gym.management.model.MembershipStatus;
 import com.gym.management.repository.AccessLogRepository;
 import com.gym.management.repository.EmployeeBiometricCredentialRepository;
 import com.gym.management.repository.EmployeeRepository;
 import com.gym.management.repository.MemberBiometricCredentialRepository;
 import com.gym.management.repository.MemberRepository;
+import com.gym.management.util.WelcomeMessageUtils;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -219,6 +221,20 @@ public class AccessControlService {
             BiometricCredentialType type,
             Member member,
             boolean manual) {
+        if (MembershipFreezeService.isFrozen(member)) {
+            int days = member.getFrozenRemainingDays() != null ? member.getFrozenRemainingDays() : 0;
+            return deny(
+                    deviceUserId,
+                    type,
+                    member,
+                    null,
+                    "Membresía congelada. Tienes "
+                            + days
+                            + " día"
+                            + (days == 1 ? "" : "s")
+                            + " guardados. Descongela en recepción para ingresar.");
+        }
+
         MembershipStatus status = MemberMembershipRules.effectiveStatus(member);
         if (status != MembershipStatus.ACTIVE) {
             String message = status == MembershipStatus.SUSPENDED
@@ -231,6 +247,13 @@ public class AccessControlService {
             return deny(deviceUserId, type, member, null, "Tu membresía aún no ha iniciado.");
         }
 
+        var tiqueteraDeny = TicketBookAccessRules.denyReasonIfMonthlyLimitReached(
+                member, accessLogRepository, GYM_ZONE);
+        if (tiqueteraDeny.isPresent()) {
+            return deny(deviceUserId, type, member, null, tiqueteraDeny.get());
+        }
+
+        MembershipPlan plan = member.getPlan();
         if (!manual && alreadyEnteredToday(member)) {
             return deny(
                     deviceUserId,
@@ -240,6 +263,10 @@ public class AccessControlService {
                     "Ya ingresaste hoy. Solo se permite un ingreso por día.");
         }
 
+        String welcomeMessage = manual
+                ? "Apertura manual autorizada"
+                : buildMemberWelcomeMessage(member, plan);
+
         return grantAccess(
                 deviceUserId,
                 type,
@@ -248,9 +275,30 @@ public class AccessControlService {
                 null,
                 AccessPersonType.MEMBER,
                 member.getId(),
-                manual ? "Apertura manual autorizada" : "¡Bienvenido/a, " + member.getFirstName() + "!",
+                welcomeMessage,
                 member,
                 null);
+    }
+
+    private String buildMemberWelcomeMessage(Member member, MembershipPlan plan) {
+        String base = WelcomeMessageUtils.welcomeWithFirstName(member.getGender(), member.getFirstName());
+        if (!TicketBookAccessRules.isTiqueteraPlan(plan)) {
+            return base;
+        }
+        int remainingAfter =
+                TicketBookAccessRules.remainingEntries(member, accessLogRepository, GYM_ZONE) - 1;
+        if (remainingAfter < 0) {
+            return base;
+        }
+        if (remainingAfter == 0) {
+            return base + " Este era tu último entreno de la tiquetera.";
+        }
+        return base
+                + " Te quedan "
+                + remainingAfter
+                + " entreno"
+                + (remainingAfter == 1 ? "" : "s")
+                + " en tu tiquetera.";
     }
 
     private AccessVerifyResponse evaluateStaff(
@@ -276,7 +324,9 @@ public class AccessControlService {
                 employee.getId(),
                 AccessPersonType.STAFF,
                 employee.getId(),
-                manual ? "Apertura manual autorizada" : "¡Bienvenido/a, " + employee.getFirstName() + "!",
+                manual
+                        ? "Apertura manual autorizada"
+                        : WelcomeMessageUtils.welcomeWithFirstName(null, employee.getFirstName()),
                 null,
                 employee);
     }
@@ -307,7 +357,8 @@ public class AccessControlService {
                 personType,
                 fullName,
                 deviceUserId,
-                type);
+                type,
+                member != null ? member.getGender() : null);
     }
 
     private AccessVerifyResponse deny(
@@ -333,7 +384,8 @@ public class AccessControlService {
                 employee != null ? AccessPersonType.STAFF : AccessPersonType.MEMBER,
                 displayName,
                 deviceUserId,
-                type);
+                type,
+                member != null ? member.getGender() : null);
     }
 
     private void saveMemberLog(

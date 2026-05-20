@@ -4,92 +4,111 @@
   [class.denied]="lastResult()?.result === 'DENIED'"
   [class.waiting]="!lastResult() && !facePresent()"
 >
-  <header class="kiosk-header">
-    <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo kiosk-logo" />
-    <div>
-      <h1>Control de acceso</h1>
-      <p class="clock">{{ clock() | date: 'HH:mm:ss' }}</p>
-    </div>
-  </header>
-
-  @if (!kioskReady()) {
-    <div class="kiosk-start">
-      <p class="kiosk-start__title">Torniquete Sport Gym</p>
-      <p class="kiosk-start__text">
-        Pulsa para iniciar la cámara y el mensaje de bienvenida con voz.
-        @if (!audioSupported) {
-          <span class="kiosk-start__warn"> (Tu navegador no soporta voz; solo verás el mensaje en pantalla.)</span>
-        }
-      </p>
-      <button type="button" class="btn btn-primary kiosk-start__btn" (click)="startKiosk()">
-        Iniciar control de acceso
-      </button>
-    </div>
-  } @else {
-    <div class="scan-zone">
-      <p class="scan-title">Identifícate para entrar</p>
-      @if (lastResult()?.result === 'GRANTED' && welcomeTitle(); as headline) {
-        <p class="welcome-headline" aria-live="assertive">{{ headline }}</p>
-      }
-      <p class="scan-sub" [class.scan-sub--waiting]="!lastResult() && !facePresent() && !scanning()">
-        {{ statusLine() }}
-      </p>
-
-      @if (audioUnlocked()) {
-        <p class="audio-ready-hint">Voz de bienvenida activa</p>
-      }
-
-      @if (showWelcomeAudioBtn()) {
-        <button type="button" class="audio-unlock-btn audio-unlock-btn--pulse" (click)="playWelcomeNow()">
-          🔊 Escuchar bienvenida (toca aquí)
-        </button>
-        <p class="audio-ready-hint">Sube el volumen del dispositivo. Usa Chrome si no escuchas nada.</p>
-      }
-
-      <div class="scan-camera" [class.scan-camera--active]="facePresent()">
-        <app-face-webcam-capture
-          (statusChange)="onFaceStatus($event)"
-          (faceDetected)="onFaceDetected($event)"
-        />
-      </div>
-
-      <p class="scan-hint">
-        <span>👆 Huella en el lector</span>
-        <span class="scan-hint__sep">·</span>
-        <span>🙂 Rostro en la cámara</span>
-      </p>
-
-      @if (lastResult(); as r) {
-        <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">
-          <span class="result-icon">{{ r.result === 'GRANTED' ? '✅' : '⛔' }}</span>
-          <div>
-            @if (r.memberName) {
-              <strong>{{ r.memberName }}</strong>
-            }
-            <p>{{ r.message }}</p>
-            @if (r.gateOpened) {
-              <span class="gate-open">Torniquete liberado</span>
-            }
-          </div>
+  <div class="kiosk-shell">
+    <header class="kiosk-brand" aria-label="Sport Gym R.10">
+      <div class="kiosk-brand__card">
+        <div class="kiosk-brand__logo-wrap">
+          <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="gym-logo kiosk-brand__logo" />
         </div>
-      }
-    </div>
-
-    <details class="dev-sim panel">
-      <summary>Modo prueba (huella)</summary>
-      <p class="dev-label">El lector real enviará el ID automáticamente. Aquí solo para pruebas.</p>
-      <div class="dev-row">
-        <input
-          type="text"
-          [value]="deviceUserId()"
-          (input)="deviceUserId.set($any($event.target).value)"
-          placeholder="ID de huella en el lector"
-          (keyup.enter)="simulateScan()"
-        />
-        <button type="button" class="btn btn-primary" [disabled]="scanning()" (click)="simulateScan()">
-          {{ scanning() ? 'Verificando...' : 'Simular huella' }}
-        </button>
+        <time class="kiosk-brand__clock">{{ clock() | date: 'HH:mm:ss' }}</time>
       </div>
-    </details>
-  }
+    </header>
+
+    <main class="kiosk-main">
+      @if (!kioskReady()) {
+        <section class="scan-panel scan-panel--start">
+          <p class="scan-panel__lead">Bienvenido al gimnasio</p>
+          <p class="scan-panel__text">
+            Pulsa para iniciar la cámara y el mensaje de bienvenida con voz.
+            @if (!audioSupported) {
+              <span class="scan-panel__warn">Tu navegador no soporta voz; solo verás el mensaje en pantalla.</span>
+            }
+          </p>
+          <button type="button" class="btn btn-primary scan-panel__cta" (click)="startKiosk()">
+            Iniciar control de acceso
+          </button>
+        </section>
+      } @else {
+        <section class="scan-panel">
+          <p class="scan-panel__lead">Identifícate para entrar</p>
+
+          @if (lastResult()?.result === 'GRANTED' && welcomeTitle(); as headline) {
+            <p class="welcome-headline" aria-live="assertive">{{ headline }}</p>
+          }
+
+          <p
+            class="scan-panel__status"
+            [class.scan-panel__status--waiting]="!lastResult() && !facePresent() && !scanning()"
+          >
+            {{ statusLine() }}
+          </p>
+
+          @if (audioUnlocked()) {
+            <span class="scan-panel__badge">Voz de bienvenida activa</span>
+          }
+
+          @if (showWelcomeAudioBtn()) {
+            <button type="button" class="audio-unlock-btn audio-unlock-btn--pulse" (click)="playWelcomeNow()">
+              🔊 Escuchar bienvenida
+            </button>
+          }
+
+          <div class="scan-camera" [class.scan-camera--active]="facePresent()">
+            <app-face-webcam-capture
+              [compact]="true"
+              (statusChange)="onFaceStatus($event)"
+              (faceDetected)="onFaceDetected($event)"
+            />
+          </div>
+
+          <div class="scan-methods">
+            <span class="scan-methods__item">👆 Huella en el lector</span>
+            <span class="scan-methods__item">🙂 Rostro en la cámara</span>
+          </div>
+
+          @if (lastResult(); as r) {
+            <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">
+              <span class="result-icon" aria-hidden="true">{{ r.result === 'GRANTED' ? '✅' : '⛔' }}</span>
+              <div class="result-banner__body">
+                @if (r.memberName) {
+                  <strong>{{ r.memberName }}</strong>
+                }
+                <p>{{ r.message }}</p>
+                @if (r.gateOpened) {
+                  <span class="gate-open">Torniquete liberado</span>
+                }
+              </div>
+            </div>
+          }
+        </section>
+
+        <details class="dev-sim">
+          <summary>Modo prueba (huella)</summary>
+          <p class="dev-label">Solo para pruebas; el lector envía el ID automáticamente.</p>
+          <div class="dev-row">
+            <input
+              type="text"
+              [value]="deviceUserId()"
+              (input)="deviceUserId.set($any($event.target).value)"
+              placeholder="ID de huella en el lector"
+              (keyup.enter)="simulateScan()"
+            />
+            <button type="button" class="btn btn-primary" [disabled]="scanning()" (click)="simulateScan()">
+              {{ scanning() ? 'Verificando…' : 'Simular huella' }}
+            </button>
+          </div>
+        </details>
+      }
+    </main>
+
+    <footer class="kiosk-footer">
+      <div class="kiosk-motto-card" aria-live="polite">
+        <span class="kiosk-motto-card__icon" aria-hidden="true">✦</span>
+        <div class="kiosk-motto-card__content">
+          <span class="kiosk-motto-card__label">Motivación del día</span>
+          <p class="kiosk-motto-card__quote">{{ motivationalPhrase() }}</p>
+        </div>
+      </div>
+    </footer>
+  </div>
 </div>

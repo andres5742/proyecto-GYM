@@ -20,10 +20,10 @@
       @for (m of panelModules(); track m.code) {
         <li [class.disabled-row]="!m.enabled">
           <div class="module-info">
-            <strong>{{ m.name }}</strong>
+            <strong>{{ displayModuleName(m.code, m.name) }}</strong>
             <span class="code">{{ m.code }}</span>
-            @if (m.description) {
-              <p>{{ m.description }}</p>
+            @if (displayModuleDescription(m.code, m.description); as desc) {
+              <p>{{ desc }}</p>
             }
           </div>
           <label class="toggle" [class.locked]="m.code === 'MODULOS_SISTEMA'">
@@ -67,10 +67,10 @@
         @for (p of rolePermissions(); track p.moduleCode) {
           <li [class.disabled-row]="!p.allowed || !p.globallyEnabled">
             <div class="module-info">
-              <strong>{{ p.moduleName }}</strong>
+              <strong>{{ displayModuleName(p.moduleCode, p.moduleName) }}</strong>
               <span class="code">{{ p.moduleCode }}</span>
-              @if (p.description) {
-                <p>{{ p.description }}</p>
+              @if (displayModuleDescription(p.moduleCode, p.description); as desc) {
+                <p>{{ desc }}</p>
               }
               @if (!p.globallyEnabled) {
                 <p class="warn">Desactivado globalmente — actívalo arriba primero.</p>
@@ -97,10 +97,10 @@
       @for (m of publicModules(); track m.code) {
         <li [class.disabled-row]="!m.enabled">
           <div class="module-info">
-            <strong>{{ m.name }}</strong>
+            <strong>{{ displayModuleName(m.code, m.name) }}</strong>
             <span class="code">{{ m.code }}</span>
-            @if (m.description) {
-              <p>{{ m.description }}</p>
+            @if (displayModuleDescription(m.code, m.description); as desc) {
+              <p>{{ desc }}</p>
             }
           </div>
           <label class="toggle">

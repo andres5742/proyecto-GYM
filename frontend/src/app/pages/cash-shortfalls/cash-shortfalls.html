@@ -1,0 +1,124 @@
+<section class="page-header">
+  <h2>Descuadres de caja</h2>
+  <p>
+    Faltantes de efectivo detectados al entregar turno. Use este listado para cobrar al empleado o
+    entrenador al cierre del mes.
+  </p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<div class="panel filters">
+  <label>
+    Año
+    <select [ngModel]="selectedYear()" (ngModelChange)="selectedYear.set(+$event); onPeriodChange()">
+      @for (y of [selectedYear() - 1, selectedYear(), selectedYear() + 1]; track y) {
+        <option [value]="y">{{ y }}</option>
+      }
+    </select>
+  </label>
+  <label>
+    Mes
+    <select [ngModel]="selectedMonth()" (ngModelChange)="selectedMonth.set(+$event); onPeriodChange()">
+      @for (m of monthOptions; track m.value) {
+        <option [value]="m.value">{{ m.label }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+@if (loading()) {
+  <p class="muted">Cargando…</p>
+} @else {
+  @if (isAdmin() && summary().length > 0) {
+    <section class="panel summary-panel">
+      <h3>Resumen por empleado (mes)</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Pendiente de cobro</th>
+            <th>Ya cobrado</th>
+            <th>Registros</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of summary(); track row.employeeId) {
+            <tr>
+              <td>{{ row.employeeName }}</td>
+              <td class="col-amount warn">{{ row.pendingTotal | cop }}</td>
+              <td class="col-amount ok">{{ row.settledTotal | cop }}</td>
+              <td>{{ row.recordCount }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
+  <section class="panel list-panel">
+    <header class="list-panel__head">
+      <h3>Detalle del mes</h3>
+      @if (!isAdmin()) {
+        <span class="muted">Solo ves tus registros</span>
+      }
+      <span class="list-panel__pending">
+        Pendiente del mes: <strong>{{ pendingMonthTotal() | cop }}</strong>
+      </span>
+    </header>
+
+    @if (records().length === 0) {
+      <p class="muted empty">No hay descuadres registrados en este mes.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Empleado</th>
+            <th>Turno</th>
+            <th>Esperado</th>
+            <th>Contado</th>
+            <th>Faltante</th>
+            <th>Estado</th>
+            @if (isAdmin()) {
+              <th></th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of records(); track r.id) {
+            <tr [class.row-pending]="r.status === 'PENDING'">
+              <td>{{ r.recordDate | date: 'dd/MM/yyyy' }}</td>
+              <td>{{ r.employeeName }}</td>
+              <td>{{ r.workShiftName }}</td>
+              <td class="col-amount">{{ r.expectedAmount | cop }}</td>
+              <td class="col-amount">{{ r.declaredAmount | cop }}</td>
+              <td class="col-amount warn">{{ r.shortfallAmount | cop }}</td>
+              <td>
+                <span class="status-badge" [class.status-badge--pending]="r.status === 'PENDING'">
+                  {{ r.statusLabel }}
+                </span>
+              </td>
+              @if (isAdmin()) {
+                <td>
+                  @if (r.status === 'PENDING') {
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      [disabled]="saving()"
+                      (click)="settle(r)"
+                    >
+                      Marcar cobrado
+                    </button>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+}

@@ -83,6 +83,9 @@ public class MemberPortalService {
         Member member = memberRepository
                 .findById(user.memberId())
                 .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado"));
+        if (MembershipFreezeService.isFrozen(member)) {
+            throw new BusinessException("Tu membresía está congelada. Acércate a recepción para reactivarla.");
+        }
         if (MemberMembershipRules.effectiveStatus(member) != MembershipStatus.ACTIVE) {
             throw new BusinessException("Tu membresía no está activa");
         }

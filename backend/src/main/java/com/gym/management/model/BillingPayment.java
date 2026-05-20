@@ -59,6 +59,10 @@ public class BillingPayment {
     private WorkShift workShift;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "billing_cash_register_id")
+    private BillingCashRegister billingCashRegister;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id")
     private Employee employee;
 

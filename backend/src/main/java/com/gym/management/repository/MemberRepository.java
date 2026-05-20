@@ -28,6 +28,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
             """
             UPDATE Member m SET m.status = com.gym.management.model.MembershipStatus.EXPIRED
             WHERE m.status = com.gym.management.model.MembershipStatus.ACTIVE
+            AND (m.membershipFrozen = false OR m.membershipFrozen IS NULL)
             AND m.membershipEnd IS NOT NULL
             AND m.membershipEnd < :today
             """)

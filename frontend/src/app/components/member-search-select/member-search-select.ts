@@ -41,6 +41,9 @@ export class MemberSearchSelectComponent implements ControlValueAccessor {
   readonly memberId = input<number | null | undefined>(undefined);
 
   readonly memberIdChange = output<number | null>();
+  /** Muestra opción para registrar afiliado nuevo si no hay coincidencias. */
+  readonly allowRegisterNew = input(false);
+  readonly registerNew = output<string>();
 
   protected readonly searchQuery = signal('');
   protected readonly open = signal(false);
@@ -137,6 +140,14 @@ export class MemberSearchSelectComponent implements ControlValueAccessor {
     event.stopPropagation();
     this.selectMember(null);
     this.searchQuery.set('');
+  }
+
+  onRegisterNew(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.ignoreNextDocumentClose = true;
+    this.open.set(false);
+    this.registerNew.emit(this.searchQuery().trim());
   }
 
   protected touch(): void {

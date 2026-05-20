@@ -1,6 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { AppModuleItem, CONFIGURABLE_ROLES, ConfigurableRole, ModuleCode, RoleModulePermission } from '../../core/models/module.model';
 import { ModuleService } from '../../core/services/module.service';
+import {
+  moduleDisplayDescription,
+  moduleDisplayName,
+} from '../../core/utils/member-labels';
 
 @Component({
   selector: 'app-modules-admin',
@@ -20,6 +24,14 @@ export class ModulesAdminPage implements OnInit {
   protected readonly saving = signal<string | null>(null);
   protected readonly savingRole = signal<string | null>(null);
   protected readonly message = signal<string | null>(null);
+
+  protected displayModuleName(code: string, name: string): string {
+    return moduleDisplayName(code, name);
+  }
+
+  protected displayModuleDescription(code: string, description: string | undefined): string | undefined {
+    return moduleDisplayDescription(code, description);
+  }
 
   ngOnInit(): void {
     this.load();
@@ -73,7 +85,8 @@ export class ModulesAdminPage implements OnInit {
         this.moduleService.loadPublic().subscribe();
         this.loadRolePermissions();
         this.saving.set(null);
-        this.message.set(next ? `«${mod.name}» activado en el sistema` : `«${mod.name}» desactivado en el sistema`);
+        const label = moduleDisplayName(mod.code, mod.name);
+        this.message.set(next ? `«${label}» activado en el sistema` : `«${label}» desactivado en el sistema`);
       },
       error: (err) => {
         this.saving.set(null);

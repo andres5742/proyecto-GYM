@@ -84,6 +84,13 @@ public class Member {
 
     private LocalDate membershipEnd;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean membershipFrozen = false;
+
+    /** Días de membresía restantes al momento de congelar. */
+    private Integer frozenRemainingDays;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

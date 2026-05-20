@@ -5,7 +5,7 @@ import { AuthService } from '../core/services/auth.service';
 import { ModuleService } from '../core/services/module.service';
 import { BillingContextService } from '../core/services/billing-context.service';
 import { BillingService } from '../core/services/billing.service';
-import { SALES_PAYMENT_METHODS, PaymentMethod } from '../core/models/sale.model';
+import { BILLING_PAYMENT_METHODS, PaymentMethod } from '../core/models/sale.model';
 import {
   ensureWelcomeAudioUnlocked,
   isWelcomeAudioSupported,
@@ -13,6 +13,8 @@ import {
   speakAnnouncement,
 } from '../core/utils/access-welcome-audio';
 import { httpErrorMessage } from '../core/utils/http-error-message';
+
+type DayPassShortcut = 'workout' | 'sports-dance';
 
 @Component({
   selector: 'app-main-layout',
@@ -27,10 +29,10 @@ export class MainLayout implements OnInit {
   private readonly billingContext = inject(BillingContextService);
 
   protected readonly shortcutMessage = signal<string | null>(null);
-  protected readonly f2ModalOpen = signal(false);
-  protected readonly f2Processing = signal(false);
-  protected readonly f2PaymentMethod = signal<PaymentMethod>('CASH');
-  protected readonly paymentMethods = SALES_PAYMENT_METHODS;
+  protected readonly dayPassModal = signal<DayPassShortcut | null>(null);
+  protected readonly dayPassProcessing = signal(false);
+  protected readonly dayPassPaymentMethod = signal<PaymentMethod>('CASH');
+  protected readonly paymentMethods = BILLING_PAYMENT_METHODS;
 
   private lastTicketAt = 0;
   private shortcutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -39,10 +41,26 @@ export class MainLayout implements OnInit {
     this.refreshModules();
     if (this.auth.isLoggedIn()) {
       this.auth.loadProfile().subscribe({
-        next: () => this.refreshModules(),
+        next: () => {
+          this.refreshModules();
+          this.refreshOpenCashRegister();
+        },
         error: () => this.auth.logout(),
       });
     }
+  }
+
+  private refreshOpenCashRegister(): void {
+    if (!this.canUseDayPassShortcuts()) {
+      return;
+    }
+    this.billingService.findTodayCashRegister().subscribe({
+      next: (today) => {
+        const open = today?.status === 'OPEN' ? today : null;
+        this.billingContext.setOpenCashRegister(open);
+      },
+      error: () => this.billingContext.setOpenCashRegister(null),
+    });
   }
 
   private refreshModules(): void {
@@ -56,14 +74,16 @@ export class MainLayout implements OnInit {
 
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && this.f2ModalOpen()) {
-      this.closeF2Modal();
+    if (event.key === 'Escape' && this.dayPassModal()) {
+      this.closeDayPassModal();
       return;
     }
-    if (event.key !== 'F2') {
+
+    const shortcut = this.shortcutFromKey(event.key);
+    if (!shortcut) {
       return;
     }
-    if (!this.auth.isLoggedIn() || !this.canUseDayWorkoutF2()) {
+    if (!this.auth.isLoggedIn() || !this.canUseDayPassShortcuts()) {
       return;
     }
     const target = event.target;
@@ -75,22 +95,38 @@ export class MainLayout implements OnInit {
       return;
     }
     event.preventDefault();
-    this.openF2Modal();
+    this.openDayPassModal(shortcut);
   }
 
-  openF2Modal(): void {
-    this.f2PaymentMethod.set(this.billingContext.paymentMethod());
-    this.f2ModalOpen.set(true);
+  dayPassModalTitle(): string {
+    return this.dayPassModal() === 'sports-dance'
+      ? 'Bailes deportivos — invitado'
+      : 'Entreno del día — invitado';
   }
 
-  closeF2Modal(): void {
-    if (this.f2Processing()) {
+  openDayPassModal(kind: DayPassShortcut): void {
+    if (!this.billingContext.openCashRegister()) {
+      const key = kind === 'sports-dance' ? 'F3' : 'F2';
+      this.showShortcutMessage(`Abra la caja del día en Facturación antes de usar ${key}.`);
       return;
     }
-    this.f2ModalOpen.set(false);
+    this.dayPassPaymentMethod.set(this.billingContext.paymentMethod());
+    this.dayPassModal.set(kind);
   }
 
-  confirmF2GuestWorkout(): void {
+  closeDayPassModal(): void {
+    if (this.dayPassProcessing()) {
+      return;
+    }
+    this.dayPassModal.set(null);
+  }
+
+  confirmDayPass(): void {
+    const kind = this.dayPassModal();
+    if (!kind) {
+      return;
+    }
+
     const now = Date.now();
     if (now - this.lastTicketAt < 1500) {
       return;
@@ -101,32 +137,52 @@ export class MainLayout implements OnInit {
       ensureWelcomeAudioUnlocked();
     }
 
-    this.f2Processing.set(true);
-    const paymentMethod = this.f2PaymentMethod();
+    this.dayPassProcessing.set(true);
+    const paymentMethod = this.dayPassPaymentMethod();
     this.billingContext.paymentMethod.set(paymentMethod);
 
     const memberId = this.billingContext.memberId();
-    this.billingService
-      .registerDayWorkout({
-        memberId: memberId ?? undefined,
-        paymentMethod,
-      })
-      .subscribe({
-        next: (res) => {
-          speakAnnouncement(res.speechText);
-          this.showShortcutMessage(res.message);
-          this.billingContext.notifyDayWorkoutRecorded();
-          this.f2Processing.set(false);
-          this.f2ModalOpen.set(false);
-        },
-        error: (err) => {
-          this.showShortcutMessage(httpErrorMessage(err));
-          this.f2Processing.set(false);
-        },
-      });
+    const request$ =
+      kind === 'sports-dance'
+        ? this.billingService.registerSportsDance({
+            memberId: memberId ?? undefined,
+            paymentMethod,
+          })
+        : this.billingService.registerDayWorkout({
+            memberId: memberId ?? undefined,
+            paymentMethod,
+          });
+
+    request$.subscribe({
+      next: (res) => {
+        const announcement =
+          res.speechText?.trim() ||
+          (kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno registrado.');
+        speakAnnouncement(announcement);
+        this.showShortcutMessage(res.message);
+        this.billingContext.notifyBillingPaymentRecorded();
+        this.refreshOpenCashRegister();
+        this.dayPassProcessing.set(false);
+        this.dayPassModal.set(null);
+      },
+      error: (err) => {
+        this.showShortcutMessage(httpErrorMessage(err));
+        this.dayPassProcessing.set(false);
+      },
+    });
   }
 
-  private canUseDayWorkoutF2(): boolean {
+  private shortcutFromKey(key: string): DayPassShortcut | null {
+    if (key === 'F2') {
+      return 'workout';
+    }
+    if (key === 'F3') {
+      return 'sports-dance';
+    }
+    return null;
+  }
+
+  private canUseDayPassShortcuts(): boolean {
     return this.auth.hasRole('SUPER_ADMIN', 'ADMIN', 'TRAINER');
   }
 

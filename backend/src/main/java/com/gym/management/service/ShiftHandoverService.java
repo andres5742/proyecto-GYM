@@ -16,7 +16,11 @@ import com.gym.management.model.ShiftHandoverExpense;
 import com.gym.management.model.ShiftHandoverPriorPayment;
 import com.gym.management.model.ShiftStatus;
 import com.gym.management.model.WorkShift;
+import com.gym.management.model.EmployeeCashShortfall;
+import com.gym.management.repository.EmployeeCashShortfallRepository;
+import com.gym.management.repository.SaleRepository;
 import com.gym.management.repository.ShiftHandoverRepository;
+import com.gym.management.repository.WorkShiftRepository;
 import com.gym.management.security.AuthenticatedUser;
 import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.CashCountUtil;
@@ -36,13 +40,39 @@ public class ShiftHandoverService {
     private final ShiftHandoverRepository handoverRepository;
     private final WorkShiftService workShiftService;
     private final SaleService saleService;
+    private final BillingCashRegisterService billingCashRegisterService;
+    private final WorkShiftRepository workShiftRepository;
+    private final SaleRepository saleRepository;
+    private final CashShortfallService cashShortfallService;
+    private final EmployeeCashShortfallRepository shortfallRepository;
+    private final ProductCreditService productCreditService;
+
+    private record ExpectedCashTotals(
+            BigDecimal billingCashInDrawer,
+            BigDecimal previousShiftSalesCash,
+            BigDecimal previousShiftShortfallsDeducted,
+            BigDecimal previousShiftCreditPaymentsCash,
+            String previousShiftName,
+            BigDecimal handoverShiftSalesCash,
+            BigDecimal creditPaymentsCash,
+            BigDecimal total) {}
 
     @Transactional(readOnly = true)
     public List<ShiftHandoverResponse> findAll() {
-        List<ShiftHandover> list = SecurityUtils.isAdmin()
-                ? handoverRepository.findAllByOrderBySubmittedAtDesc()
-                : handoverRepository.findByEmployeeIdOrderBySubmittedAtDesc(requireUser().employeeId());
-        return list.stream().map(this::toSummaryResponse).toList();
+        List<ShiftHandover> list;
+        if (SecurityUtils.isAdmin()) {
+            list = handoverRepository.findAllByOrderBySubmittedAtDesc();
+        } else {
+            Long employeeId = requireUser().employeeId();
+            if (employeeId == null) {
+                list = List.of();
+            } else {
+                list = handoverRepository.findByEmployeeIdOrderBySubmittedAtDesc(employeeId);
+            }
+        }
+        return list.stream()
+                .map(h -> toSummaryResponse(h, java.util.Optional.empty()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -71,6 +101,8 @@ public class ShiftHandoverService {
         ShiftHandover handover = handoverRepository
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Entrega de turno no encontrada: " + id));
+        // El descuadre de caja referencia esta entrega; hay que quitarlo antes del DELETE.
+        shortfallRepository.findByShiftHandoverId(id).ifPresent(shortfallRepository::delete);
         handoverRepository.delete(handover);
     }
 
@@ -96,9 +128,9 @@ public class ShiftHandoverService {
                 .coin200(request.coin200())
                 .coin100(request.coin100())
                 .coin50(request.coin50())
-                .auxAmount(request.auxAmount())
-                .nequiAmount(request.nequiAmount())
-                .bankAmount(request.bankAmount())
+                .auxAmount(BigDecimal.ZERO)
+                .nequiAmount(BigDecimal.ZERO)
+                .bankAmount(BigDecimal.ZERO)
                 .notes(request.notes())
                 .submittedAt(Instant.now())
                 .build();
@@ -112,7 +144,13 @@ public class ShiftHandoverService {
             workShiftService.close(shift.getId());
         }
 
-        return toFullResponse(saved);
+        ShiftDetailResponse detail = saleService.getShiftDetail(shift.getId());
+        ExpectedCashTotals expected = computeExpectedCash(shift.getId(), detail.summary());
+        BigDecimal declared = CashCountUtil.totalCash(saved);
+        java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall =
+                cashShortfallService.registerFromHandover(saved, expected.total(), declared);
+
+        return toSummaryResponse(saved, shortfall);
     }
 
     private void applyExpenses(ShiftHandover handover, List<ShiftHandoverExpenseRequest> expenses) {
@@ -140,9 +178,10 @@ public class ShiftHandoverService {
             if (item == null || item.description() == null || item.description().isBlank()) {
                 continue;
             }
-            if (item.paymentMethod() == PaymentMethod.PENDING) {
+            if (item.paymentMethod() == PaymentMethod.PENDING
+                    || item.paymentMethod() == PaymentMethod.AUX) {
                 throw new BusinessException(
-                        "En cobros de deudas anteriores use efectivo, Nequi, Bancolombia o AUX");
+                        "En cobros de deudas anteriores use efectivo, Nequi o Bancolombia");
             }
             handover.getPriorPayments()
                     .add(ShiftHandoverPriorPayment.builder()
@@ -155,17 +194,44 @@ public class ShiftHandoverService {
         }
     }
 
-    private ShiftHandoverResponse toSummaryResponse(ShiftHandover handover) {
+    private ShiftHandoverResponse toSummaryResponse(
+            ShiftHandover handover, java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall) {
         BigDecimal expensesTotal = sumExpenses(handover);
         BigDecimal priorTotal = sumPriorPayments(handover);
         ShiftDetailResponse detail = saleService.getShiftDetail(handover.getWorkShift().getId());
+        ExpectedCashTotals expected = computeExpectedCash(handover.getWorkShift().getId(), detail.summary());
+        java.math.BigDecimal registeredShortfall = shortfall
+                .map(com.gym.management.dto.CashShortfallResponse::shortfallAmount)
+                .orElse(null);
+        Long shortfallId = shortfall.map(com.gym.management.dto.CashShortfallResponse::id).orElse(null);
+        if (registeredShortfall == null && handover.getId() != null) {
+            java.util.Optional<com.gym.management.dto.CashShortfallResponse> existing =
+                    cashShortfallService.findByHandoverId(handover.getId());
+            registeredShortfall =
+                    existing.map(com.gym.management.dto.CashShortfallResponse::shortfallAmount).orElse(null);
+            shortfallId = existing.map(com.gym.management.dto.CashShortfallResponse::id).orElse(null);
+        }
         return ShiftHandoverMapper.toResponse(
-                handover, expensesTotal, priorTotal, detail, buildComparisons(handover, detail.summary()));
+                handover,
+                expensesTotal,
+                priorTotal,
+                detail,
+                expected.billingCashInDrawer(),
+                expected.previousShiftSalesCash(),
+                expected.previousShiftShortfallsDeducted(),
+                expected.previousShiftName(),
+                expected.handoverShiftSalesCash(),
+                expected.previousShiftCreditPaymentsCash(),
+                expected.creditPaymentsCash(),
+                expected.total(),
+                buildComparisons(handover, detail.summary(), expected),
+                registeredShortfall,
+                shortfallId);
     }
 
     private ShiftHandoverResponse toFullResponse(ShiftHandover handover) {
         ShiftHandover loaded = getHandoverWithDetails(handover.getId());
-        return toSummaryResponse(loaded);
+        return toSummaryResponse(loaded, java.util.Optional.empty());
     }
 
     private ShiftHandoverResponse buildPreviewResponse(WorkShift shift) {
@@ -175,31 +241,99 @@ public class ShiftHandoverService {
                 .employee(shift.getEmployee())
                 .submittedAt(Instant.now())
                 .build();
-        return ShiftHandoverMapper.toResponse(empty, BigDecimal.ZERO, BigDecimal.ZERO, detail, buildComparisons(empty, detail.summary()));
+        ExpectedCashTotals expected = computeExpectedCash(shift.getId(), detail.summary());
+        return ShiftHandoverMapper.toResponse(
+                empty,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                detail,
+                expected.billingCashInDrawer(),
+                expected.previousShiftSalesCash(),
+                expected.previousShiftShortfallsDeducted(),
+                expected.previousShiftName(),
+                expected.handoverShiftSalesCash(),
+                expected.previousShiftCreditPaymentsCash(),
+                expected.creditPaymentsCash(),
+                expected.total(),
+                buildComparisons(empty, detail.summary(), expected),
+                null,
+                null);
+    }
+
+    private ExpectedCashTotals computeExpectedCash(Long handoverShiftId, SalesSummaryResponse sales) {
+        BigDecimal billing = billingCashRegisterService.cashInDrawerForToday();
+        BigDecimal handoverShiftCash =
+                sales.amountByPaymentMethod().getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        BigDecimal creditCash = productCreditService.sumCashPaymentsForShift(handoverShiftId);
+        PreviousShiftCash previous = resolvePreviousShiftCash(handoverShiftId);
+        BigDecimal total = billing
+                .add(previous.netSalesCash())
+                .add(previous.creditPaymentsCash())
+                .add(handoverShiftCash)
+                .add(creditCash);
+        return new ExpectedCashTotals(
+                billing,
+                previous.netSalesCash(),
+                previous.shortfallsDeducted(),
+                previous.creditPaymentsCash(),
+                previous.name(),
+                handoverShiftCash,
+                creditCash,
+                total);
+    }
+
+    private record PreviousShiftCash(
+            BigDecimal netSalesCash, BigDecimal shortfallsDeducted, BigDecimal creditPaymentsCash, String name) {}
+
+    private PreviousShiftCash resolvePreviousShiftCash(Long handoverShiftId) {
+        WorkShift current = workShiftService.getShift(handoverShiftId);
+        List<WorkShift> previousShifts = workShiftRepository.findByShiftDateAndStatusAndOpenedAtBeforeOrderByOpenedAtAsc(
+                current.getShiftDate(), ShiftStatus.CLOSED, current.getOpenedAt());
+        if (previousShifts.isEmpty()) {
+            return new PreviousShiftCash(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null);
+        }
+        BigDecimal netTotal = BigDecimal.ZERO;
+        BigDecimal deductedTotal = BigDecimal.ZERO;
+        BigDecimal creditCashTotal = BigDecimal.ZERO;
+        StringBuilder names = new StringBuilder();
+        for (int i = 0; i < previousShifts.size(); i++) {
+            WorkShift shift = previousShifts.get(i);
+            BigDecimal cash = saleRepository.sumTotalByPaymentMethodAndShift(PaymentMethod.CASH, shift.getId());
+            if (cash == null) {
+                cash = BigDecimal.ZERO;
+            }
+            BigDecimal shortfall = shortfallRepository
+                    .findByWorkShiftId(shift.getId())
+                    .map(EmployeeCashShortfall::getShortfallAmount)
+                    .orElse(BigDecimal.ZERO);
+            deductedTotal = deductedTotal.add(shortfall);
+            BigDecimal net = cash.subtract(shortfall);
+            if (net.compareTo(BigDecimal.ZERO) > 0) {
+                netTotal = netTotal.add(net);
+            }
+            BigDecimal shiftCreditCash = productCreditService.sumCashPaymentsForShift(shift.getId());
+            creditCashTotal = creditCashTotal.add(shiftCreditCash);
+            if (i > 0) {
+                names.append(", ");
+            }
+            names.append(shift.getName());
+        }
+        return new PreviousShiftCash(netTotal, deductedTotal, creditCashTotal, names.toString());
     }
 
     private List<ShiftHandoverComparisonResponse> buildComparisons(
-            ShiftHandover handover, SalesSummaryResponse sales) {
+            ShiftHandover handover, SalesSummaryResponse sales, ExpectedCashTotals expected) {
         Map<PaymentMethod, BigDecimal> byMethod = sales.amountByPaymentMethod();
-        BigDecimal salesCash = byMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
-        BigDecimal salesAux = byMethod.getOrDefault(PaymentMethod.AUX, BigDecimal.ZERO);
-        BigDecimal expectedNequi = byMethod.getOrDefault(PaymentMethod.NEQUI, BigDecimal.ZERO);
-        BigDecimal expectedBank = byMethod.getOrDefault(PaymentMethod.BANCOLOMBIA, BigDecimal.ZERO);
         BigDecimal expectedPending = byMethod.getOrDefault(PaymentMethod.PENDING, BigDecimal.ZERO);
 
         BigDecimal cashCounted = CashCountUtil.totalCash(handover);
-        BigDecimal auxDeclared = handover.getAuxAmount() != null ? handover.getAuxAmount() : BigDecimal.ZERO;
-        BigDecimal expectedCashInDrawer = salesCash.add(auxDeclared);
         BigDecimal priorTotal = sumPriorPayments(handover);
 
         List<ShiftHandoverComparisonResponse> list = new ArrayList<>();
         list.add(comparison(
                 "Dinero contado (billetes + monedas)",
                 cashCounted,
-                expectedCashInDrawer));
-        list.add(comparison("Monto AUX declarado", auxDeclared, salesAux));
-        list.add(comparison("Nequi declarado", handover.getNequiAmount(), expectedNequi));
-        list.add(comparison("Bancolombia declarado", handover.getBankAmount(), expectedBank));
+                expected.total()));
         list.add(comparison("Cobros deudas anteriores", priorTotal, expectedPending));
         return list;
     }
@@ -242,10 +376,20 @@ public class ShiftHandoverService {
         if (SecurityUtils.isAdmin()) {
             return;
         }
-        if (shift.getEmployee() == null
-                || !shift.getEmployee().getId().equals(requireUser().employeeId())) {
-            throw new BusinessException("Solo puedes entregar tu propio turno");
+        AuthenticatedUser user = requireUser();
+        Long employeeId = user.employeeId();
+        if (employeeId == null) {
+            throw new BusinessException(
+                    "Tu usuario no está vinculado a un empleado. Pide al administrador que lo asocie.");
         }
+        if (shift.getStatus() == ShiftStatus.OPEN && workShiftService.isGlobalOpenShift(shift.getId())) {
+            return;
+        }
+        if (shift.getEmployee() != null && shift.getEmployee().getId().equals(employeeId)) {
+            return;
+        }
+        throw new BusinessException(
+                "No puedes gestionar este turno. Solo el turno abierto del gimnasio o los tuyos.");
     }
 
     private AuthenticatedUser requireUser() {

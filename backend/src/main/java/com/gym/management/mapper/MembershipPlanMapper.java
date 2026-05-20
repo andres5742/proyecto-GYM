@@ -13,6 +13,8 @@ public final class MembershipPlanMapper {
                 plan.getName(),
                 plan.getDescription(),
                 plan.getDurationDays(),
+                plan.getPlanKind(),
+                plan.getMonthlyEntryLimit(),
                 plan.getPrice(),
                 plan.getActive(),
                 plan.getCreatedAt(),

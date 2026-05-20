@@ -1,4 +1,11 @@
-const GYM_NAME = 'Sport Gym';
+import type { Gender } from '../models/member.model';
+
+const GYM_NAME = 'Sport Gym R.10';
+
+/** "Bienvenida" solo para FEMALE; en los demás casos "Bienvenido". */
+export function welcomeWord(gender?: Gender | null): string {
+  return gender === 'FEMALE' ? 'Bienvenida' : 'Bienvenido';
+}
 
 let audioUnlocked = false;
 let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
@@ -205,40 +212,41 @@ function formatNameForSpeech(name: string): string {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
 }
 
-export function welcomeSpeechText(firstName?: string | null): string {
+export function welcomeSpeechText(firstName?: string | null, gender?: Gender | null): string {
+  const word = welcomeWord(gender);
   const name = firstName?.trim();
-  return name
-    ? `¡Bienvenido a ${GYM_NAME}, ${name}!`
-    : `¡Bienvenido a ${GYM_NAME}!`;
+  return name ? `¡${word} a ${GYM_NAME}, ${name}!` : `¡${word} a ${GYM_NAME}!`;
 }
 
-export function welcomeHeadline(firstName?: string | null): string {
+export function welcomeHeadline(firstName?: string | null, gender?: Gender | null): string {
+  const word = welcomeWord(gender);
   const name = firstName?.trim();
-  return name ? `¡Bienvenido, ${name}!` : '¡Bienvenido!';
+  return name ? `¡${word}, ${name}!` : `¡${word}!`;
 }
 
-function welcomeSegments(firstName?: string | null): SpeechSegment[] {
+function welcomeSegments(firstName?: string | null, gender?: Gender | null): SpeechSegment[] {
+  const word = welcomeWord(gender);
   const name = formatNameForSpeech(firstName ?? '');
   if (name) {
     return [
-      { text: `¡Hola! Bienvenido a ${GYM_NAME}.`, rate: 0.96, pitch: 1 },
+      { text: `¡Hola! ${word} a ${GYM_NAME}.`, rate: 0.96, pitch: gender === 'FEMALE' ? 1.04 : 1 },
       { text: name, rate: 0.86, pitch: 1.06, pauseBeforeMs: 220 },
       { text: 'Que tengas un excelente entrenamiento.', rate: 0.93, pitch: 0.98, pauseBeforeMs: 180 },
     ];
   }
   return [
-    { text: `¡Hola! Bienvenido a ${GYM_NAME}.`, rate: 0.96, pitch: 1 },
+    { text: `¡Hola! ${word} a ${GYM_NAME}.`, rate: 0.96, pitch: gender === 'FEMALE' ? 1.04 : 1 },
     { text: 'Que tengas un excelente entrenamiento.', rate: 0.93, pitch: 0.98, pauseBeforeMs: 200 },
   ];
 }
 
 /** Mensaje de bienvenida con nombre — llamar desde clic/toque, sin await antes. */
-export function playAccessWelcome(firstName?: string | null): boolean {
+export function playAccessWelcome(firstName?: string | null, gender?: Gender | null): boolean {
   const speech = getSpeech();
   if (!speech) {
     return false;
   }
-  speakSequence(speech, welcomeSegments(firstName));
+  speakSequence(speech, welcomeSegments(firstName, gender));
   return true;
 }
 

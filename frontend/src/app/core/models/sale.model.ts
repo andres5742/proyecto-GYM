@@ -32,6 +32,8 @@ export interface BatchSaleLine {
   productId: number;
   paymentMethod: PaymentMethod;
   quantity: number;
+  /** Obligatorio si paymentMethod es PENDING: afiliado fiado. */
+  memberId?: number;
 }
 
 export interface BatchSaleRequest {
@@ -54,5 +56,10 @@ export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'PENDING', label: 'Pendiente / deuda' },
 ];
 
-/** Medios registrables en ventas (AUX se declara solo en entrega de turno). */
+/** Medios registrables en ventas (sin AUX). */
 export const SALES_PAYMENT_METHODS = PAYMENT_METHODS.filter((pm) => pm.value !== 'AUX');
+
+/** Medios en facturación (membresías y entreno del día; sin pendiente/deuda ni AUX). */
+export const BILLING_PAYMENT_METHODS = PAYMENT_METHODS.filter(
+  (pm) => pm.value !== 'AUX' && pm.value !== 'PENDING',
+);

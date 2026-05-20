@@ -87,7 +87,11 @@
   <section class="panel sales-matrix-panel">
     <div class="matrix-head">
       <h3>Registrar ventas</h3>
-      <p class="hint">Elige un producto, agrégalo a la lista y completa las cantidades por medio de pago.</p>
+      <p class="hint">
+        Elige un producto, agrégalo a la lista y completa las cantidades por medio de pago. Si usas
+        <strong>Pendiente / deuda</strong>, reparte las unidades entre los afiliados que fiaron (la suma debe
+        coincidir con la cantidad pendiente).
+      </p>
     </div>
 
     <div class="product-picker">
@@ -160,6 +164,11 @@
                       [value]="getQty(product.id, pm.value)"
                       (input)="setQty(product.id, pm.value, $any($event.target).value)"
                       [attr.aria-label]="product.name + ' — ' + pm.label"
+                      [class.qty-pending-missing]="
+                        pm.value === 'PENDING' &&
+                        pendingQty(product.id) > 0 &&
+                        !pendingAllocComplete(product.id)
+                      "
                     />
                   </td>
                 }
@@ -178,6 +187,168 @@
                   </button>
                 </td>
               </tr>
+              @if (pendingQty(product.id) > 0) {
+                <tr class="fiado-split-row">
+                  <td [attr.colspan]="matrixColspan()">
+                    <section class="fiado-split">
+                      <header class="fiado-split__header">
+                        <div class="fiado-split__title">
+                          <span class="fiado-split__badge-icon" aria-hidden="true">Fiado</span>
+                          <div>
+                            <strong>{{ product.name }}</strong>
+                            <span class="fiado-split__meta">
+                              {{ pendingQty(product.id) }} u. pendientes ·
+                              {{ product.unitPrice * pendingQty(product.id) | cop }}
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          class="fiado-split__status"
+                          [class.fiado-split__status--ok]="pendingAllocComplete(product.id)"
+                          [class.fiado-split__status--warn]="!pendingAllocComplete(product.id)"
+                        >
+                          {{ pendingAllocStatusText(product.id) }}
+                        </span>
+                      </header>
+
+                      <div class="fiado-split__table-wrap">
+                        <table class="fiado-split__table">
+                          <thead>
+                            <tr>
+                              <th class="col-n">#</th>
+                              <th class="col-qty">Cant.</th>
+                              <th class="col-member">Afiliado</th>
+                              <th class="col-act"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (
+                              alloc of getPendingAllocations(product.id);
+                              track alloc.key;
+                              let i = $index
+                            ) {
+                              <tr>
+                                <td class="col-n">{{ i + 1 }}</td>
+                                <td class="col-qty">
+                                  <input
+                                    type="number"
+                                    class="fiado-split__qty-input"
+                                    min="0"
+                                    [max]="pendingQty(product.id)"
+                                    [value]="alloc.quantity"
+                                    (input)="
+                                      setPendingAllocQty(
+                                        product.id,
+                                        alloc.key,
+                                        $any($event.target).value
+                                      )
+                                    "
+                                  />
+                                </td>
+                                <td class="col-member">
+                                  @if (alloc.memberId; as mid) {
+                                    @if (memberNameById(mid); as name) {
+                                      <div class="fiado-split__member-picked">
+                                        <span class="fiado-split__member-name">{{ name }}</span>
+                                        <button
+                                          type="button"
+                                          class="fiado-split__change"
+                                          (click)="clearPendingAllocMember(product.id, alloc.key)"
+                                        >
+                                          Cambiar
+                                        </button>
+                                      </div>
+                                    }
+                                  } @else {
+                                    <div
+                                      class="fiado-split__search"
+                                      [class.fiado-split__search--open]="
+                                        isAllocSuggestOpen(product.id, alloc.key)
+                                      "
+                                    >
+                                      <input
+                                        type="search"
+                                        placeholder="Buscar nombre o cédula…"
+                                        [value]="alloc.searchText"
+                                        (focus)="openAllocSuggest(product.id, alloc.key)"
+                                        (input)="
+                                          setPendingAllocSearch(
+                                            product.id,
+                                            alloc.key,
+                                            $any($event.target).value
+                                          )
+                                        "
+                                      />
+                                      @if (
+                                        isAllocSuggestOpen(product.id, alloc.key) &&
+                                        alloc.searchText.trim()
+                                      ) {
+                                        <ul class="fiado-split__suggest">
+                                          @for (
+                                            m of filteredMembersForAlloc(product.id, alloc.key);
+                                            track m.id
+                                          ) {
+                                            <li>
+                                              <button
+                                                type="button"
+                                                (click)="
+                                                  selectPendingAllocMember(
+                                                    product.id,
+                                                    alloc.key,
+                                                    m.id
+                                                  )
+                                                "
+                                              >
+                                                <span class="fiado-split__suggest-name">
+                                                  {{ m.firstName }} {{ m.lastName }}
+                                                </span>
+                                                @if (m.documentId) {
+                                                  <span class="fiado-split__suggest-doc">{{
+                                                    m.documentId
+                                                  }}</span>
+                                                }
+                                              </button>
+                                            </li>
+                                          }
+                                        </ul>
+                                      }
+                                    </div>
+                                  }
+                                </td>
+                                <td class="col-act">
+                                  @if (getPendingAllocations(product.id).length > 1) {
+                                    <button
+                                      type="button"
+                                      class="fiado-split__remove"
+                                      title="Quitar fila"
+                                      (click)="removePendingAllocation(product.id, alloc.key)"
+                                    >
+                                      ×
+                                    </button>
+                                  }
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <footer class="fiado-split__footer">
+                        <button
+                          type="button"
+                          class="btn btn-chip"
+                          (click)="addPendingAllocation(product.id)"
+                        >
+                          + Agregar afiliado
+                        </button>
+                        <span class="fiado-split__hint">
+                          La suma de cantidades debe ser {{ pendingQty(product.id) }}.
+                        </span>
+                      </footer>
+                    </section>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>

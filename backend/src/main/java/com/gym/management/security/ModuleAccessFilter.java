@@ -28,6 +28,12 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
 
     private record ApiModuleRule(String pathPrefix, String moduleCode, Set<HttpMethod> methods) {}
 
+    /** F2/F3 y caja: recepción sin módulo Facturación habilitado en BD. */
+    private static final List<String> BILLING_RECEPTION_PATH_PREFIXES = List.of(
+            "/api/billing/day-workout/",
+            "/api/billing/sports-dance/",
+            "/api/billing/cash-registers");
+
     private static final List<ApiModuleRule> RULES = List.of(
             new ApiModuleRule("/api/feedback", "BUZON", Set.of(HttpMethod.GET, HttpMethod.PATCH)),
             new ApiModuleRule("/api/members", "SOCIOS", Set.of()),
@@ -45,6 +51,8 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             new ApiModuleRule("/api/billing", "FACTURACION", Set.of()),
             new ApiModuleRule("/api/shifts", "VENTAS", Set.of()),
             new ApiModuleRule("/api/shift-handovers", "ENTREGA_TURNO", Set.of()),
+            new ApiModuleRule("/api/cash-shortfalls", "DESCUADRES_CAJA", Set.of()),
+            new ApiModuleRule("/api/product-credits", "FIADO", Set.of()),
             new ApiModuleRule("/api/attendance", "JORNADA", Set.of()));
 
     @Override
@@ -55,8 +63,30 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        // F2 / entreno del día: no depende del módulo Facturación en BD
-        if (path.startsWith("/api/billing/day-workout/")) {
+        if (isBillingReceptionPath(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        HttpMethod method;
+        try {
+            method = HttpMethod.valueOf(request.getMethod());
+        } catch (IllegalArgumentException ex) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (isBillingSupportCatalogRead(path, method) && appModuleService.isEnabled("FACTURACION")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (isFiadoSupportCatalogRead(path, method) && appModuleService.isEnabled("FIADO")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (isVentasSupportCatalogRead(path, method) && appModuleService.isEnabled("VENTAS")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -71,14 +101,6 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             return;
         }
 
-        HttpMethod method;
-        try {
-            method = HttpMethod.valueOf(request.getMethod());
-        } catch (IllegalArgumentException ex) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         if (path.startsWith("/api/employees/active")) {
             filterChain.doFilter(request, response);
             return;
@@ -87,6 +109,9 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
         for (ApiModuleRule rule : RULES) {
             if (!path.startsWith(rule.pathPrefix())) {
                 continue;
+            }
+            if (isBillingDayPassShortcut(path)) {
+                break;
             }
             if (!rule.methods().isEmpty() && !rule.methods().contains(method)) {
                 continue;
@@ -99,5 +124,37 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean isBillingReceptionPath(String path) {
+        for (String prefix : BILLING_RECEPTION_PATH_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isBillingDayPassShortcut(String path) {
+        return path.startsWith("/api/billing/day-workout/")
+                || path.startsWith("/api/billing/sports-dance/");
+    }
+
+    /** Listados de afiliados y planes para facturar membresías (sin abrir módulos Socios/Planes). */
+    private static boolean isBillingSupportCatalogRead(String path, HttpMethod method) {
+        if (method != HttpMethod.GET) {
+            return false;
+        }
+        return "/api/members".equals(path) || "/api/plans".equals(path);
+    }
+
+    /** Listado de afiliados para registrar fiado (sin módulo Socios). */
+    private static boolean isFiadoSupportCatalogRead(String path, HttpMethod method) {
+        return method == HttpMethod.GET && "/api/members".equals(path);
+    }
+
+    /** Afiliados al registrar ventas en pendiente/deuda (sin módulo Socios). */
+    private static boolean isVentasSupportCatalogRead(String path, HttpMethod method) {
+        return method == HttpMethod.GET && "/api/members".equals(path);
     }
 }

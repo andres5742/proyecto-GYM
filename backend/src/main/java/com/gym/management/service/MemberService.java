@@ -3,6 +3,7 @@ package com.gym.management.service;
 import com.gym.management.dto.MemberBulkDeleteResponse;
 import com.gym.management.dto.MemberRequest;
 import com.gym.management.dto.MemberResponse;
+import com.gym.management.dto.NewMemberOnboardingData;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.MemberMapper;
@@ -31,6 +32,7 @@ public class MemberService {
     private final AccessLogRepository accessLogRepository;
     private final MembershipPlanService planService;
     private final PasswordEncoder passwordEncoder;
+    private final MembershipFreezeService membershipFreezeService;
 
     @Transactional
     public List<MemberResponse> findAll() {
@@ -56,14 +58,65 @@ public class MemberService {
     }
 
     @Transactional
+    public Member createForBilling(NewMemberOnboardingData data) {
+        String document = data.documentId().trim();
+        if (document.isEmpty()) {
+            throw new BusinessException("El documento es obligatorio");
+        }
+        String email = document.replaceAll("\\s+", "") + "@sin-correo.importado";
+        if (memberRepository.existsByEmail(email)) {
+            throw new BusinessException("Ya existe un afiliado con ese documento");
+        }
+        memberRepository
+                .findByDocumentId(document)
+                .ifPresent(m -> {
+                    throw new BusinessException("Ya existe un afiliado con ese documento");
+                });
+
+        MemberRequest request = new MemberRequest(
+                data.firstName().trim(),
+                data.lastName().trim(),
+                null,
+                data.phone() != null ? data.phone().trim() : null,
+                document,
+                data.gender(),
+                null,
+                MembershipStatus.ACTIVE,
+                null,
+                null);
+        Member member = mapRequest(new Member(), request);
+        return memberRepository.save(member);
+    }
+
+    @Transactional
     public MemberResponse update(Long id, MemberRequest request) {
         Member member = getMember(id);
+        LocalDate previousMembershipEnd = member.getMembershipEnd();
+        boolean wasFrozen = MembershipFreezeService.isFrozen(member);
+        Integer frozenDays = member.getFrozenRemainingDays();
         String email = resolveEmail(request, member);
         if (memberRepository.existsByEmailAndIdNot(email, id)) {
             throw new BusinessException("Ya existe un afiliado con ese documento o correo");
         }
         mapRequest(member, request);
+        if (!SecurityUtils.isAdmin()) {
+            member.setMembershipEnd(previousMembershipEnd);
+        }
+        if (wasFrozen) {
+            member.setMembershipFrozen(true);
+            member.setFrozenRemainingDays(frozenDays);
+        }
         return MemberMapper.toResponse(memberRepository.save(member));
+    }
+
+    @Transactional
+    public MemberResponse freezeMembership(Long id) {
+        return MemberMapper.toResponse(membershipFreezeService.freeze(id));
+    }
+
+    @Transactional
+    public MemberResponse unfreezeMembership(Long id) {
+        return MemberMapper.toResponse(membershipFreezeService.unfreeze(id));
     }
 
     @Transactional

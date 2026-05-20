@@ -17,6 +17,8 @@ public record MemberResponse(
         MembershipStatus status,
         LocalDate membershipStart,
         LocalDate membershipEnd,
+        boolean membershipFrozen,
+        Integer frozenRemainingDays,
         Instant createdAt,
         Instant updatedAt
 ) {}

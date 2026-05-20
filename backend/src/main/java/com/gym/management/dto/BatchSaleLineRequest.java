@@ -7,5 +7,7 @@ import jakarta.validation.constraints.NotNull;
 public record BatchSaleLineRequest(
         @NotNull Long productId,
         @NotNull PaymentMethod paymentMethod,
-        @Min(1) int quantity
+        @Min(1) int quantity,
+        /** Obligatorio cuando paymentMethod es PENDING: afiliado al que se fiaron las unidades. */
+        Long memberId
 ) {}

@@ -1,8 +1,8 @@
 <section class="page-header">
   <h2>Entrega de turno</h2>
   <p>
-    Cuenta el dinero físico, registra AUX, Nequi, banco, gastos y cobros de deudas anteriores. El
-    sistema compara con las ventas del turno.
+    Cuenta el dinero físico del turno y registra cobros de deudas anteriores. El sistema compara con las
+    ventas registradas.
   </p>
 </section>
 
@@ -128,85 +128,53 @@
       </div>
 
       <p class="cash-total">Total efectivo contado: <strong>{{ cashTotal() | cop }}</strong></p>
-      <h3>Otros medios declarados</h3>
-      <div class="amount-row">
-        <label>
-          Sistema AUX
-          <input
-            type="number"
-            min="0"
-            step="1"
-            [disabled]="alreadySubmitted()"
-            [ngModel]="auxAmount()"
-            (ngModelChange)="auxAmount.set(+$event || 0)"
-            name="aux"
-          />
-        </label>
-        <label>
-          Nequi
-          <input
-            type="number"
-            min="0"
-            step="1"
-            [disabled]="alreadySubmitted()"
-            [ngModel]="nequiAmount()"
-            (ngModelChange)="nequiAmount.set(+$event || 0)"
-            name="nequi"
-          />
-        </label>
-        <label>
-          Bancolombia
-          <input
-            type="number"
-            min="0"
-            step="1"
-            [disabled]="alreadySubmitted()"
-            [ngModel]="bankAmount()"
-            (ngModelChange)="bankAmount.set(+$event || 0)"
-            name="bank"
-          />
-        </label>
-      </div>
 
       @if (preview()?.shiftDetail?.summary) {
-        <p
+        <div
           class="cash-expected"
           [class.cash-ok]="cashMatchesDeclared()"
           [class.cash-diff]="!cashMatchesDeclared()"
         >
-          Ventas en efectivo ({{ salesCashTotal() | cop }}) + Sistema AUX declarado
-          ({{ auxAmount() | cop }}) = <strong>{{ expectedCashInDrawer() | cop }}</strong>
-          — debe coincidir con el dinero contado ({{ cashTotal() | cop }})
-        </p>
-      }
-
-      <h3>Gastos del turno</h3>
-      @for (exp of expenses(); track $index) {
-        <div class="line-row">
-          <input
-            placeholder="¿En qué se gastó?"
-            [disabled]="alreadySubmitted()"
-            [(ngModel)]="exp.description"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Monto"
-            [disabled]="alreadySubmitted()"
-            [(ngModel)]="exp.amount"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          @if (!alreadySubmitted()) {
-            <button type="button" class="btn-remove" (click)="removeExpense($index)">×</button>
+          <p class="cash-expected__line">
+            Facturación del día (membresías e ingresos en efectivo):
+            <strong>{{ billingCashExpected() | cop }}</strong>
+          </p>
+          @if (previousShiftSalesCash() > 0 || previousShiftShortfallsDeducted() > 0 || previousShiftName()) {
+            <p class="cash-expected__line">
+              + Ventas en efectivo (turnos anteriores del día@if (previousShiftName(); as n) { · {{ n }} }):
+              <strong>{{ previousShiftSalesCash() | cop }}</strong>
+            </p>
+            @if (previousShiftShortfallsDeducted() > 0) {
+              <p class="cash-expected__line cash-expected__deduct">
+                − Faltante ya registrado (no se cobra al turno actual):
+                <strong>{{ previousShiftShortfallsDeducted() | cop }}</strong>
+              </p>
+            }
           }
+          <p class="cash-expected__line">
+            + Ventas en efectivo (turno de entrega):
+            <strong>{{ salesCashExpected() | cop }}</strong>
+          </p>
+          @if (previousShiftCreditPaymentsCash() > 0) {
+            <p class="cash-expected__line">
+              + Cobros fiado en efectivo (turnos anteriores del día):
+              <strong>{{ previousShiftCreditPaymentsCash() | cop }}</strong>
+            </p>
+          }
+          @if (creditPaymentsCashExpected() > 0) {
+            <p class="cash-expected__line">
+              + Cobros fiado en efectivo (turno de entrega):
+              <strong>{{ creditPaymentsCashExpected() | cop }}</strong>
+            </p>
+          }
+          <p class="cash-expected__line cash-expected__total">
+            = Total esperado: <strong>{{ expectedCashInDrawer() | cop }}</strong>
+          </p>
+          <p class="cash-expected__line">
+            Debe coincidir con el dinero contado: <strong>{{ cashTotal() | cop }}</strong>
+          </p>
         </div>
       }
-      @if (!alreadySubmitted()) {
-        <button type="button" class="btn-add" (click)="addExpense()">+ Agregar gasto</button>
-      }
-      <p class="line-total">Total gastos: <strong>{{ expensesTotal() | cop }}</strong></p>
 
       <h3>Cobros de productos / deudas anteriores</h3>
       <p class="hint">Ventas que debían de antes y se pagaron en este turno (no van en ventas del sistema).</p>
@@ -281,8 +249,9 @@
         </tbody>
       </table>
       <p class="compare-hint">
-        El dinero contado (billetes y monedas) debe coincidir con las ventas en efectivo del
-        sistema más el monto que declares en Sistema AUX. Diferencia 0 = cuadra.
+        El dinero contado debe igualar la facturación del día (membresías e ingresos en efectivo) más
+        las ventas en efectivo de todos los turnos anteriores del día (si hubo) y del turno que
+        entregas. Diferencia 0 = cuadra.
       </p>
     </section>
   </div>

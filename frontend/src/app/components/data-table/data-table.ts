@@ -23,10 +23,22 @@ export class DataTableComponent<T> {
   readonly searchPlaceholder = input('Buscar…');
   readonly emptyMessage = input('Sin registros.');
   readonly pageSizeDefault = input(10);
+  readonly pageSizes = input<readonly number[]>(DATA_TABLE_PAGE_SIZES);
+  readonly showSearch = input(true);
+  readonly showPageSize = input(true);
+  readonly showPagination = input(true);
+  readonly showRecordCount = input(true);
   readonly showActions = input(false);
+  readonly initialSortColumnId = input<string | null>(null);
+  readonly initialSortDescending = input(false);
   readonly rowClass = input<((row: T) => string | null) | undefined>();
+  readonly rowTrack = input<((row: T) => unknown) | undefined>();
 
   readonly actionsTemplate = contentChild<TemplateRef<{ $implicit: T }>>('actions');
+
+  protected readonly showToolbar = computed(
+    () => this.showSearch() || this.showPageSize() || this.showRecordCount(),
+  );
 
   protected readonly searchQuery = signal('');
   protected readonly sortColumnId = signal<string | null>(null);
@@ -34,7 +46,7 @@ export class DataTableComponent<T> {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(10);
 
-  protected readonly pageSizeOptions = DATA_TABLE_PAGE_SIZES;
+  protected readonly pageSizeOptions = computed(() => this.pageSizes());
 
   protected readonly filteredRows = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
@@ -92,6 +104,13 @@ export class DataTableComponent<T> {
     effect(() => {
       this.pageSize.set(this.pageSizeDefault());
     });
+    effect(() => {
+      const colId = this.initialSortColumnId();
+      if (colId) {
+        this.sortColumnId.set(colId);
+        this.sortAsc.set(!this.initialSortDescending());
+      }
+    });
   }
 
   onSearch(value: string): void {
@@ -127,5 +146,13 @@ export class DataTableComponent<T> {
 
   cellClass(row: T, col: DataTableColumn<T>): string | null {
     return col.cellClass?.(row) ?? null;
+  }
+
+  cellInnerClass(row: T, col: DataTableColumn<T>): string | null {
+    return col.cellInnerClass?.(row) ?? null;
+  }
+
+  trackRow(row: T, index: number): unknown {
+    return this.rowTrack()?.(row) ?? index;
   }
 }

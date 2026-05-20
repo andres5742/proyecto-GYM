@@ -1,4 +1,16 @@
 .data-table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+
+  &__wrap,
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
   &__toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -58,13 +70,32 @@
     color: inherit;
   }
 
+  &__table th.col-amount {
+    text-align: right;
+
+    .data-table__sort {
+      display: block;
+      width: 100%;
+      text-align: right;
+    }
+  }
+
+  &__table td.col-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
   &__actions {
-    white-space: nowrap;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    white-space: normal;
 
     .btn-sm {
       padding: 0.3rem 0.5rem;
       font-size: 0.8rem;
-      margin-right: 0.25rem;
+      margin-right: 0;
+      touch-action: manipulation;
     }
   }
 
@@ -90,6 +121,259 @@
   }
 }
 
+@media (max-width: 640px) {
+  .data-table__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .data-table__search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .data-table__count {
+    margin-left: 0;
+  }
+
+  .data-table__footer {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .data-table__pager {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
 .row-granted td {
   background: rgb(184 223 196 / 22%);
+}
+
+/* Tabla embebida en facturación — movimientos del día */
+:host(.movements-data-table) {
+  display: block;
+
+  .data-table__wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+  }
+
+  .data-table__table {
+    width: 100%;
+    font-size: 0.9rem;
+
+    thead {
+      background: var(--color-surface-muted);
+
+      th {
+        padding: 0.65rem 0.85rem;
+        border-bottom: 2px solid var(--color-border);
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+    }
+
+    tbody tr {
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+
+      &:nth-child(even) {
+        background: color-mix(in srgb, var(--color-surface-muted) 45%, transparent);
+      }
+
+      &:hover {
+        background: color-mix(in srgb, var(--color-primary-soft) 55%, var(--color-surface));
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    td {
+      padding: 0.7rem 0.85rem;
+      vertical-align: middle;
+      border-bottom: none;
+    }
+
+    .col-time {
+      width: 4.5rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+
+    .col-amount {
+      width: 7rem;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .col-member {
+      min-width: 8rem;
+      max-width: 14rem;
+    }
+
+    .col-method {
+      width: 6.5rem;
+      white-space: nowrap;
+    }
+
+    .col-recorded-by {
+      min-width: 7rem;
+      max-width: 11rem;
+      color: var(--color-text-muted);
+      font-size: 0.88rem;
+    }
+
+    .col-type {
+      width: 9rem;
+    }
+  }
+
+  .data-table__th-actions,
+  .data-table__actions {
+    width: 6.5rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .data-table__sort {
+    font-size: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+  }
+
+  .type-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.3;
+    background: var(--color-trust-soft);
+    color: var(--color-trust);
+    white-space: nowrap;
+
+    &--workout {
+      background: var(--color-accent-sage-soft);
+      color: var(--color-accent-sage);
+    }
+
+    &--dance {
+      background: var(--color-trust-soft);
+      color: var(--color-trust);
+    }
+  }
+
+  .data-table__actions .btn-delete {
+    min-width: 5.5rem;
+  }
+}
+
+:host(.monthly-data-table) {
+  display: block;
+
+  .data-table__wrap {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    border-bottom: none;
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  .data-table__table {
+    table-layout: fixed;
+    width: 100%;
+
+    thead {
+      background: var(--color-surface-muted);
+
+      th {
+        padding: 0.65rem 0.85rem;
+        border-bottom: 2px solid var(--color-border);
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-muted);
+        vertical-align: bottom;
+      }
+
+      th:first-child {
+        width: 16%;
+        text-align: left;
+      }
+
+      th.col-amount {
+        width: 14%;
+        text-align: right;
+      }
+
+      th.col-amount--expense,
+      td.col-amount--expense,
+      tfoot td.col-amount--expense strong {
+        color: var(--color-warning);
+      }
+    }
+
+    tbody td {
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+      vertical-align: middle;
+    }
+
+    tbody td:first-child {
+      text-align: left;
+      font-weight: 500;
+    }
+
+    td.col-amount,
+    th.col-amount .data-table__sort {
+      text-align: right;
+    }
+
+    .col-amount {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    tfoot.monthly-table-totals {
+      tr {
+        background: var(--color-surface-muted);
+      }
+
+      td {
+        padding: 0.75rem 0.85rem;
+        border-top: 2px solid var(--color-border);
+        vertical-align: middle;
+      }
+
+      .monthly-table-totals__label {
+        text-align: left;
+        font-weight: 600;
+      }
+
+      td.col-amount {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+
+  .data-table__footer {
+    margin-top: 0.75rem;
+    padding-top: 0;
+    border-top: none;
+  }
 }

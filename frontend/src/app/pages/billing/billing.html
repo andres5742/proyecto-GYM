@@ -1,133 +1,861 @@
-<section class="page-header">
-  <h2>Facturación</h2>
-  <p>
-    Membresías y resumen del día. El pase diario se registra con <kbd>F2</kbd> (medio de pago → voz → torniquete).
-    Precio según el plan <strong>Entreno día</strong> en Planes.
-  </p>
-</section>
+<div class="billing-page">
+  <header class="billing-hero panel">
+    <div class="billing-hero__row">
+      <h2>Facturación</h2>
+      <button type="button" class="btn btn-secondary billing-hero__monthly" (click)="openMonthlyModal()">
+        Ingresos por mes
+      </button>
+    </div>
+    <p class="billing-hero__lead">Una caja por día. Abra la caja, cobre membresías y registre movimientos.</p>
+    <ul class="billing-hero__shortcuts" aria-label="Atajos de teclado">
+      <li><kbd>F2</kbd> Entreno del día</li>
+      <li><kbd>F3</kbd> Bailes deportivos</li>
+    </ul>
+  </header>
 
 @if (message()) {
-  <p class="alert info">{{ message() }}</p>
+  <p class="billing-toast" role="status">{{ message() }}</p>
 }
 
-<nav class="billing-nav">
-  <button type="button" [class.active]="section() === 'membership'" (click)="section.set('membership')">
-    Pago membresía
-  </button>
-  <button type="button" [class.active]="section() === 'summary'" (click)="section.set('summary')">
-    Resumen del día
-  </button>
-</nav>
+  <section class="billing-caja panel caja-day-card">
+  <header class="caja-day-card__head">
+    <div class="caja-day-card__title">
+      <div>
+        <h3>Caja del día</h3>
+        <p class="caja-day-card__date">
+          @if (todayRegister()?.registerDate; as d) {
+            {{ d | date: "EEEE, d 'de' MMMM 'de' y" }}
+          } @else if (summary()?.date; as d) {
+            {{ d | date: "EEEE, d 'de' MMMM 'de' y" }}
+          }
+        </p>
+      </div>
+    </div>
+    <div class="caja-day-card__actions">
+      <button type="button" class="btn btn-secondary" (click)="openExpensesDayModal()">
+        Gastos del día
+        @if (dayExpenses().length > 0) {
+          <span class="btn-count">({{ dayExpenses().length }})</span>
+        }
+      </button>
+      @if (canBill()) {
+        <button type="button" class="btn btn-warn" [disabled]="closingCaja()" (click)="closeCaja()">
+          {{ closingCaja() ? 'Cerrando…' : 'Cerrar caja' }}
+        </button>
+      } @else if (puedeAbrirCaja()) {
+        <button type="button" class="btn btn-primary" (click)="openOpenCajaModal()">
+          Abrir caja
+        </button>
+      } @else if (puedeReabrirCaja()) {
+        <button type="button" class="btn btn-primary" (click)="openOpenCajaModal()">
+          Reabrir caja
+        </button>
+      }
+    </div>
+  </header>
+
+  @if (openRegister(); as reg) {
+    <div class="caja-banner caja-banner--open">
+      <span class="status-pill status-pill--open">Caja abierta</span>
+      <p>
+        Abierta por <strong>{{ reg.openedByEmployeeName }}</strong> · {{ reg.openedAt | date: 'HH:mm' }}.
+        <span class="caja-banner__you">Usted: {{ currentUserName() }} — puede facturar.</span>
+      </p>
+    </div>
+  } @else if (closedRegisterToday(); as closed) {
+    <div class="caja-banner caja-banner--closed">
+      <span class="status-pill status-pill--closed">Caja cerrada</span>
+      <p>
+        Cerrada por <strong>{{ closed.openedByEmployeeName }}</strong>
+        @if (closed.closedAt) {
+          · {{ closed.closedAt | date: 'HH:mm' }}
+        }
+        @if (isSuperAdmin()) {
+          . Puede reabrirla con el botón <strong>Reabrir caja</strong>.
+        } @else {
+          . Solo el super administrador puede reabrirla hoy; mañana se abrirá una nueva.
+        }
+      </p>
+    </div>
+  } @else {
+    <div class="caja-banner caja-banner--pending">
+      <span class="status-pill status-pill--pending">Sin abrir</span>
+      <p>Abra la caja una vez al día para registrar pagos y gastos.</p>
+    </div>
+  }
+
+  @if (activeRegister(); as reg) {
+    <div class="kpi-grid">
+      <article class="kpi-card kpi-card--cash">
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Efectivo inicial</span>
+          <strong class="kpi-card__value">{{ reg.openingCashAmount | cop }}</strong>
+        </div>
+      </article>
+      <article class="kpi-card kpi-card--income">
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Cobrado</span>
+          <strong class="kpi-card__value">{{ reg.sessionTotal | cop }}</strong>
+          <span class="kpi-card__sub">{{ reg.paymentCount }} movimientos</span>
+        </div>
+        <div class="method-chips method-chips--kpi">
+          @for (pm of paymentMethods; track pm.value) {
+            @if (hasMethodAmount(reg.sessionIncomeByMethod, pm.value)) {
+              <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(reg.sessionIncomeByMethod, pm.value) | cop }}</span>
+            }
+          }
+        </div>
+      </article>
+      <article class="kpi-card kpi-card--expense kpi-card--clickable" role="button" tabindex="0" (click)="openExpensesDayModal()" (keydown.enter)="openExpensesDayModal()">
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Gastos</span>
+          <strong class="kpi-card__value">{{ reg.sessionExpensesTotal | cop }}</strong>
+          <span class="kpi-card__sub">{{ reg.expenseCount }} registros · ver detalle</span>
+        </div>
+        <div class="method-chips method-chips--kpi">
+          @for (pm of paymentMethods; track pm.value) {
+            @if (hasMethodAmount(reg.sessionExpensesByMethod, pm.value)) {
+              <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(reg.sessionExpensesByMethod, pm.value) | cop }}</span>
+            }
+          }
+        </div>
+      </article>
+      @if (efectivoEnCaja(); as neto) {
+        <article class="kpi-card kpi-card--net">
+          <div class="kpi-card__body">
+            <span class="kpi-card__label">Efectivo en caja</span>
+            <strong class="kpi-card__value">{{ neto | cop }}</strong>
+            <span class="kpi-card__sub">Inicio + cobros efectivo − gastos efectivo</span>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  </section>
+
+  <nav class="billing-nav" aria-label="Secciones de facturación">
+    <button
+      type="button"
+      class="billing-nav__btn"
+      [class.is-active]="section() === 'membership'"
+      (click)="section.set('membership')"
+    >
+      Pago membresía
+    </button>
+    <button
+      type="button"
+      class="billing-nav__btn"
+      [class.is-active]="section() === 'summary'"
+      (click)="section.set('summary')"
+    >
+      Resumen del día
+    </button>
+  </nav>
+
+  <div class="billing-workspace">
 
 @if (section() === 'membership') {
-  <section class="panel billing-card">
-    <h3>Generar pago de membresía</h3>
-    <p class="muted small">Activa el plan desde hoy por los días configurados en el plan.</p>
-    <div class="billing-form">
-      <app-member-search-select
-        [members]="members()"
-        label="Afiliado"
-        [memberId]="membershipMemberId()"
-        (memberIdChange)="membershipMemberId.set($event)"
-      />
-      <label>
-        Plan
-        <select [ngModel]="membershipPlanId()" (ngModelChange)="membershipPlanId.set($event)">
-          <option [ngValue]="null">Selecciona plan…</option>
-          @for (plan of membershipPlans(); track plan.id) {
-            <option [ngValue]="plan.id">{{ plan.name }} — {{ plan.durationDays }} días — {{ plan.price | cop }}</option>
+  <section class="panel membership-panel">
+    <header class="membership-panel__header">
+      <div class="membership-panel__intro">
+        <h3>Pago de membresía</h3>
+        <p class="membership-panel__hint">
+          Afiliado existente o nuevo. Vencimiento según plan y meses pagados.
+        </p>
+      </div>
+      @if (!canBill()) {
+        <p class="membership-panel__status membership-panel__status--warn" role="status">
+          @if (cajaCerradaHoy()) {
+            Caja cerrada — solo super admin puede reabrir
+          } @else {
+            Abra la caja del día para registrar pagos
           }
-        </select>
-      </label>
-      <label>
-        Medio de pago
-        <select [ngModel]="membershipPaymentMethod()" (ngModelChange)="membershipPaymentMethod.set($event)">
-          @for (pm of paymentMethods; track pm.value) {
-            <option [ngValue]="pm.value">{{ pm.label }}</option>
+        </p>
+      } @else {
+        <p class="membership-panel__status membership-panel__status--ok" role="status">Caja abierta</p>
+      }
+    </header>
+
+    <div class="membership-form" [class.membership-form--with-summary]="selectedMembershipPlan() != null">
+      <div class="membership-form__fields">
+        <section class="membership-block membership-block--affiliate">
+          <h4 class="membership-block__title">1. Afiliado</h4>
+
+          <div class="membership-flow__tabs" role="tablist" aria-label="Tipo de afiliado">
+            <button
+              type="button"
+              class="membership-flow__tab"
+              role="tab"
+              [attr.aria-selected]="membershipFlow() === 'existing'"
+              [class.is-active]="membershipFlow() === 'existing'"
+              (click)="setMembershipFlow('existing')"
+            >
+              Afiliado existente
+            </button>
+            <button
+              type="button"
+              class="membership-flow__tab"
+              role="tab"
+              [attr.aria-selected]="membershipFlow() === 'new'"
+              [class.is-active]="membershipFlow() === 'new'"
+              (click)="setMembershipFlow('new')"
+            >
+              Afiliado nuevo
+            </button>
+          </div>
+
+          @if (membershipFlow() === 'existing') {
+            <div class="membership-block__body">
+              <app-member-search-select
+                [members]="members()"
+                label="Buscar por nombre o cédula"
+                [allowRegisterNew]="true"
+                [memberId]="membershipMemberId()"
+                (memberIdChange)="membershipMemberId.set($event)"
+                (registerNew)="onRegisterNewMember($event)"
+              />
+            </div>
+          } @else {
+            <div class="membership-block__body new-member-form">
+              <p class="new-member-form__hint muted small">
+                Datos para crear el afiliado y activar la membresía en un solo paso.
+              </p>
+              <label class="field">
+                <span class="field__label">Nombre</span>
+                <input
+                  type="text"
+                  [ngModel]="newMemberFirstName()"
+                  (ngModelChange)="newMemberFirstName.set($event)"
+                  placeholder="Ej: Juan"
+                />
+              </label>
+              <label class="field">
+                <span class="field__label">Apellido</span>
+                <input
+                  type="text"
+                  [ngModel]="newMemberLastName()"
+                  (ngModelChange)="newMemberLastName.set($event)"
+                />
+              </label>
+              <label class="field">
+                <span class="field__label">Documento</span>
+                <input
+                  type="text"
+                  [ngModel]="newMemberDocumentId()"
+                  (ngModelChange)="newMemberDocumentId.set($event)"
+                  placeholder="Cédula"
+                />
+              </label>
+              <label class="field">
+                <span class="field__label">Teléfono</span>
+                <input
+                  type="tel"
+                  [ngModel]="newMemberPhone()"
+                  (ngModelChange)="newMemberPhone.set($event)"
+                />
+              </label>
+              <label class="field field--gender">
+                <span class="field__label">Género</span>
+                <select [ngModel]="newMemberGender()" (ngModelChange)="newMemberGender.set($event)">
+                  @for (g of genders; track g.value) {
+                    <option [value]="g.value">{{ g.label }}</option>
+                  }
+                </select>
+              </label>
+            </div>
           }
-        </select>
-      </label>
-      <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="registerMembership()">
-        {{ saving() ? 'Guardando…' : 'Generar pago y activar plan' }}
-      </button>
+        </section>
+
+        @if (membershipFlow() === 'new') {
+          <section class="membership-block membership-block--access membership-access">
+            <h4 class="membership-block__title">2. Acceso al gimnasio</h4>
+            <div class="membership-block__body">
+              <div class="membership-access__options">
+                <label class="membership-access__option">
+                  <input
+                    type="radio"
+                    name="accessKind"
+                    value="SKIP"
+                    [checked]="accessKind() === 'SKIP'"
+                    (change)="accessKind.set('SKIP')"
+                  />
+                  <span>Registrar después</span>
+                </label>
+                <label class="membership-access__option">
+                  <input
+                    type="radio"
+                    name="accessKind"
+                    value="FINGERPRINT"
+                    [checked]="accessKind() === 'FINGERPRINT'"
+                    (change)="accessKind.set('FINGERPRINT')"
+                  />
+                  <span>👆 Huella</span>
+                </label>
+                <label class="membership-access__option">
+                  <input
+                    type="radio"
+                    name="accessKind"
+                    value="FACE"
+                    [checked]="accessKind() === 'FACE'"
+                    (change)="accessKind.set('FACE')"
+                  />
+                  <span>🙂 Rostro</span>
+                </label>
+              </div>
+
+              @if (accessKind() === 'FINGERPRINT') {
+                <div class="membership-access__fields">
+                  <label class="field">
+                    <span class="field__label">ID de huella en el lector</span>
+                    <input
+                      type="text"
+                      [ngModel]="fingerprintDeviceId()"
+                      (ngModelChange)="fingerprintDeviceId.set($event)"
+                      placeholder="Ej: 10042"
+                    />
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Nota (opcional)</span>
+                    <input
+                      type="text"
+                      [ngModel]="fingerprintDeviceLabel()"
+                      (ngModelChange)="fingerprintDeviceLabel.set($event)"
+                    />
+                  </label>
+                </div>
+              }
+
+              @if (accessKind() === 'FACE') {
+                <p class="membership-access__status">{{ billingFaceStatus() }}</p>
+                <app-face-webcam-capture
+                  #billingFaceCapture
+                  [compact]="true"
+                  [allowCameraSwitch]="true"
+                  (statusChange)="onBillingFaceStatus($event)"
+                />
+              }
+            </div>
+          </section>
+        }
+
+        <section class="membership-block membership-block--payment">
+          <h4 class="membership-block__title">
+            {{ membershipFlow() === 'new' ? '3. Cobro y membresía' : '2. Cobro y membresía' }}
+          </h4>
+          <div class="membership-block__body membership-payment-grid">
+            <label class="field field--plan">
+              <span class="field__label">Plan</span>
+              <select
+                [ngModel]="membershipPlanId()"
+                (ngModelChange)="membershipPlanId.set($event != null ? +$event : null)"
+              >
+                <option [ngValue]="null">Selecciona plan…</option>
+                @for (plan of membershipPlans(); track plan.id) {
+                  <option [ngValue]="plan.id">
+                    {{ plan.name }} — {{ plan.price | cop }}{{ membershipPlanOptionSuffix(plan) }}
+                  </option>
+                }
+              </select>
+            </label>
+
+            <label class="field field--months">
+              <span class="field__label">Meses</span>
+              <input
+                type="number"
+                min="1"
+                max="36"
+                step="1"
+                [ngModel]="membershipMonthsPaid()"
+                (ngModelChange)="setMembershipMonthsPaid($event)"
+              />
+            </label>
+
+            <label class="field field--method">
+              <span class="field__label">Medio de pago</span>
+              <select [ngModel]="membershipPaymentMethod()" (ngModelChange)="membershipPaymentMethod.set($event)">
+                @for (pm of paymentMethods; track pm.value) {
+                  <option [ngValue]="pm.value">{{ pm.label }}</option>
+                }
+              </select>
+            </label>
+
+            <div class="field field--submit">
+              <button
+                type="button"
+                class="btn btn-primary membership-form__submit"
+                [disabled]="saving() || !canBill()"
+                (click)="registerMembership()"
+              >
+                {{ saving() ? 'Guardando…' : 'Generar pago y activar plan' }}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      @if (selectedMembershipPlan(); as plan) {
+        <aside class="membership-summary" aria-label="Resumen del cobro">
+          <p class="membership-summary__plan">{{ plan.name }}</p>
+          <dl class="membership-summary__details">
+            <div class="membership-summary__row">
+              <dt>Precio por periodo</dt>
+              <dd>{{ plan.price | cop }}</dd>
+            </div>
+            <div class="membership-summary__row membership-summary__row--total">
+              <dt>
+                Total
+                <span class="membership-summary__meta">
+                  ({{ membershipMonthsPaid() }}
+                  {{ membershipMonthsPaid() === 1 ? 'mes' : 'meses' }})
+                </span>
+              </dt>
+              <dd>{{ membershipChargeTotal() | cop }}</dd>
+            </div>
+            <div class="membership-summary__row">
+              <dt>Vence (estimado)</dt>
+              <dd>{{ membershipEndDatePreview() }}</dd>
+            </div>
+            <div class="membership-summary__row">
+              <dt>Duración plan</dt>
+              <dd>
+                {{ plan.durationDays }} días × {{ membershipMonthsPaid() }}
+                {{ membershipMonthsPaid() === 1 ? 'periodo' : 'periodos' }}
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      }
     </div>
   </section>
 }
 
 @if (section() === 'summary' && summary(); as s) {
   <section class="panel billing-summary">
-    <h3>Resumen {{ s.date | date: 'dd/MM/yyyy' }}</h3>
-    <div class="summary-grid">
-      <article>
-        <h4>Entrenos del día</h4>
-        <p><strong>{{ s.dayWorkoutCount }}</strong> registros · {{ s.dayWorkoutTotal | cop }}</p>
-        <ul class="method-list">
-          @for (pm of paymentMethods; track pm.value) {
-            @if (methodTotal(s.dayWorkoutByMethod, pm.value) > 0) {
-              <li>{{ pm.label }}: {{ methodTotal(s.dayWorkoutByMethod, pm.value) | cop }}</li>
-            }
-          }
-        </ul>
-      </article>
-      <article>
-        <h4>Membresías</h4>
-        <p><strong>{{ s.membershipCount }}</strong> pagos · {{ s.membershipTotal | cop }}</p>
-        <ul class="method-list">
-          @for (pm of paymentMethods; track pm.value) {
-            @if (methodTotal(s.membershipByMethod, pm.value) > 0) {
-              <li>{{ pm.label }}: {{ methodTotal(s.membershipByMethod, pm.value) | cop }}</li>
-            }
-          }
-        </ul>
-      </article>
-      <article class="summary-total">
-        <h4>Total del día</h4>
-        <p class="total-amount">{{ s.grandTotal | cop }}</p>
-      </article>
-    </div>
-    <h4>Movimientos de hoy</h4>
-    @if (payments().length === 0) {
-      <p class="muted">Sin movimientos hoy.</p>
-    } @else {
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Hora</th>
-              <th>Tipo</th>
-              <th>Afiliado</th>
-              <th>Medio</th>
-              <th>Monto</th>
-              @if (isSuperAdmin()) {
-                <th></th>
-              }
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of payments(); track row.id) {
-              <tr>
-                <td>{{ row.createdAt | date: 'HH:mm' }}</td>
-                <td>{{ row.paymentTypeLabel }}</td>
-                <td>{{ row.memberName }}</td>
-                <td>{{ row.paymentMethodLabel }}</td>
-                <td>{{ row.amount | cop }}</td>
-                @if (isSuperAdmin()) {
-                  <td>
-                    <button
-                      type="button"
-                      class="btn btn-delete btn-sm"
-                      (click)="deletePayment(row, $event)"
-                      [disabled]="deletingPaymentId() === row.id"
-                    >
-                      {{ deletingPaymentId() === row.id ? '…' : 'Eliminar' }}
-                    </button>
-                  </td>
+    <header class="billing-summary__head">
+      <h3>Resumen del día</h3>
+      <time class="billing-summary__date">{{ s.date | date: "EEEE, d 'de' MMMM" }}</time>
+    </header>
+
+    <div class="summary-layout">
+      <section class="summary-layout__group" aria-labelledby="summary-income-title">
+        <h4 id="summary-income-title" class="billing-summary__section-title">Ingresos por concepto</h4>
+        <div class="summary-kpi summary-kpi--concepts">
+          <article class="summary-kpi__card">
+            <div class="summary-kpi__body">
+              <span class="summary-kpi__label">Entrenos del día</span>
+              <strong class="summary-kpi__amount">{{ s.dayWorkoutTotal | cop }}</strong>
+              <span class="summary-kpi__meta">{{ s.dayWorkoutCount }} registros</span>
+            </div>
+            <div class="method-chips">
+              @for (pm of paymentMethods; track pm.value) {
+                @if (hasMethodAmount(s.dayWorkoutByMethod, pm.value)) {
+                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.dayWorkoutByMethod, pm.value) | cop }}</span>
                 }
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
+              }
+            </div>
+          </article>
+          <article class="summary-kpi__card">
+            <div class="summary-kpi__body">
+              <span class="summary-kpi__label">Bailes deportivos</span>
+              <strong class="summary-kpi__amount">{{ s.sportsDanceTotal | cop }}</strong>
+              <span class="summary-kpi__meta">{{ s.sportsDanceCount }} registros</span>
+            </div>
+            <div class="method-chips">
+              @for (pm of paymentMethods; track pm.value) {
+                @if (hasMethodAmount(s.sportsDanceByMethod, pm.value)) {
+                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.sportsDanceByMethod, pm.value) | cop }}</span>
+                }
+              }
+            </div>
+          </article>
+          <article class="summary-kpi__card">
+            <div class="summary-kpi__body">
+              <span class="summary-kpi__label">Membresías</span>
+              <strong class="summary-kpi__amount">{{ s.membershipTotal | cop }}</strong>
+              <span class="summary-kpi__meta">{{ s.membershipCount }} pagos</span>
+            </div>
+            <div class="method-chips">
+              @for (pm of paymentMethods; track pm.value) {
+                @if (hasMethodAmount(s.membershipByMethod, pm.value)) {
+                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.membershipByMethod, pm.value) | cop }}</span>
+                }
+              }
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="summary-layout__group" aria-labelledby="summary-totals-title">
+        <h4 id="summary-totals-title" class="billing-summary__section-title">Totales del día</h4>
+        <div class="summary-kpi summary-kpi--totals">
+          <article class="summary-kpi__card summary-kpi__card--income-total">
+            <div class="summary-kpi__body">
+              <span class="summary-kpi__label">Total ingresos</span>
+              <strong class="summary-kpi__amount summary-kpi__amount--hero">{{ s.grandTotal | cop }}</strong>
+            </div>
+            <div class="method-chips">
+              @for (pm of paymentMethods; track pm.value) {
+                @if (hasMethodAmount(s.incomeByMethod, pm.value)) {
+                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.incomeByMethod, pm.value) | cop }}</span>
+                }
+              }
+            </div>
+          </article>
+          <article class="summary-kpi__card summary-kpi__card--expense">
+            <div class="summary-kpi__body">
+              <span class="summary-kpi__label">Gastos del día</span>
+              <strong class="summary-kpi__amount">{{ s.expensesTotal | cop }}</strong>
+              <span class="summary-kpi__meta">{{ s.expenseCount }} registros</span>
+            </div>
+            <div class="method-chips">
+              @for (pm of paymentMethods; track pm.value) {
+                @if (hasMethodAmount(s.expensesByMethod, pm.value)) {
+                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.expensesByMethod, pm.value) | cop }}</span>
+                }
+              }
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <div class="movements-panel panel">
+      <header class="movements-panel__head">
+        <h4>Movimientos de hoy</h4>
+        <span class="movements-panel__count">{{ payments().length }} registros</span>
+      </header>
+      <app-data-table
+        class="movements-data-table"
+        [rows]="payments()"
+        [columns]="paymentColumns"
+        [rowTrack]="trackPaymentRow"
+        [showSearch]="false"
+        [showPageSize]="true"
+        [showPagination]="true"
+        [showRecordCount]="true"
+        [pageSizes]="tablePageSizes"
+        initialSortColumnId="time"
+        [initialSortDescending]="true"
+        emptyMessage="Sin movimientos registrados."
+        [pageSizeDefault]="10"
+        [showActions]="isSuperAdmin()"
+      >
+        <ng-template #actions let-row>
+          <button
+            type="button"
+            class="btn btn-delete btn-sm"
+            (click)="deletePayment(row, $event)"
+            [disabled]="deletingPaymentId() === row.id"
+          >
+            {{ deletingPaymentId() === row.id ? '…' : 'Eliminar' }}
+          </button>
+        </ng-template>
+      </app-data-table>
+    </div>
   </section>
+}
+
+  </div>
+</div>
+
+@if (openCajaModal()) {
+  <div class="modal-backdrop" (click)="closeOpenCajaModal()">
+    <div class="modal-panel modal-panel--open-caja" role="dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">🔓</span>
+          <h3>{{ reopeningCaja() ? 'Reabrir caja del día' : 'Abrir caja del día' }}</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeOpenCajaModal()">×</button>
+      </header>
+      <p class="modal-lead">
+        @if (reopeningCaja()) {
+          Solo el super administrador puede reabrir la caja cerrada hoy. Se conservan los movimientos ya registrados.
+        } @else {
+          Una apertura al día para el personal. <strong>{{ currentUserName() }}</strong> queda como quien abrió.
+        }
+      </p>
+      <label class="modal-field modal-field--money">
+        <span>Efectivo inicial en caja</span>
+        <div class="money-input-wrap">
+          <span class="money-input-prefix">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            class="money-input"
+            [ngModel]="openingCashInput()"
+            (ngModelChange)="openingCashInput.set(+$event)"
+          />
+        </div>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" [disabled]="openingCaja()" (click)="closeOpenCajaModal()">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="openingCaja()" (click)="confirmOpenCaja()">
+          {{ openingCaja() ? 'Guardando…' : (reopeningCaja() ? 'Reabrir caja' : 'Abrir caja') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (expensesDayModalOpen()) {
+  <div class="modal-backdrop" (click)="closeExpensesDayModal()">
+    <div class="modal-panel modal-panel--expenses-day" role="dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">📤</span>
+          <h3>Gastos del día</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeExpensesDayModal()">×</button>
+      </header>
+      <div class="expenses-day-total">
+        <p>
+          Total gastos: <strong>{{ dayExpensesTotal() | cop }}</strong>
+          · {{ dayExpenses().length }} registro{{ dayExpenses().length === 1 ? '' : 's' }}
+        </p>
+        @if (dayExpenses().length > 0) {
+          <div class="method-chips method-chips--expenses-modal">
+            @for (pm of paymentMethods; track pm.value) {
+              @if (hasMethodAmount(dayExpensesByMethod(), pm.value)) {
+                <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(dayExpensesByMethod(), pm.value) | cop }}</span>
+              }
+            }
+          </div>
+        }
+      </div>
+
+      <div class="expenses-day-list">
+        @if (dayExpenses().length === 0) {
+          <div class="empty-state empty-state--compact">
+            <p>Sin gastos registrados hoy.</p>
+          </div>
+        } @else {
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th class="col-amount">Valor</th>
+                  <th>Medio</th>
+                  <th>Observación</th>
+                  <th>Registrado por</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (exp of dayExpenses(); track exp.id) {
+                  <tr>
+                    <td class="col-time">{{ exp.createdAt | date: 'HH:mm' }}</td>
+                    <td class="col-amount">{{ exp.amount | cop }}</td>
+                    <td class="col-method">{{ exp.paymentMethodLabel }}</td>
+                    <td>{{ exp.observation }}</td>
+                    <td class="col-user">{{ exp.recordedByEmployeeName }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <section class="expenses-day-form">
+        <h4>Registrar otro gasto</h4>
+        @if (!canBill()) {
+          <p class="inline-alert inline-alert--warn">
+            Abra la caja del día para registrar nuevos gastos.
+          </p>
+        } @else {
+          <div class="expenses-day-form__grid">
+            <label class="modal-field modal-field--money">
+              <span>Valor</span>
+              <div class="money-input-wrap">
+                <span class="money-input-prefix">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  class="money-input"
+                  [ngModel]="expenseAmountInput()"
+                  (ngModelChange)="expenseAmountInput.set(+$event)"
+                />
+              </div>
+            </label>
+            <label class="modal-field">
+              <span>Medio de pago</span>
+              <select
+                [ngModel]="expensePaymentMethod()"
+                (ngModelChange)="expensePaymentMethod.set($event)"
+              >
+                @for (pm of paymentMethods; track pm.value) {
+                  <option [ngValue]="pm.value">{{ pm.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="modal-field expenses-day-form__obs">
+              <span>Observación</span>
+              <input
+                type="text"
+                maxlength="500"
+                placeholder="Ej. insumos, transporte…"
+                [ngModel]="expenseObservationInput()"
+                (ngModelChange)="expenseObservationInput.set($event)"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="savingExpense()"
+            (click)="registerExpense()"
+          >
+            {{ savingExpense() ? 'Guardando…' : 'Agregar gasto' }}
+          </button>
+        }
+      </section>
+
+      <div class="modal-actions modal-actions--footer">
+        <button type="button" class="btn btn-secondary" [disabled]="savingExpense()" (click)="closeExpensesDayModal()">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (monthlyModalOpen()) {
+  <div class="modal-backdrop" (click)="closeMonthlyModal()">
+    <div class="modal-panel modal-panel--monthly" role="dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">📅</span>
+          <h3>Ingresos por mes</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeMonthlyModal()">×</button>
+      </header>
+
+      <div class="monthly-picker" [class.monthly-picker--loading]="monthlyLoading()">
+        <div class="monthly-picker__year-bar">
+          <button
+            type="button"
+            class="monthly-picker__nav"
+            aria-label="Año anterior"
+            [disabled]="!canGoToPreviousYear() || monthlyLoading()"
+            (click)="changeYear(-1)"
+          >
+            ‹
+          </button>
+          <div class="monthly-picker__year">
+            <span class="monthly-picker__year-value">{{ selectedYear() }}</span>
+            <span class="monthly-picker__period">{{ selectedMonthLabel() }} {{ selectedYear() }}</span>
+          </div>
+          <button
+            type="button"
+            class="monthly-picker__nav"
+            aria-label="Año siguiente"
+            [disabled]="!canGoToNextYear() || monthlyLoading()"
+            (click)="changeYear(1)"
+          >
+            ›
+          </button>
+        </div>
+
+        <div class="monthly-picker__grid" role="listbox" aria-label="Seleccionar mes">
+          @for (m of monthPickerItems; track m.value) {
+            <button
+              type="button"
+              class="monthly-picker__month"
+              role="option"
+              [attr.aria-selected]="isSelectedMonth(m.value)"
+              [class.monthly-picker__month--selected]="isSelectedMonth(m.value)"
+              [class.monthly-picker__month--current]="isCurrentMonth(m.value)"
+              [class.monthly-picker__month--future]="isFutureMonth(m.value)"
+              [disabled]="isFutureMonth(m.value) || monthlyLoading()"
+              (click)="selectMonth(m.value)"
+            >
+              <span class="monthly-picker__short">{{ m.short }}</span>
+              <span class="monthly-picker__label">{{ m.label }}</span>
+              @if (isCurrentMonth(m.value) && !isSelectedMonth(m.value)) {
+                <span class="monthly-picker__dot" aria-hidden="true"></span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (monthlyLoading()) {
+        <p class="muted modal-loading">Cargando resumen…</p>
+      } @else if (monthlySummary(); as ms) {
+        <div class="monthly-kpi-grid">
+          <article class="monthly-kpi monthly-kpi--hero">
+            <span class="monthly-kpi__label">Total ingresos</span>
+            <strong class="monthly-kpi__value">{{ ms.grandTotal | cop }}</strong>
+            <span class="monthly-kpi__sub">{{ ms.totalPayments }} movimientos en el mes</span>
+          </article>
+          <article class="monthly-kpi monthly-kpi--expense">
+            <span class="monthly-kpi__label">Gastos del mes</span>
+            <strong class="monthly-kpi__value">{{ ms.totalExpenses | cop }}</strong>
+            <span class="monthly-kpi__sub">{{ ms.expenseCount }} {{ ms.expenseCount === 1 ? 'gasto' : 'gastos' }} registrados</span>
+          </article>
+          <article class="monthly-kpi monthly-kpi--net">
+            <span class="monthly-kpi__label">Balance del mes</span>
+            <strong class="monthly-kpi__value">{{ monthlyNetBalance(ms) | cop }}</strong>
+            <span class="monthly-kpi__sub">Ingresos − gastos</span>
+          </article>
+          <article class="monthly-kpi">
+            <span class="monthly-kpi__label">Entrenos del día</span>
+            <strong class="monthly-kpi__value">{{ sumMethodMap(ms.dayWorkoutByMethod) | cop }}</strong>
+          </article>
+          <article class="monthly-kpi">
+            <span class="monthly-kpi__label">Bailes deportivos</span>
+            <strong class="monthly-kpi__value">{{ sumMethodMap(ms.sportsDanceByMethod) | cop }}</strong>
+          </article>
+          <article class="monthly-kpi">
+            <span class="monthly-kpi__label">Membresías</span>
+            <strong class="monthly-kpi__value">{{ sumMethodMap(ms.membershipByMethod) | cop }}</strong>
+          </article>
+        </div>
+
+        <section class="monthly-section">
+          <h4>Desglose por medio de pago</h4>
+          <p class="monthly-section__hint muted small">
+            Ingresos por tipo y gastos del mes según el medio con el que se pagó o salió el dinero.
+          </p>
+          <app-data-table
+            class="monthly-data-table"
+            [rows]="monthlyMethodRows()"
+            [columns]="monthlyMethodColumns"
+            [showSearch]="false"
+            [showPageSize]="true"
+            [showPagination]="true"
+            [showRecordCount]="true"
+            [pageSizes]="tablePageSizes"
+            [pageSizeDefault]="10"
+            initialSortColumnId="total"
+            [initialSortDescending]="true"
+            emptyMessage="Sin ingresos en este mes."
+          >
+            @if (hasMonthlyBreakdownRows(ms)) {
+              <tfoot data-table-footer class="monthly-table-totals" aria-label="Totales del mes">
+                <tr>
+                  <td class="monthly-table-totals__label"><strong>Total</strong></td>
+                  <td class="col-amount"><strong>{{ ms.grandTotal | cop }}</strong></td>
+                  <td class="col-amount"><strong>{{ sumMethodMap(ms.dayWorkoutByMethod) | cop }}</strong></td>
+                  <td class="col-amount"><strong>{{ sumMethodMap(ms.sportsDanceByMethod) | cop }}</strong></td>
+                  <td class="col-amount"><strong>{{ sumMethodMap(ms.membershipByMethod) | cop }}</strong></td>
+                  <td class="col-amount col-amount--expense"><strong>{{ ms.totalExpenses | cop }}</strong></td>
+                </tr>
+              </tfoot>
+            }
+          </app-data-table>
+        </section>
+      }
+
+      <div class="modal-actions modal-actions--footer">
+        <button type="button" class="btn btn-secondary" (click)="closeMonthlyModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
 }

@@ -46,6 +46,20 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
 
     @Query(
             """
+            SELECT COUNT(a) FROM AccessLog a
+            WHERE a.member.id = :memberId
+              AND a.result = :result
+              AND a.createdAt >= :from
+              AND a.createdAt < :to
+            """)
+    long countByMemberIdAndResultBetween(
+            @Param("memberId") Long memberId,
+            @Param("result") AccessResult result,
+            @Param("from") Instant from,
+            @Param("to") Instant to);
+
+    @Query(
+            """
             SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
             FROM AccessLog a
             WHERE a.fingerprintUserId = :deviceUserId

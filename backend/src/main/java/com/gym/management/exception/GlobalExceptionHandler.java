@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -24,6 +25,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        String raw = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (raw != null && raw.contains("billing_payments_payment_type_check")) {
+            return buildResponse(
+                    HttpStatus.BAD_REQUEST,
+                    "Tipo de pago no permitido en la base de datos. Reinicie el backend para aplicar migraciones.");
+        }
+        if (raw != null && raw.contains("employee_cash_shortfalls") && raw.contains("shift_handover")) {
+            return buildResponse(
+                    HttpStatus.BAD_REQUEST,
+                    "No se puede eliminar la entrega: tiene un descuadre de caja vinculado. "
+                            + "Reinicie el backend con la versión actual o elimine primero el descuadre.");
+        }
+        return buildResponse(HttpStatus.BAD_REQUEST, "No se pudo guardar el registro por restricción de datos.");
     }
 
     @ExceptionHandler(BadCredentialsException.class)

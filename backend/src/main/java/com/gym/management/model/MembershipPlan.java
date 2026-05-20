@@ -2,6 +2,8 @@ package com.gym.management.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -37,6 +39,15 @@ public class MembershipPlan {
 
     @Column(nullable = false)
     private Integer durationDays;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "plan_kind", nullable = false, length = 20)
+    @Builder.Default
+    private MembershipPlanKind planKind = MembershipPlanKind.REGULAR;
+
+    /** Entrenos permitidos por periodo pagado (solo plan TIQUETERA). */
+    @Column(name = "monthly_entry_limit")
+    private Integer monthlyEntryLimit;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;

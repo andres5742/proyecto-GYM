@@ -15,6 +15,17 @@ import {
 } from '../../core/utils/access-welcome-audio';
 import { httpErrorMessage } from '../../core/utils/http-error-message';
 
+const KIOSK_MOTIVATIONAL_PHRASES = [
+  'Cada día es una nueva oportunidad para ser más fuerte.',
+  'Tu único límite eres tú. ¡A entrenar!',
+  'La disciplina convierte los sueños en logros.',
+  'Hoy entrenas, mañana agradeces.',
+  'El esfuerzo de hoy es la fuerza de mañana.',
+  'Pequeños pasos, grandes resultados.',
+  'Constancia y actitud: esa es la fórmula.',
+  'En Sport Gym R.10 crecemos juntos.',
+];
+
 @Component({
   selector: 'app-access-kiosk',
   imports: [DatePipe, FaceWebcamCaptureComponent],
@@ -48,8 +59,11 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly kioskReady = signal(false);
   protected readonly showWelcomeAudioBtn = signal(false);
   protected readonly audioSupported = isWelcomeAudioSupported();
+  protected readonly motivationalPhrase = signal(KIOSK_MOTIVATIONAL_PHRASES[0]);
 
   ngOnInit(): void {
+    const dayIndex = new Date().getDate() % KIOSK_MOTIVATIONAL_PHRASES.length;
+    this.motivationalPhrase.set(KIOSK_MOTIVATIONAL_PHRASES[dayIndex]);
     this.clockTimer = setInterval(() => this.clock.set(new Date()), 1000);
     prepareWelcomeSpeech();
     if (!environment.accessDeviceKey?.trim() || environment.accessDeviceKey === '__ACCESS_DEVICE_KEY__') {
@@ -86,7 +100,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   playWelcomeNow(): void {
-    const firstName = firstNameFromFullName(this.lastResult()?.memberName);
+    const last = this.lastResult();
+    const firstName = firstNameFromFullName(last?.memberName);
+    const gender = last?.gender ?? null;
     if (!isWelcomeAudioUnlocked()) {
       const ok = unlockWelcomeAudio();
       this.audioUnlocked.set(ok);
@@ -94,7 +110,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
         return;
       }
     }
-    playAccessWelcome(firstName);
+    playAccessWelcome(firstName, gender);
     this.showWelcomeAudioBtn.set(false);
   }
 
@@ -246,17 +262,18 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
     if (res.result === 'GRANTED') {
       const firstName = firstNameFromFullName(res.memberName);
-      this.welcomeTitle.set(welcomeHeadline(firstName));
+      const gender = res.gender ?? null;
+      this.welcomeTitle.set(welcomeHeadline(firstName, gender));
       prepareWelcomeSpeech();
       if (isWelcomeAudioUnlocked()) {
-        const spoke = playAccessWelcome(firstName);
+        const spoke = playAccessWelcome(firstName, gender);
         this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
       } else {
         this.showWelcomeAudioBtn.set(this.audioSupported);
       }
       this.statusLine.set(
         firstName
-          ? `${welcomeHeadline(firstName)} Pasa al torniquete.`
+          ? `${welcomeHeadline(firstName, gender)} Pasa al torniquete.`
           : '¡Ingreso autorizado! Pasa al torniquete.',
       );
     } else {

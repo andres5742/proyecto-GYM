@@ -1,3 +1,5 @@
+import type { Gender } from './member.model';
+
 export type AccessResult = 'GRANTED' | 'DENIED';
 
 export type BiometricCredentialType = 'FINGERPRINT' | 'FACE';
@@ -28,6 +30,8 @@ export interface AccessVerifyResponse {
   /** Alias legacy del API */
   fingerprintUserId?: string;
   credentialType: BiometricCredentialType;
+  /** Género del afiliado (null en entrenadores o sin dato). */
+  gender?: Gender | null;
 }
 
 export interface BiometricEnrollRequest {

@@ -1,24 +1,32 @@
 <div class="data-table">
+  @if (showToolbar()) {
   <div class="data-table__toolbar">
-    <label class="data-table__search">
-      Buscar
-      <input
-        type="search"
-        [placeholder]="searchPlaceholder()"
-        [value]="searchQuery()"
-        (input)="onSearch($any($event.target).value)"
-      />
-    </label>
-    <label class="data-table__pagesize">
-      Filas
-      <select [value]="pageSize()" (change)="onPageSizeChange($any($event.target).value)">
-        @for (size of pageSizeOptions; track size) {
-          <option [value]="size">{{ size }}</option>
-        }
-      </select>
-    </label>
-    <span class="data-table__count">{{ sortedRows().length }} registro(s)</span>
+    @if (showSearch()) {
+      <label class="data-table__search">
+        Buscar
+        <input
+          type="search"
+          [placeholder]="searchPlaceholder()"
+          [value]="searchQuery()"
+          (input)="onSearch($any($event.target).value)"
+        />
+      </label>
+    }
+    @if (showPageSize()) {
+      <label class="data-table__pagesize">
+        Filas
+        <select [value]="pageSize()" (change)="onPageSizeChange($any($event.target).value)">
+          @for (size of pageSizeOptions(); track size) {
+            <option [value]="size">{{ size }}</option>
+          }
+        </select>
+      </label>
+    }
+    @if (showRecordCount()) {
+      <span class="data-table__count">{{ sortedRows().length }} registro(s)</span>
+    }
   </div>
+  }
 
   @if (sortedRows().length === 0) {
     <p class="data-table__empty muted">{{ emptyMessage() }}</p>
@@ -28,7 +36,7 @@
         <thead>
           <tr>
             @for (col of columns(); track col.id) {
-              <th>
+              <th [class]="col.headerClass ?? ''">
                 @if (col.sortable) {
                   <button type="button" class="data-table__sort" (click)="sortBy(col.id)">
                     {{ col.header }}{{ sortIndicator(col.id) }}
@@ -39,15 +47,21 @@
               </th>
             }
             @if (showActions()) {
-              <th>Acciones</th>
+              <th class="data-table__th-actions">Acciones</th>
             }
           </tr>
         </thead>
         <tbody>
-          @for (row of paginatedRows(); track $index) {
+          @for (row of paginatedRows(); track trackRow(row, $index)) {
             <tr [class]="rowClass()?.(row) ?? ''">
               @for (col of columns(); track col.id) {
-                <td [class]="cellClass(row, col)">{{ col.cell(row) }}</td>
+                <td [class]="cellClass(row, col)">
+                  @if (col.cellInnerClass) {
+                    <span [class]="cellInnerClass(row, col)">{{ col.cell(row) }}</span>
+                  } @else {
+                    {{ col.cell(row) }}
+                  }
+                </td>
               }
               @if (showActions() && actionsTemplate(); as actions) {
                 <td class="data-table__actions">
@@ -57,25 +71,28 @@
             </tr>
           }
         </tbody>
+        <ng-content select="[data-table-footer]" />
       </table>
     </div>
 
-    <footer class="data-table__footer">
-      <span>Mostrando {{ pageStart() }}–{{ pageEnd() }} de {{ sortedRows().length }}</span>
-      <div class="data-table__pager">
-        <button type="button" class="secondary" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
-          Anterior
-        </button>
-        <span>Página {{ page() }} / {{ totalPages() }}</span>
-        <button
-          type="button"
-          class="secondary"
-          [disabled]="page() >= totalPages()"
-          (click)="goToPage(page() + 1)"
-        >
-          Siguiente
-        </button>
-      </div>
-    </footer>
+    @if (showPagination()) {
+      <footer class="data-table__footer">
+        <span>Mostrando {{ pageStart() }}–{{ pageEnd() }} de {{ sortedRows().length }}</span>
+        <div class="data-table__pager">
+          <button type="button" class="secondary" [disabled]="page() <= 1" (click)="goToPage(page() - 1)">
+            Anterior
+          </button>
+          <span>Página {{ page() }} / {{ totalPages() }}</span>
+          <button
+            type="button"
+            class="secondary"
+            [disabled]="page() >= totalPages()"
+            (click)="goToPage(page() + 1)"
+          >
+            Siguiente
+          </button>
+        </div>
+      </footer>
+    }
   }
 </div>

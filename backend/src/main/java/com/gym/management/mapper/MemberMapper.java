@@ -21,6 +21,8 @@ public final class MemberMapper {
                 MemberMembershipRules.effectiveStatus(member),
                 member.getMembershipStart(),
                 member.getMembershipEnd(),
+                Boolean.TRUE.equals(member.getMembershipFrozen()),
+                member.getFrozenRemainingDays(),
                 member.getCreatedAt(),
                 member.getUpdatedAt()
         );

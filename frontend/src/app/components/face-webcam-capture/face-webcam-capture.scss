@@ -67,11 +67,17 @@
     animation: face-lock-pulse 0.8s ease-in-out infinite;
   }
 
+  /* Óvalo vertical (forma de rostro), no horizontal */
   &__overlay {
     position: absolute;
-    inset: 12%;
+    top: 50%;
+    left: 50%;
+    width: 46%;
+    height: 76%;
+    max-height: 88%;
+    transform: translate(-50%, -50%);
     border: 3px solid rgb(255 255 255 / 55%);
-    border-radius: 50% / 45%;
+    border-radius: 50%;
     pointer-events: none;
     box-shadow: 0 0 0 9999px rgb(0 0 0 / 35%);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -95,20 +101,44 @@
   }
 
   &.compact .face-capture__frame {
-    max-width: 280px;
+    max-width: min(280px, 100%);
+    width: 100%;
   }
 
   &.compact .face-capture__camera-switch {
-    max-width: 280px;
+    max-width: min(280px, 100%);
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .face-capture__frame {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .face-capture__camera-switch {
+    max-width: 100%;
+    width: 100%;
+    flex-direction: column;
+
+    .face-capture__camera-btn {
+      width: 100%;
+    }
+  }
+
+  .face-capture.compact .face-capture__frame,
+  .face-capture.compact .face-capture__camera-switch {
+    max-width: 100%;
   }
 }
 
 @keyframes face-lock-pulse {
   0%,
   100% {
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
   50% {
-    transform: scale(1.02);
+    transform: translate(-50%, -50%) scale(1.02);
   }
 }

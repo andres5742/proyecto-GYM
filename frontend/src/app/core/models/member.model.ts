@@ -14,6 +14,8 @@ export interface Member {
   status: MembershipStatus;
   membershipStart?: string;
   membershipEnd?: string;
+  membershipFrozen?: boolean;
+  frozenRemainingDays?: number | null;
   createdAt: string;
   updatedAt: string;
 }

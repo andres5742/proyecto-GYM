@@ -1,6 +1,9 @@
 <section class="page-header">
   <h2>Tus afiliados</h2>
-  <p>Cada persona que entrena contigo merece sentirse bien atendida. Aquí guardas su información con cariño.</p>
+  <p>
+    Consulta y edita datos de contacto. Los afiliados nuevos y la membresía se registran en
+    <a routerLink="/panel/facturacion">Facturación → Pago de membresía</a>.
+  </p>
 </section>
 
 @if (message()) {
@@ -55,106 +58,153 @@
   }
 </section>
 
-<div class="grid">
-  <form class="panel" [formGroup]="form" (ngSubmit)="save()">
-    <h3>{{ editingId() ? 'Editar afiliado' : 'Nuevo afiliado' }}</h3>
+<div class="members-layout">
+  @if (editingId(); as id) {
+    <form class="panel members-edit-panel" [formGroup]="form" (ngSubmit)="save()">
+      <header class="members-edit-panel__head">
+        <h3>Editar afiliado</h3>
+        <button type="button" class="link" (click)="clearEdit()">Cerrar</button>
+      </header>
 
-    <label>
-      Nombre
-      <input formControlName="firstName" placeholder="Ej: Juan" />
-    </label>
-    <label>
-      Apellido
-      <input formControlName="lastName" />
-    </label>
-    <label>
-      Género
-      <select formControlName="gender">
-        @for (option of genders; track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Teléfono
-      <input formControlName="phone" />
-    </label>
-    <label>
-      Documento
-      <input formControlName="documentId" />
-    </label>
-    <label>
-      Plan
-      <select formControlName="planId">
-        <option [ngValue]="null">Sin plan</option>
-        @for (plan of plans(); track plan.id) {
-          <option [ngValue]="plan.id">{{ plan.name }} — {{ plan.price | cop }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Estado
-      <select formControlName="status">
-        @for (status of statuses; track status) {
-          <option [value]="status">{{ statusLabel(status) }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Inicio membresía
-      <input type="date" formControlName="membershipStart" />
-    </label>
-    <label>
-      Fin membresía
-      <input type="date" formControlName="membershipEnd" />
-    </label>
+      <label>
+        Nombre
+        <input formControlName="firstName" placeholder="Ej: Juan" />
+      </label>
+      <label>
+        Apellido
+        <input formControlName="lastName" />
+      </label>
+      <label>
+        Género
+        <select formControlName="gender">
+          @for (option of genders; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Teléfono
+        <input formControlName="phone" />
+      </label>
+      <label>
+        Documento
+        <input formControlName="documentId" />
+      </label>
 
-    <div class="form-actions">
-      <button type="submit" class="btn-primary" [disabled]="saving()">
-        {{ saving() ? 'Guardando...' : editingId() ? 'Guardar cambios' : 'Agregar afiliado' }}
-      </button>
-      <button type="button" class="secondary" (click)="startCreate()">Empezar de nuevo</button>
-      <p class="psych-reassurance">
-        Solo tú y tu equipo ven esta información. Puedes editarla cuando lo necesites.
-      </p>
-    </div>
-
-    @if (editingId() && isAdmin()) {
-      <section class="portal-password-block">
-        <h4>Acceso al portal del afiliado</h4>
-        <p class="portal-hint">
-          El usuario de ingreso es el <strong>documento</strong>. Por defecto la contraseña también es el documento.
+      @if (editingMember(); as em) {
+        <dl class="membership-readonly">
+          <div>
+            <dt>Plan</dt>
+            <dd>{{ em.planName ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ displayStatusLabel(em) }}</dd>
+          </div>
+          <div>
+            <dt>Vence</dt>
+            <dd>{{ em.membershipEnd ? (em.membershipEnd | date: 'dd/MM/yyyy') : '—' }}</dd>
+          </div>
+        </dl>
+        <p class="field-note">
+          Plan y fechas de membresía se actualizan al cobrar en Facturación.
         </p>
-        <label>
-          Nueva contraseña
-          <input
-            type="password"
-            [value]="portalPassword()"
-            (input)="portalPassword.set($any($event.target).value)"
-            placeholder="Contraseña para el portal"
-          />
-        </label>
-        <div class="portal-password-actions">
-          <button
-            type="button"
-            class="secondary"
-            [disabled]="portalPasswordSaving() || !portalPassword().trim()"
-            (click)="savePortalPassword()"
-          >
-            {{ portalPasswordSaving() ? 'Guardando...' : 'Cambiar contraseña' }}
-          </button>
-          <button
-            type="button"
-            class="secondary"
-            [disabled]="portalPasswordSaving()"
-            (click)="resetPortalPassword()"
-          >
-            Restablecer al documento
-          </button>
-        </div>
-      </section>
-    }
-  </form>
+
+        <section
+          class="membership-freeze-block"
+          [class.membership-freeze-block--frozen]="em.membershipFrozen"
+        >
+          <h4>
+            @if (em.membershipFrozen) {
+              <span class="freeze-title-icon" aria-hidden="true">❄</span> Membresía congelada
+            } @else {
+              Congelar membresía
+            }
+          </h4>
+          @if (em.membershipFrozen) {
+            <p class="membership-freeze-block__info">
+              Días guardados: <strong>{{ em.frozenRemainingDays ?? 0 }}</strong>. Sin ingreso al gimnasio hasta
+              descongelar.
+            </p>
+            <button
+              type="button"
+              class="btn-membership btn-membership--unfreeze btn-membership--lg"
+              [disabled]="freezeAction() || saving()"
+              (click)="unfreezeMembership()"
+            >
+              <span class="btn-membership__icon" aria-hidden="true">🔥</span>
+              <span>{{ freezeAction() ? 'Procesando…' : 'Descongelar membresía' }}</span>
+            </button>
+          } @else {
+            <p class="membership-freeze-block__info muted small">
+              Guarda los días que le quedan de membresía y bloquea el ingreso. Al descongelar, la fecha de
+              vencimiento se recalcula desde hoy.
+            </p>
+            <button
+              type="button"
+              class="btn-membership btn-membership--freeze btn-membership--lg"
+              [disabled]="freezeAction() || saving()"
+              (click)="freezeMembership()"
+            >
+              <span class="btn-membership__icon" aria-hidden="true">❄</span>
+              <span>{{ freezeAction() ? 'Procesando…' : 'Congelar membresía' }}</span>
+            </button>
+          }
+        </section>
+      }
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
+
+      @if (isAdmin()) {
+        <section class="portal-password-block">
+          <h4>Acceso al portal del afiliado</h4>
+          <p class="portal-hint">
+            El usuario de ingreso es el <strong>documento</strong>. Por defecto la contraseña también es el documento.
+          </p>
+          <label>
+            Nueva contraseña
+            <input
+              type="password"
+              [value]="portalPassword()"
+              (input)="portalPassword.set($any($event.target).value)"
+              placeholder="Contraseña para el portal"
+            />
+          </label>
+          <div class="portal-password-actions">
+            <button
+              type="button"
+              class="secondary"
+              [disabled]="portalPasswordSaving() || !portalPassword().trim()"
+              (click)="savePortalPassword()"
+            >
+              {{ portalPasswordSaving() ? 'Guardando...' : 'Cambiar contraseña' }}
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              [disabled]="portalPasswordSaving()"
+              (click)="resetPortalPassword()"
+            >
+              Restablecer al documento
+            </button>
+          </div>
+        </section>
+      }
+    </form>
+  } @else {
+    <aside class="panel members-hint-panel">
+      <h3>Editar un afiliado</h3>
+      <p class="muted">
+        En la tabla, pulsa <strong>Editar</strong> en la fila que necesites. Para dar de alta a alguien nuevo con
+        membresía y acceso (huella o rostro), usa Facturación.
+      </p>
+      <a routerLink="/panel/facturacion" class="btn btn-primary members-hint-panel__cta">Ir a Facturación</a>
+    </aside>
+  }
 
   <div class="panel table-panel">
     <header class="list-header">
@@ -194,64 +244,107 @@
     @if (loading()) {
       <p class="muted">Cargando...</p>
     } @else if (members().length === 0) {
-      <p class="empty-state">Aún no hay afiliados. Completa el formulario para agregar el primero.</p>
+      <p class="empty-state">
+        Aún no hay afiliados. Registra el primero en
+        <a routerLink="/panel/facturacion">Facturación → Pago de membresía</a>.
+      </p>
     } @else if (totalFiltered() === 0) {
       <p class="empty-state">No hay resultados para tu búsqueda.</p>
     } @else {
       <div class="table-wrap">
-      <table class="members-table">
-        <thead>
-          <tr>
-            <th>
-              <button type="button" class="th-sort" (click)="sortBy('name')">Nombre{{ sortIndicator('name') }}</button>
-            </th>
-            <th>
-              <button type="button" class="th-sort" (click)="sortBy('documentId')">
-                Documento{{ sortIndicator('documentId') }}
-              </button>
-            </th>
-            <th>
-              <button type="button" class="th-sort" (click)="sortBy('gender')">Género{{ sortIndicator('gender') }}</button>
-            </th>
-            <th>
-              <button type="button" class="th-sort" (click)="sortBy('planName')">Plan{{ sortIndicator('planName') }}</button>
-            </th>
-            <th>
-              <button type="button" class="th-sort" (click)="sortBy('status')">Estado{{ sortIndicator('status') }}</button>
-            </th>
-            <th>
-              <button type="button" class="th-sort" (click)="sortBy('membershipEnd')">
-                Vence{{ sortIndicator('membershipEnd') }}
-              </button>
-            </th>
-            <th>Acceso</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (member of paginatedMembers(); track member.id) {
-            <tr [class.row-expired]="effectiveStatus(member) === 'EXPIRED'">
-              <td>{{ member.firstName }} {{ member.lastName }}</td>
-              <td>{{ member.documentId ?? '—' }}</td>
-              <td>{{ genderLabel(member.gender) }}</td>
-              <td>{{ member.planName ?? '—' }}</td>
-              <td>
-                <span class="badge" [class]="effectiveStatus(member).toLowerCase()">
-                  {{ statusLabel(effectiveStatus(member)) }}
-                </span>
-              </td>
-              <td>{{ member.membershipEnd ? (member.membershipEnd | date: 'dd/MM/yyyy') : '—' }}</td>
-              <td class="access-cell">
-                <app-member-access-badges [flags]="accessFlags(member.id)" />
-              </td>
-              <td class="row-actions">
-                <button type="button" class="link" (click)="startEdit(member)">Editar</button>
-                <button type="button" class="link danger" (click)="remove(member.id)">Eliminar</button>
-              </td>
+        <table class="members-table">
+          <thead>
+            <tr>
+              <th>
+                <button type="button" class="th-sort" (click)="sortBy('name')">Nombre{{ sortIndicator('name') }}</button>
+              </th>
+              <th>
+                <button type="button" class="th-sort" (click)="sortBy('documentId')">
+                  Documento{{ sortIndicator('documentId') }}
+                </button>
+              </th>
+              <th>
+                <button type="button" class="th-sort" (click)="sortBy('gender')">Género{{ sortIndicator('gender') }}</button>
+              </th>
+              <th>
+                <button type="button" class="th-sort" (click)="sortBy('planName')">Plan{{ sortIndicator('planName') }}</button>
+              </th>
+              <th>
+                <button type="button" class="th-sort" (click)="sortBy('status')">Estado{{ sortIndicator('status') }}</button>
+              </th>
+              <th>
+                <button type="button" class="th-sort" (click)="sortBy('membershipEnd')">
+                  Vence{{ sortIndicator('membershipEnd') }}
+                </button>
+              </th>
+              <th>Acceso</th>
+              <th>Acciones</th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (member of paginatedMembers(); track member.id) {
+              <tr
+                [class.row-expired]="effectiveStatus(member) === 'EXPIRED' && !member.membershipFrozen"
+                [class.row-frozen]="member.membershipFrozen"
+                [class.row-editing]="editingId() === member.id"
+              >
+                <td data-label="Nombre">{{ member.firstName }} {{ member.lastName }}</td>
+                <td data-label="Documento">{{ member.documentId ?? '—' }}</td>
+                <td data-label="Género">{{ genderLabel(member.gender) }}</td>
+                <td data-label="Plan">{{ member.planName ?? '—' }}</td>
+                <td class="status-cell" [class.status-cell--frozen]="member.membershipFrozen" data-label="Estado">
+                  @if (member.membershipFrozen) {
+                    <div class="frozen-status-col">
+                      <span class="badge frozen">
+                        <span class="badge-frozen-icon" aria-hidden="true">❄</span>
+                        Congelada
+                      </span>
+                      <span class="frozen-status-col__days">
+                        {{ member.frozenRemainingDays ?? 0 }}
+                        {{ (member.frozenRemainingDays ?? 0) === 1 ? 'día' : 'días' }} guardados
+                      </span>
+                    </div>
+                  } @else {
+                    <span class="badge" [class]="effectiveStatus(member).toLowerCase()">
+                      {{ statusLabel(effectiveStatus(member)) }}
+                    </span>
+                  }
+                </td>
+                <td data-label="Vence">
+                  {{ member.membershipEnd ? (member.membershipEnd | date: 'dd/MM/yyyy') : '—' }}
+                </td>
+                <td class="access-cell" data-label="Acceso">
+                  <app-member-access-badges [flags]="accessFlags(member.id)" />
+                </td>
+                <td class="row-actions" data-label="Acciones">
+                  <button type="button" class="link" (click)="startEdit(member)">Editar</button>
+                  @if (member.membershipFrozen) {
+                    <button
+                      type="button"
+                      class="btn-membership btn-membership--unfreeze"
+                      (click)="unfreezeFromList(member)"
+                    >
+                      <span class="btn-membership__icon" aria-hidden="true">🔥</span>
+                      <span>Descongelar</span>
+                    </button>
+                  } @else if (canFreezeMember(member)) {
+                    <button
+                      type="button"
+                      class="btn-membership btn-membership--freeze"
+                      (click)="freezeFromList(member)"
+                    >
+                      <span class="btn-membership__icon" aria-hidden="true">❄</span>
+                      <span>Congelar</span>
+                    </button>
+                  }
+                  @if (isSuperAdmin()) {
+                    <button type="button" class="link danger" (click)="remove(member.id)">Eliminar</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
 
       <footer class="table-footer">

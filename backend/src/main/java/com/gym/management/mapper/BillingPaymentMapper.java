@@ -16,6 +16,8 @@ public final class BillingPaymentMapper {
         String planName = payment.getPlan() != null ? payment.getPlan().getName() : null;
         Long planId = payment.getPlan() != null ? payment.getPlan().getId() : null;
         Long saleId = payment.getSale() != null ? payment.getSale().getId() : null;
+        Long recordedById = payment.getEmployee() != null ? payment.getEmployee().getId() : null;
+        String recordedByName = employeeDisplayName(payment);
         return new BillingPaymentResponse(
                 payment.getId(),
                 payment.getPaymentType(),
@@ -31,12 +33,22 @@ public final class BillingPaymentMapper {
                 payment.getPaymentDate(),
                 payment.getMembershipStart(),
                 payment.getMembershipEnd(),
+                recordedById,
+                recordedByName,
                 payment.getCreatedAt());
+    }
+
+    private static String employeeDisplayName(BillingPayment payment) {
+        if (payment.getEmployee() == null) {
+            return "—";
+        }
+        return payment.getEmployee().getFirstName() + " " + payment.getEmployee().getLastName();
     }
 
     public static String paymentTypeLabel(BillingPaymentType type) {
         return switch (type) {
             case DAY_WORKOUT -> "Entreno del día";
+            case SPORTS_DANCE -> "Bailes deportivos";
             case MEMBERSHIP -> "Membresía";
         };
     }

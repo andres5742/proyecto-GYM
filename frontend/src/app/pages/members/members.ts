@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
-import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Gender, Member, MemberRequest, MembershipStatus } from '../../core/models/member.model';
 import { MembershipPlan } from '../../core/models/plan.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -17,7 +17,7 @@ const PAGE_SIZES = [10, 25, 50, 100] as const;
 
 @Component({
   selector: 'app-members',
-  imports: [ReactiveFormsModule, DatePipe, CopCurrencyPipe, MemberAccessBadgesComponent],
+  imports: [ReactiveFormsModule, DatePipe, MemberAccessBadgesComponent, RouterLink],
   templateUrl: './members.html',
   styleUrl: './members.scss',
 })
@@ -30,6 +30,7 @@ export class Members implements OnInit {
 
   protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
   protected readonly isAdmin = () => this.auth.isAdmin();
+  protected readonly canEditMembershipEnd = () => this.auth.isAdmin();
 
   protected readonly members = signal<Member[]>([]);
   protected readonly accessByMemberId = signal(buildMemberAccessMap([], []));
@@ -38,6 +39,8 @@ export class Members implements OnInit {
   protected readonly saving = signal(false);
   protected readonly message = signal<string | null>(null);
   protected readonly editingId = signal<number | null>(null);
+  protected readonly editingMember = signal<Member | null>(null);
+  protected readonly freezeAction = signal(false);
   protected readonly importing = signal(false);
   protected readonly clearingAll = signal(false);
   protected readonly selectedFileName = signal<string | null>(null);
@@ -119,10 +122,6 @@ export class Members implements OnInit {
     gender: ['' as Gender | ''],
     phone: [''],
     documentId: [''],
-    planId: [null as number | null],
-    status: ['ACTIVE' as MembershipStatus, Validators.required],
-    membershipStart: [''],
-    membershipEnd: [''],
   });
 
   ngOnInit(): void {
@@ -199,8 +198,9 @@ export class Members implements OnInit {
     this.page.set(clamped);
   }
 
-  startCreate(): void {
+  clearEdit(): void {
     this.editingId.set(null);
+    this.editingMember.set(null);
     this.portalPassword.set('');
     this.form.reset({
       firstName: '',
@@ -208,15 +208,12 @@ export class Members implements OnInit {
       gender: '',
       phone: '',
       documentId: '',
-      planId: null,
-      status: 'ACTIVE',
-      membershipStart: '',
-      membershipEnd: '',
     });
   }
 
   startEdit(member: Member): void {
     this.editingId.set(member.id);
+    this.editingMember.set(member);
     this.portalPassword.set('');
     this.form.patchValue({
       firstName: member.firstName,
@@ -224,47 +221,38 @@ export class Members implements OnInit {
       gender: member.gender ?? '',
       phone: member.phone ?? '',
       documentId: member.documentId ?? '',
-      planId: member.planId ?? null,
-      status: this.effectiveStatus(member),
-      membershipStart: member.membershipStart ?? '',
-      membershipEnd: member.membershipEnd ?? '',
     });
   }
 
   save(): void {
+    const id = this.editingId();
+    if (id == null) {
+      return;
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const raw = this.form.getRawValue();
-    let status = raw.status;
-    if (raw.membershipEnd && raw.membershipEnd < this.todayIso()) {
-      status = 'EXPIRED';
-    }
+    const existing = this.members().find((m) => m.id === id);
     const request: MemberRequest = {
       firstName: raw.firstName,
       lastName: raw.lastName,
       gender: raw.gender || null,
       phone: raw.phone || undefined,
       documentId: raw.documentId || undefined,
-      planId: raw.planId,
-      status,
-      membershipStart: raw.membershipStart || undefined,
-      membershipEnd: raw.membershipEnd || undefined,
+      planId: existing?.planId ?? null,
+      status: existing?.status ?? 'ACTIVE',
+      membershipStart: existing?.membershipStart,
+      membershipEnd: existing?.membershipEnd,
     };
 
     this.saving.set(true);
-    const id = this.editingId();
-    const action = id
-      ? this.memberService.update(id, request)
-      : this.memberService.create(request);
-
-    action.subscribe({
+    this.memberService.update(id, request).subscribe({
       next: () => {
-        this.message.set(id ? 'Cambios guardados' : 'Afiliado agregado correctamente');
+        this.message.set('Cambios guardados');
         this.saving.set(false);
-        this.startCreate();
         this.loadData();
       },
       error: () => {
@@ -275,6 +263,9 @@ export class Members implements OnInit {
   }
 
   remove(id: number): void {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
     if (!confirm('¿Eliminar este afiliado?')) {
       return;
     }
@@ -310,7 +301,7 @@ export class Members implements OnInit {
       next: (result) => {
         this.clearingAll.set(false);
         this.message.set(`Se eliminaron ${result.deleted} afiliado(s)`);
-        this.startCreate();
+        this.clearEdit();
         this.loadData();
       },
       error: () => {
@@ -406,6 +397,9 @@ export class Members implements OnInit {
   }
 
   effectiveStatus(member: Member): MembershipStatus {
+    if (member.membershipFrozen) {
+      return 'SUSPENDED';
+    }
     if (member.status === 'SUSPENDED') {
       return 'SUSPENDED';
     }
@@ -413,6 +407,93 @@ export class Members implements OnInit {
       return 'EXPIRED';
     }
     return member.status;
+  }
+
+  displayStatusLabel(member: Member): string {
+    if (member.membershipFrozen) {
+      const days = member.frozenRemainingDays ?? 0;
+      return `Congelada (${days} ${days === 1 ? 'día' : 'días'} guardados)`;
+    }
+    return this.statusLabel(this.effectiveStatus(member));
+  }
+
+  canFreezeMember(member: Member): boolean {
+    if (member.membershipFrozen || member.status === 'SUSPENDED') {
+      return false;
+    }
+    const end = member.membershipEnd;
+    if (!end) {
+      return false;
+    }
+    return end >= this.todayIso();
+  }
+
+  freezeFromList(member: Member): void {
+    this.startEdit(member);
+    this.freezeMembership();
+  }
+
+  unfreezeFromList(member: Member): void {
+    this.startEdit(member);
+    this.unfreezeMembership();
+  }
+
+  freezeMembership(): void {
+    const id = this.editingId();
+    if (id == null) {
+      return;
+    }
+    if (!confirm('¿Congelar la membresía? Se guardarán los días restantes y no podrá ingresar al gimnasio hasta descongelar.')) {
+      return;
+    }
+    this.freezeAction.set(true);
+    this.memberService.freezeMembership(id).subscribe({
+      next: (updated) => {
+        this.freezeAction.set(false);
+        this.message.set('Membresía congelada');
+        this.applyUpdatedMember(updated);
+      },
+      error: (err) => {
+        this.freezeAction.set(false);
+        this.message.set(this.freezeErrorMessage(err));
+      },
+    });
+  }
+
+  unfreezeMembership(): void {
+    const id = this.editingId();
+    if (id == null) {
+      return;
+    }
+    const days = this.editingMember()?.frozenRemainingDays ?? 0;
+    if (
+      !confirm(
+        `¿Descongelar la membresía? Se extenderá la fecha de vencimiento ${days} día(s) a partir de hoy.`,
+      )
+    ) {
+      return;
+    }
+    this.freezeAction.set(true);
+    this.memberService.unfreezeMembership(id).subscribe({
+      next: (updated) => {
+        this.freezeAction.set(false);
+        this.message.set('Membresía descongelada');
+        this.applyUpdatedMember(updated);
+      },
+      error: (err) => {
+        this.freezeAction.set(false);
+        this.message.set(this.freezeErrorMessage(err));
+      },
+    });
+  }
+
+  private applyUpdatedMember(updated: Member): void {
+    this.members.update((list) => list.map((m) => (m.id === updated.id ? updated : m)));
+    this.startEdit(updated);
+  }
+
+  private freezeErrorMessage(err: { error?: { message?: string } }): string {
+    return err.error?.message ?? 'No se pudo actualizar el estado de congelación';
   }
 
   genderLabel(gender?: Gender): string {

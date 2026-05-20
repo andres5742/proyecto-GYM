@@ -19,9 +19,30 @@
       <textarea formControlName="description" rows="3" placeholder="Opcional"></textarea>
     </label>
     <label>
-      Duración (días)
+      @if (isTiqueteraForm()) {
+        Vigencia (días calendario al pagar)
+      } @else {
+        Duración (días)
+      }
       <input type="number" formControlName="durationDays" min="1" />
     </label>
+    <label>
+      Tipo de plan
+      <select formControlName="planKind">
+        <option value="REGULAR">Membresía regular (1 ingreso por día)</option>
+        <option value="TIQUETERA">Tiquetera (cupo de entrenos + vigencia en días)</option>
+      </select>
+    </label>
+    @if (isTiqueteraForm()) {
+      <label>
+        Número de entrenos (cupo)
+        <input type="number" formControlName="monthlyEntryLimit" min="1" step="1" placeholder="Ej: 16" />
+      </label>
+      <p class="plan-kind-hint muted small">
+        Un ingreso por día. Si el plan tiene 16 entrenos y el afiliado ingresa 2 veces, le quedarán 14. La vigencia en
+        días es el plazo calendario para usar esos entrenos (por ejemplo 30 días).
+      </p>
+    }
     <label>
       Precio (COP)
       <input type="number" formControlName="price" min="0" step="1" />
@@ -54,7 +75,12 @@
               <p>{{ plan.description || 'Sin descripción' }}</p>
             </div>
             <div class="plan-meta">
-              <span>{{ plan.durationDays }} días</span>
+              <span>{{ plan.durationDays }} días vigencia</span>
+              @if (plan.planKind === 'TIQUETERA') {
+                <span class="badge badge--tiquetera">
+                  {{ plan.monthlyEntryLimit ?? '?' }} entrenos · 1/día
+                </span>
+              }
               <span class="price">{{ plan.price | cop }}</span>
               <span class="badge" [class.inactive]="!plan.active">
                 {{ plan.active ? 'Activo' : 'Inactivo' }}

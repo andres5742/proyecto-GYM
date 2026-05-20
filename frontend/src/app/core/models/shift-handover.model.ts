@@ -22,11 +22,6 @@ export interface ShiftHandoverCashForm {
   coin50: number;
 }
 
-export interface ShiftHandoverExpenseLine {
-  description: string;
-  amount: number;
-}
-
 export interface ShiftHandoverPriorPaymentLine {
   description: string;
   amount: number;
@@ -36,11 +31,9 @@ export interface ShiftHandoverPriorPaymentLine {
 
 export interface ShiftHandoverRequest extends ShiftHandoverCashForm {
   workShiftId: number;
-  auxAmount: number;
-  nequiAmount: number;
-  bankAmount: number;
   notes?: string;
-  expenses: ShiftHandoverExpenseLine[];
+  /** Siempre vacío; los gastos del turno ya no se registran aquí. */
+  expenses?: { description: string; amount: number }[];
   priorPayments: ShiftHandoverPriorPaymentLine[];
 }
 
@@ -70,9 +63,22 @@ export interface ShiftHandover {
   coin100?: number;
   coin50?: number;
   cashCountedTotal: number;
-  auxAmount: number;
-  nequiAmount: number;
-  bankAmount: number;
+  /** Facturación del día: efectivo en caja (inicio + cobros efectivo − gastos efectivo). */
+  billingCashExpected: number;
+  /** Ventas en efectivo de turnos anteriores del día, ya descontados los faltantes registrados. */
+  previousShiftSalesCash: number;
+  /** Faltantes ya cargados a otro empleado en turnos anteriores (no se exigen otra vez). */
+  previousShiftShortfallsDeducted: number;
+  /** Nombres de turnos separados por coma, ej. «Mañana, Tarde». */
+  previousShiftName?: string | null;
+  /** Ventas en efectivo del turno que se entrega. */
+  salesCashExpected: number;
+  /** Cobros de fiado en efectivo de turnos anteriores del día. */
+  previousShiftCreditPaymentsCash: number;
+  /** Cobros de fiado en efectivo del turno de entrega. */
+  creditPaymentsCashExpected: number;
+  /** billing + turnos anteriores + ventas + cobros fiado efectivo */
+  expectedCashTotal: number;
   expensesTotal: number;
   priorPaymentsTotal: number;
   declaredGrandTotal: number;
@@ -88,6 +94,8 @@ export interface ShiftHandover {
   }[];
   shiftDetail: ShiftDetail;
   comparisons: ShiftHandoverComparison[];
+  registeredShortfallAmount?: number | null;
+  cashShortfallId?: number | null;
 }
 
 export const CASH_DENOMINATIONS: CashDenomination[] = [

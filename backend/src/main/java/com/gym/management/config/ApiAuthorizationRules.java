@@ -16,6 +16,8 @@ public final class ApiAuthorizationRules {
         auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/billing/day-workout/register")
                 .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
+                .requestMatchers(HttpMethod.POST, "/api/billing/sports-dance/register")
+                .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
                 .requestMatchers("/api/auth/**", "/api/health/**")
                 .permitAll()
                 .requestMatchers(HttpMethod.GET, "/uploads/**")

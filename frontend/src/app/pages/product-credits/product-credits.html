@@ -1,0 +1,377 @@
+<div class="page fiado-page">
+  <header class="page-header">
+    <h1>Fiado de productos</h1>
+    <p class="page-lead">
+      Deuda consolidada por afiliado. Los cobros en <strong>efectivo</strong> suman en la entrega de turno.
+    </p>
+  </header>
+
+  @if (message(); as msg) {
+    <p class="banner" [class.banner--error]="msg.includes('No se')">{{ msg }}</p>
+  }
+
+  @if (!openShift()) {
+    <p class="warn-banner">No hay turno abierto. Abra un turno en Ventas para registrar fiado o cobros.</p>
+  } @else {
+    <p class="shift-hint">Turno activo: <strong>{{ openShift()!.name }}</strong></p>
+  }
+
+  <section class="panel form-panel">
+    <h2>Nuevo fiado</h2>
+    <div class="form-grid">
+      <label class="field field--wide">
+        <span>Afiliado</span>
+        <input
+          type="search"
+          placeholder="Nombre, documento o teléfono…"
+          [ngModel]="memberSearch()"
+          (ngModelChange)="memberSearch.set($event); selectedMemberId.set(null)"
+        />
+        @if (memberSearch() && !selectedMemberId()) {
+          <ul class="member-suggest">
+            @for (m of filteredMembers(); track m.id) {
+              <li>
+                <button type="button" (click)="selectMember(m.id)">
+                  {{ m.firstName }} {{ m.lastName }}
+                  @if (m.documentId) {
+                    <small>· {{ m.documentId }}</small>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </label>
+      <label class="field">
+        <span>Producto</span>
+        <select
+          [ngModel]="selectedProductId()"
+          (ngModelChange)="selectedProductId.set($event ? +$event : null)"
+        >
+          <option [ngValue]="null">— Seleccionar —</option>
+          @for (p of products(); track p.id) {
+            <option [value]="p.id">{{ p.name }} ({{ p.unitPrice | cop }}) · stock {{ p.quantity }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Cantidad</span>
+        <input
+          type="number"
+          min="1"
+          [ngModel]="quantity()"
+          (ngModelChange)="quantity.set(+$event || 1)"
+        />
+      </label>
+      <label class="field field--wide">
+        <span>Notas (opcional)</span>
+        <input type="text" [ngModel]="creditNotes()" (ngModelChange)="creditNotes.set($event)" />
+      </label>
+    </div>
+    @if (selectedProduct()) {
+      <p class="line-total">Total fiado: <strong>{{ creditLineTotal() | cop }}</strong></p>
+    }
+    <button
+      type="button"
+      class="btn-primary"
+      [disabled]="saving() || !openShift()"
+      (click)="registerCredit()"
+    >
+      Registrar fiado
+    </button>
+  </section>
+
+  <section class="panel list-panel">
+    <div class="list-toolbar">
+      <h2>Cuentas de fiado</h2>
+      <label class="filter">
+        <span>Estado</span>
+        <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event); onFilterChange()">
+          <option value="OPEN">Pendientes</option>
+          <option value="PAID">Pagadas</option>
+          <option value="ALL">Todas</option>
+        </select>
+      </label>
+      @if (statusFilter() === 'OPEN' || statusFilter() === 'ALL') {
+        <span class="pending-total">
+          Saldo pendiente total: <strong>{{ openBalanceTotal() | cop }}</strong>
+        </span>
+      }
+    </div>
+
+    @if (loading()) {
+      <p class="empty">Cargando…</p>
+    } @else {
+      <app-data-table
+        class="fiado-data-table"
+        [rows]="memberGroups()"
+        [columns]="memberTableColumns"
+        [rowTrack]="trackMemberGroup"
+        searchPlaceholder="Buscar afiliado, documento…"
+        emptyMessage="No hay cuentas de fiado con este filtro."
+        [pageSizeDefault]="10"
+        [pageSizes]="tablePageSizes"
+        initialSortColumnId="balance"
+        [initialSortDescending]="true"
+        [showActions]="true"
+      >
+        <ng-template #actions let-row>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="viewMember(row)">
+            Ver
+          </button>
+          @if (row.openBalance > 0) {
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              [disabled]="!openShift()"
+              (click)="payMember(row)"
+              [title]="!openShift() ? 'Abra un turno para cobrar' : ''"
+            >
+              Pagar todo
+            </button>
+          }
+        </ng-template>
+      </app-data-table>
+    }
+  </section>
+</div>
+
+@if (selectedGroup(); as group) {
+  <div class="modal-backdrop fiado-modal-backdrop" role="dialog" aria-modal="true" (click)="closeModal()">
+    <div class="fiado-modal fiado-modal--detail" (click)="$event.stopPropagation()">
+      <header class="fiado-modal__header">
+        <div class="fiado-modal__identity">
+          <span class="fiado-modal__avatar" aria-hidden="true">{{ memberInitial(group.memberName) }}</span>
+          <div>
+            <p class="fiado-modal__eyebrow">Detalle de fiado</p>
+            <h3 class="fiado-modal__title">{{ group.memberName }}</h3>
+            @if (group.memberDocumentId) {
+              <p class="fiado-modal__meta">{{ group.memberDocumentId }}</p>
+            }
+          </div>
+        </div>
+        <button type="button" class="fiado-modal__close" (click)="closeModal()" aria-label="Cerrar">×</button>
+      </header>
+      @if (group.openBalance > 0) {
+        <div class="fiado-modal__summary">
+          <div class="fiado-modal__summary-item">
+            <span>Deuda total</span>
+            <strong>{{ group.openBalance | cop }}</strong>
+          </div>
+          <div class="fiado-modal__summary-item">
+            <span>Productos</span>
+            <strong>{{ group.openItemsCount }}</strong>
+          </div>
+        </div>
+        <p class="fiado-modal__tip">
+          Use <strong>Abonar</strong> en cada producto que el cliente va a pagar por separado.
+        </p>
+      }
+
+      <div class="fiado-modal__body">
+        @if (detailLoading()) {
+          <p class="fiado-modal__loading">Cargando detalle…</p>
+        } @else if (detailCredits().length === 0) {
+          <p class="fiado-modal__empty">Sin registros.</p>
+        } @else {
+          <div class="fiado-detail-scroll">
+            <table class="fiado-detail-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cant.</th>
+                  <th>Total</th>
+                  <th>Fiado por</th>
+                  <th>Fecha</th>
+                  <th>Turno</th>
+                  <th>Pendiente</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of detailCredits(); track c.id) {
+                  <tr [class.fiado-detail-table__row--paid]="c.status === 'PAID'">
+                    <td><strong>{{ c.productName }}</strong></td>
+                    <td>{{ c.quantity }}</td>
+                    <td>{{ c.totalAmount | cop }}</td>
+                    <td>{{ c.employeeName }}</td>
+                    <td>{{ c.creditedAt | date: 'short' }}</td>
+                    <td>{{ c.workShiftName }}</td>
+                    <td>
+                      @if (c.status === 'OPEN') {
+                        <strong class="fiado-detail-table__balance">{{ c.balance | cop }}</strong>
+                      } @else {
+                        <span class="fiado-detail-table__badge">{{ c.statusLabel }}</span>
+                      }
+                    </td>
+                    <td class="col-action">
+                      @if (c.status === 'OPEN' && openShift()) {
+                        @if (payingCreditId() === c.id) {
+                          <span class="fiado-detail-table__hint">Abono abajo ↓</span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            (click)="startPayCredit(c)"
+                          >
+                            Abonar
+                          </button>
+                        }
+                      }
+                    </td>
+                  </tr>
+                  @if (c.payments?.length) {
+                    <tr class="fiado-detail-table__payments">
+                      <td colspan="8">
+                        <span class="fiado-detail-table__payments-label">Abonos</span>
+                        @for (p of c.payments; track p.id; let last = $last) {
+                          <span class="fiado-payment-tag">
+                            {{ p.paidAt | date: 'short' }} · {{ p.amount | cop }} ·
+                            {{ p.paymentMethodLabel }} ({{ p.workShiftName }})
+                          </span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+
+          @if (payingCredit(); as paying) {
+            <div class="fiado-pay-card">
+              <div class="fiado-pay-card__head">
+                <h4>Abonar · {{ paying.productName }}</h4>
+                <span class="fiado-pay-card__balance">{{ paying.balance | cop }}</span>
+              </div>
+              <div class="fiado-pay-card__fields">
+                <label class="fiado-field">
+                  <span>Monto</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    [max]="paying.balance"
+                    step="0.01"
+                    [ngModel]="payAmount()"
+                    (ngModelChange)="payAmount.set($event != null ? +$event : null)"
+                  />
+                </label>
+                <div class="fiado-field fiado-field--wide">
+                  <span>Medio de pago</span>
+                  <div class="pay-method-grid">
+                    @for (pm of paymentMethods; track pm.value) {
+                      <button
+                        type="button"
+                        class="pay-method-chip"
+                        [class.pay-method-chip--active]="payMethod() === pm.value"
+                        (click)="payMethod.set(pm.value)"
+                      >
+                        <span class="pay-method-chip__icon">{{ paymentMethodIcon(pm.value) }}</span>
+                        {{ pm.label }}
+                      </button>
+                    }
+                  </div>
+                </div>
+                <label class="fiado-field fiado-field--wide">
+                  <span>Notas (opcional)</span>
+                  <input
+                    type="text"
+                    placeholder="Referencia, observación…"
+                    [ngModel]="payNotes()"
+                    (ngModelChange)="payNotes.set($event)"
+                  />
+                </label>
+              </div>
+              <div class="fiado-pay-card__actions">
+                <button type="button" class="btn btn-secondary" (click)="cancelPayLine()">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-lg"
+                  [disabled]="saving()"
+                  (click)="registerPayment(paying)"
+                >
+                  {{ saving() ? 'Guardando…' : 'Confirmar abono' }}
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@if (payAllTarget(); as target) {
+  <div class="modal-backdrop fiado-modal-backdrop" role="dialog" aria-modal="true" (click)="closePayAllModal()">
+    <div class="fiado-modal fiado-modal--payall" (click)="$event.stopPropagation()">
+      <header class="fiado-modal__header fiado-modal__header--payall">
+        <button type="button" class="fiado-modal__close" (click)="closePayAllModal()" aria-label="Cerrar">
+          ×
+        </button>
+        <div class="fiado-modal__payall-hero">
+          <span class="fiado-modal__avatar fiado-modal__avatar--lg" aria-hidden="true">
+            {{ memberInitial(target.memberName) }}
+          </span>
+          <p class="fiado-modal__eyebrow">Cobro total de fiado</p>
+          <h3 class="fiado-modal__title">{{ target.memberName }}</h3>
+          <p class="fiado-modal__amount">{{ target.openBalance | cop }}</p>
+          <p class="fiado-modal__meta">
+            {{ target.openItemsCount === 1 ? '1 producto pendiente' : target.openItemsCount + ' productos pendientes' }}
+          </p>
+        </div>
+      </header>
+
+      <div class="fiado-modal__body fiado-modal__body--payall">
+        <div class="fiado-info-callout">
+          <span class="fiado-info-callout__icon" aria-hidden="true">ℹ️</span>
+          <p>
+            Se liquidan <strong>todos</strong> los productos fiados de este afiliado en un solo cobro.
+            Para pagar solo uno, cierre y use <strong>Ver</strong> → <strong>Abonar</strong>.
+          </p>
+        </div>
+
+        <div class="fiado-field fiado-field--wide">
+          <span class="fiado-field__label">Medio de pago</span>
+          <div class="pay-method-grid pay-method-grid--lg">
+            @for (pm of paymentMethods; track pm.value) {
+              <button
+                type="button"
+                class="pay-method-chip"
+                [class.pay-method-chip--active]="payMethod() === pm.value"
+                (click)="payMethod.set(pm.value)"
+              >
+                <span class="pay-method-chip__icon">{{ paymentMethodIcon(pm.value) }}</span>
+                <span class="pay-method-chip__text">{{ pm.label }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <label class="fiado-field fiado-field--wide">
+          <span class="fiado-field__label">Notas (opcional)</span>
+          <input
+            type="text"
+            class="fiado-input"
+            placeholder="Ej. abono completo del mes…"
+            [ngModel]="payNotes()"
+            (ngModelChange)="payNotes.set($event)"
+          />
+        </label>
+      </div>
+
+      <footer class="fiado-modal__footer">
+        <button type="button" class="btn btn-secondary" (click)="closePayAllModal()">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn-primary btn-lg fiado-modal__cta"
+          [disabled]="saving()"
+          (click)="confirmPayAll()"
+        >
+          {{ saving() ? 'Procesando…' : 'Confirmar cobro · ' + (target.openBalance | cop) }}
+        </button>
+      </footer>
+    </div>
+  </div>
+}

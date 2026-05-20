@@ -23,6 +23,14 @@ public record ShiftHandoverResponse(
         int coin100,
         int coin50,
         BigDecimal cashCountedTotal,
+        BigDecimal billingCashExpected,
+        BigDecimal previousShiftSalesCash,
+        BigDecimal previousShiftShortfallsDeducted,
+        String previousShiftName,
+        BigDecimal salesCashExpected,
+        BigDecimal previousShiftCreditPaymentsCash,
+        BigDecimal creditPaymentsCashExpected,
+        BigDecimal expectedCashTotal,
         BigDecimal auxAmount,
         BigDecimal nequiAmount,
         BigDecimal bankAmount,
@@ -33,4 +41,6 @@ public record ShiftHandoverResponse(
         List<ShiftHandoverExpenseResponse> expenses,
         List<ShiftHandoverPriorPaymentResponse> priorPayments,
         ShiftDetailResponse shiftDetail,
-        List<ShiftHandoverComparisonResponse> comparisons) {}
+        List<ShiftHandoverComparisonResponse> comparisons,
+        BigDecimal registeredShortfallAmount,
+        Long cashShortfallId) {}

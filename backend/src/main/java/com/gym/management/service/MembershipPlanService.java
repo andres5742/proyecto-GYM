@@ -6,6 +6,7 @@ import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.MembershipPlanMapper;
 import com.gym.management.model.MembershipPlan;
+import com.gym.management.model.MembershipPlanKind;
 import com.gym.management.repository.MemberRepository;
 import com.gym.management.repository.MembershipPlanRepository;
 import java.util.List;
@@ -44,6 +45,7 @@ public class MembershipPlanService {
                 .price(request.price())
                 .active(request.active() != null ? request.active() : true)
                 .build();
+        applyPlanKind(plan, request);
         return MembershipPlanMapper.toResponse(planRepository.save(plan));
     }
 
@@ -57,6 +59,7 @@ public class MembershipPlanService {
         plan.setDescription(request.description());
         plan.setDurationDays(request.durationDays());
         plan.setPrice(request.price());
+        applyPlanKind(plan, request);
         if (request.active() != null) {
             plan.setActive(request.active());
         }
@@ -73,5 +76,21 @@ public class MembershipPlanService {
     public MembershipPlan getPlan(Long id) {
         return planRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Plan no encontrado: " + id));
+    }
+
+    private static void applyPlanKind(MembershipPlan plan, MembershipPlanRequest request) {
+        MembershipPlanKind kind =
+                request.planKind() != null ? request.planKind() : MembershipPlanKind.REGULAR;
+        plan.setPlanKind(kind);
+        if (kind == MembershipPlanKind.TIQUETERA) {
+            Integer limit = request.monthlyEntryLimit();
+            if (limit == null || limit < 1) {
+                throw new BusinessException(
+                        "Indica el número de entrenos de la tiquetera (por ejemplo 16).");
+            }
+            plan.setMonthlyEntryLimit(limit);
+        } else {
+            plan.setMonthlyEntryLimit(null);
+        }
     }
 }

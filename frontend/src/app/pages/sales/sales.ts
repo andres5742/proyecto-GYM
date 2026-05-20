@@ -3,6 +3,7 @@ import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Member } from '../../core/models/member.model';
 import { Product } from '../../core/models/product.model';
 import {
   BatchSaleLine,
@@ -12,11 +13,21 @@ import {
 } from '../../core/models/sale.model';
 import { ProductSalesRow, ShiftDetail, WorkShift } from '../../core/models/shift.model';
 import { AuthService } from '../../core/services/auth.service';
+import { MemberService } from '../../core/services/member.service';
 import { ProductService } from '../../core/services/product.service';
 import { SaleService } from '../../core/services/sale.service';
 import { ShiftService } from '../../core/services/shift.service';
+import { filterMembersByQuery, sortMembersByName } from '../../core/utils/member-search';
 
 type QtyMatrix = Record<number, Partial<Record<PaymentMethod, number>>>;
+
+/** Reparto de unidades fiadas entre varios afiliados (suma = columna Pendiente). */
+interface PendingFiadoAlloc {
+  key: string;
+  memberId: number | null;
+  quantity: number;
+  searchText: string;
+}
 
 @Component({
   selector: 'app-sales',
@@ -29,8 +40,12 @@ export class Sales implements OnInit {
   private readonly saleService = inject(SaleService);
   private readonly shiftService = inject(ShiftService);
   private readonly productService = inject(ProductService);
+  private readonly memberService = inject(MemberService);
 
   protected readonly products = signal<Product[]>([]);
+  protected readonly members = signal<Member[]>([]);
+  /** Reparto de fiado por producto: varios afiliados, cantidades que deben sumar el pendiente. */
+  protected readonly pendingAllocations = signal<Record<number, PendingFiadoAlloc[]>>({});
   protected readonly cartProductIds = signal<number[]>([]);
   protected readonly pickerProductId = signal<number | null>(null);
 
@@ -48,6 +63,8 @@ export class Sales implements OnInit {
   protected readonly message = signal<string | null>(null);
   protected readonly shiftNameInput = signal('Mañana');
   protected readonly qtyMatrix = signal<QtyMatrix>({});
+  /** Fila de búsqueda de afiliado con lista abierta (productId:allocKey). */
+  protected readonly activeAllocSuggest = signal<string | null>(null);
 
   protected readonly paymentMethods = SALES_PAYMENT_METHODS;
   protected readonly shiftPresets = ['Mañana', 'Tarde', 'Noche'];
@@ -71,6 +88,10 @@ export class Sales implements OnInit {
   ngOnInit(): void {
     this.productService.findAll().subscribe({
       next: (products) => this.products.set(products.filter((p) => p.active)),
+    });
+    this.memberService.findAll().subscribe({
+      next: (list) => this.members.set(sortMembersByName(list)),
+      error: () => this.members.set([]),
     });
     this.refreshShift();
     if (this.auth.isAdmin()) {
@@ -113,6 +134,169 @@ export class Sales implements OnInit {
       delete next[productId];
       return next;
     });
+    this.pendingAllocations.update((m) => {
+      const next = { ...m };
+      delete next[productId];
+      return next;
+    });
+  }
+
+  private newPendingAlloc(): PendingFiadoAlloc {
+    return {
+      key: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      memberId: null,
+      quantity: 0,
+      searchText: '',
+    };
+  }
+
+  getPendingAllocations(productId: number): PendingFiadoAlloc[] {
+    return this.pendingAllocations()[productId] ?? [];
+  }
+
+  private syncPendingAllocations(productId: number): void {
+    const pending = this.pendingQty(productId);
+    if (pending <= 0) {
+      this.pendingAllocations.update((m) => {
+        const next = { ...m };
+        delete next[productId];
+        return next;
+      });
+      return;
+    }
+    const current = this.pendingAllocations()[productId];
+    if (!current?.length) {
+      this.pendingAllocations.update((m) => ({
+        ...m,
+        [productId]: [this.newPendingAlloc()],
+      }));
+    }
+  }
+
+  addPendingAllocation(productId: number): void {
+    this.pendingAllocations.update((m) => ({
+      ...m,
+      [productId]: [...(m[productId] ?? []), this.newPendingAlloc()],
+    }));
+  }
+
+  removePendingAllocation(productId: number, key: string): void {
+    this.pendingAllocations.update((m) => {
+      const list = (m[productId] ?? []).filter((a) => a.key !== key);
+      if (list.length === 0 && this.pendingQty(productId) > 0) {
+        return { ...m, [productId]: [this.newPendingAlloc()] };
+      }
+      return { ...m, [productId]: list };
+    });
+  }
+
+  setPendingAllocQty(productId: number, key: string, value: string): void {
+    const qty = Math.max(0, parseInt(value, 10) || 0);
+    this.pendingAllocations.update((m) => ({
+      ...m,
+      [productId]: (m[productId] ?? []).map((a) => (a.key === key ? { ...a, quantity: qty } : a)),
+    }));
+  }
+
+  setPendingAllocSearch(productId: number, key: string, text: string): void {
+    this.activeAllocSuggest.set(this.allocSuggestKey(productId, key));
+    this.pendingAllocations.update((m) => ({
+      ...m,
+      [productId]: (m[productId] ?? []).map((a) =>
+        a.key === key ? { ...a, searchText: text, memberId: null } : a,
+      ),
+    }));
+  }
+
+  selectPendingAllocMember(productId: number, key: string, memberId: number): void {
+    const m = this.members().find((x) => x.id === memberId);
+    this.activeAllocSuggest.set(null);
+    this.pendingAllocations.update((map) => ({
+      ...map,
+      [productId]: (map[productId] ?? []).map((a) =>
+        a.key === key
+          ? {
+              ...a,
+              memberId,
+              searchText: m ? `${m.firstName} ${m.lastName}` : a.searchText,
+            }
+          : a,
+      ),
+    }));
+  }
+
+  clearPendingAllocMember(productId: number, key: string): void {
+    this.activeAllocSuggest.set(this.allocSuggestKey(productId, key));
+    this.pendingAllocations.update((m) => ({
+      ...m,
+      [productId]: (m[productId] ?? []).map((a) =>
+        a.key === key ? { ...a, memberId: null, searchText: '' } : a,
+      ),
+    }));
+  }
+
+  allocSuggestKey(productId: number, key: string): string {
+    return `${productId}:${key}`;
+  }
+
+  isAllocSuggestOpen(productId: number, key: string): boolean {
+    return this.activeAllocSuggest() === this.allocSuggestKey(productId, key);
+  }
+
+  openAllocSuggest(productId: number, key: string): void {
+    this.activeAllocSuggest.set(this.allocSuggestKey(productId, key));
+  }
+
+  pendingAllocStatusText(productId: number): string {
+    const pending = this.pendingQty(productId);
+    const sum = this.pendingAllocSum(productId);
+    const diff = pending - sum;
+    if (sum === pending && this.pendingAllocComplete(productId)) {
+      return `Completo · ${sum} de ${pending} u.`;
+    }
+    if (diff > 0) {
+      return `Faltan ${diff} u. · llevas ${sum} de ${pending}`;
+    }
+    if (diff < 0) {
+      return `Sobran ${-diff} u. · llevas ${sum} de ${pending}`;
+    }
+    return `Repartido ${sum} de ${pending} u.`;
+  }
+
+  pendingAllocSum(productId: number): number {
+    return this.getPendingAllocations(productId).reduce((s, a) => s + (a.quantity || 0), 0);
+  }
+
+  pendingAllocRemaining(productId: number): number {
+    return this.pendingQty(productId) - this.pendingAllocSum(productId);
+  }
+
+  pendingAllocComplete(productId: number): boolean {
+    const pending = this.pendingQty(productId);
+    if (pending <= 0) {
+      return true;
+    }
+    const allocs = this.getPendingAllocations(productId);
+    if (!allocs.length) {
+      return false;
+    }
+    if (this.pendingAllocSum(productId) !== pending) {
+      return false;
+    }
+    return allocs.every((a) => a.memberId != null && a.quantity > 0);
+  }
+
+  filteredMembersForAlloc(productId: number, key: string): Member[] {
+    const alloc = this.getPendingAllocations(productId).find((a) => a.key === key);
+    return filterMembersByQuery(this.members(), alloc?.searchText ?? '', 25);
+  }
+
+  memberNameById(memberId: number | null): string | null {
+    if (memberId == null) {
+      return null;
+    }
+    const m = this.members().find((x) => x.id === memberId);
+    return m ? `${m.firstName} ${m.lastName}` : null;
   }
 
   refreshShift(): void {
@@ -223,6 +407,17 @@ export class Sales implements OnInit {
       ...matrix,
       [productId]: { ...matrix[productId], [method]: parsed },
     }));
+    if (method === 'PENDING') {
+      this.syncPendingAllocations(productId);
+    }
+  }
+
+  pendingQty(productId: number): number {
+    return this.getQty(productId, 'PENDING');
+  }
+
+  matrixColspan(): number {
+    return 3 + this.paymentMethods.length + 2;
   }
 
   rowTotalUnits(productId: number): number {
@@ -248,12 +443,53 @@ export class Sales implements OnInit {
       return;
     }
 
+    const fiadoErrors: string[] = [];
+    for (const product of this.cartProducts()) {
+      const pending = this.pendingQty(product.id);
+      if (pending <= 0) {
+        continue;
+      }
+      const sum = this.pendingAllocSum(product.id);
+      const allocs = this.getPendingAllocations(product.id);
+      if (!allocs.length || allocs.some((a) => !a.memberId || a.quantity <= 0)) {
+        fiadoErrors.push(`${product.name}: indique afiliado y cantidad en cada fila`);
+      } else if (sum !== pending) {
+        fiadoErrors.push(
+          `${product.name}: reparte exactamente ${pending} u. entre afiliados (llevas ${sum})`,
+        );
+      }
+    }
+    if (fiadoErrors.length) {
+      this.message.set(fiadoErrors.join(' · '));
+      return;
+    }
+
     const lines: BatchSaleLine[] = [];
     for (const product of this.cartProducts()) {
       for (const pm of SALES_PAYMENT_METHODS) {
+        if (pm.value === 'PENDING') {
+          continue;
+        }
         const qty = this.getQty(product.id, pm.value);
         if (qty > 0) {
-          lines.push({ productId: product.id, paymentMethod: pm.value, quantity: qty });
+          lines.push({
+            productId: product.id,
+            paymentMethod: pm.value,
+            quantity: qty,
+          });
+        }
+      }
+      const pending = this.pendingQty(product.id);
+      if (pending > 0) {
+        for (const alloc of this.getPendingAllocations(product.id)) {
+          if (alloc.quantity > 0 && alloc.memberId != null) {
+            lines.push({
+              productId: product.id,
+              paymentMethod: 'PENDING',
+              quantity: alloc.quantity,
+              memberId: alloc.memberId,
+            });
+          }
         }
       }
     }
@@ -282,6 +518,7 @@ export class Sales implements OnInit {
         this.saving.set(false);
         this.cartProductIds.set([]);
         this.qtyMatrix.set({});
+        this.pendingAllocations.set({});
         this.pickerProductId.set(null);
         this.reloadProducts();
         this.loadShiftDetail(shift.id);

@@ -1,3 +1,5 @@
+@import 'sweetalert2/dist/sweetalert2.min.css';
+
 /* Diseño orientado a bienestar cognitivo: calma, claridad y confianza */
 
 :root {
@@ -99,6 +101,14 @@ body {
   line-height: var(--line-height);
   font-size: var(--font-size-base);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Torniquete a pantalla completa con scroll interno */
+app-root:has(app-access-kiosk) {
+  display: block;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
 /* Menos ansiedad al interactuar: movimiento suave, sin saltos bruscos */

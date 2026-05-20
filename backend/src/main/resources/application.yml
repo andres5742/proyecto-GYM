@@ -43,3 +43,4 @@ app:
     workout-day-name-keywords: ${WORKOUT_DAY_KEYWORDS:entreno,pase,día,dia}
   billing:
     day-workout-plan-name: ${DAY_WORKOUT_PLAN_NAME:Entreno día}
+    sports-dance-plan-name: ${SPORTS_DANCE_PLAN_NAME:Bailes deportivos}

@@ -2,15 +2,27 @@
   <div class="access-header__main">
     <h2>Acceso biométrico y torniquete</h2>
     <p class="muted">
-      Registra afiliados y entrenadores (huella o rostro). Afiliados: un ingreso por día.
+      Registra afiliados y entrenadores (huella o rostro). Un ingreso por día. Tiquetera: cupo de entrenos del plan (ej. 16); al agotarlos no puede ingresar más hasta renovar.
     </p>
     <a routerLink="/acceso" target="_blank" class="kiosk-link">Abrir pantalla del torniquete ↗</a>
   </div>
   <ul class="access-stats">
-    <li><strong>{{ fingerprintCount() }}</strong> huellas</li>
-    <li><strong>{{ faceCount() + staffFaceCount() }}</strong> rostros</li>
-    <li><strong>{{ staffFingerprintCount() }}</strong> entrenadores (huella)</li>
-    <li><strong>{{ logsCount() }}</strong> ingresos</li>
+    <li class="access-stats__item">
+      <span class="access-stats__value">{{ fingerprintCount() }}</span>
+      <span class="access-stats__label">Huellas afiliados</span>
+    </li>
+    <li class="access-stats__item">
+      <span class="access-stats__value">{{ faceCount() }}</span>
+      <span class="access-stats__label">Rostros afiliados</span>
+    </li>
+    <li class="access-stats__item">
+      <span class="access-stats__value">{{ staffFingerprintCount() + staffFaceCount() }}</span>
+      <span class="access-stats__label">Entrenadores</span>
+    </li>
+    <li class="access-stats__item">
+      <span class="access-stats__value">{{ logsCount() }}</span>
+      <span class="access-stats__label">Ingresos hoy</span>
+    </li>
   </ul>
 </section>
 
@@ -48,249 +60,318 @@
 </nav>
 
 @if (section() === 'register') {
-  <div class="access-register-grid">
-    <section class="panel access-card">
-      <header class="access-card__head">
-        <h3>👆 Huella en lector físico</h3>
-        <p class="muted small">ZKTeco, Suprema u otro con ID de usuario</p>
-      </header>
-      <form class="access-form" [formGroup]="enrollForm" (ngSubmit)="enroll()">
-        <app-member-search-select
-          [members]="members()"
-          [accessByMemberId]="accessByMemberId()"
-          formControlName="memberId"
-        />
-        <label>
-          ID de huella en el lector
-          <input formControlName="deviceUserId" placeholder="Ej: 10042" />
-        </label>
-        <label>
-          Nota (opcional)
-          <input formControlName="deviceLabel" placeholder="Ej: Entrada principal" />
-        </label>
-        <button type="submit" class="btn btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Guardando…' : 'Vincular huella' }}
-        </button>
-      </form>
-    </section>
-
-    <section class="panel access-card">
-      <header class="access-card__head">
-        <h3>🙂 Lector biométrico (rostro)</h3>
-        <p class="muted small">Cámara del PC en la entrada · sin guardar foto</p>
-      </header>
-      <div class="access-form">
-        <app-member-search-select
-          [members]="members()"
-          [accessByMemberId]="accessByMemberId()"
-          label="Afiliado a registrar"
-          [memberId]="faceMemberId()"
-          (memberIdChange)="onFaceMemberSelected($event)"
-        />
-        @if (selectedFaceMember(); as member) {
-          <p class="face-selected">
-            <strong>{{ member.firstName }} {{ member.lastName }}</strong>
-            @if (member.documentId) {
-              <span> — CC {{ member.documentId }}</span>
-            }
-          </p>
-        }
-        <p class="face-status">{{ faceStatus() }}</p>
-        <app-face-webcam-capture
-          #memberFaceCapture
-          [compact]="true"
-          [allowCameraSwitch]="true"
-          (statusChange)="onFaceStatus($event)"
-        />
-        <button
-          type="button"
-          class="btn btn-primary"
-          [disabled]="saving() || faceMemberId() == null"
-          (click)="enrollFace()"
-        >
-          {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
-        </button>
-      </div>
-    </section>
-
-    <section class="panel access-card access-card--staff">
-      <header class="access-card__head">
-        <h3>🏋️ Entrenador — huella</h3>
-        <p class="muted small">Lector físico en la entrada</p>
-      </header>
-      <form class="access-form" [formGroup]="staffEnrollForm" (ngSubmit)="enrollStaff()">
-        <label>
-          Entrenador
-          <select formControlName="employeeId">
-            <option [ngValue]="null">Selecciona entrenador…</option>
-            @for (t of trainers(); track t.id) {
-              <option [ngValue]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
-            }
-          </select>
-        </label>
-        <label>
-          ID de huella en el lector
-          <input formControlName="deviceUserId" placeholder="Ej: 20001" />
-        </label>
-        <label>
-          Nota (opcional)
-          <input formControlName="deviceLabel" placeholder="Ej: Entrada personal" />
-        </label>
-        <button type="submit" class="btn btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Guardando…' : 'Vincular huella' }}
-        </button>
-      </form>
-    </section>
-
-    <section class="panel access-card access-card--staff">
-      <header class="access-card__head">
-        <h3>🏋️ Entrenador — rostro</h3>
-        <p class="muted small">Misma cámara del lector biométrico</p>
-      </header>
-      <div class="access-form">
-        <label>
-          Entrenador
-          <select
-            [value]="staffFaceEmployeeId() ?? ''"
-            (change)="onStaffFaceSelected($any($event.target).value ? +$any($event.target).value : null)"
+  <div class="register-layout">
+    <aside class="register-sidebar panel">
+      <p class="register-sidebar__hint muted small">Elige tipo de persona y método. Solo verás un formulario a la vez.</p>
+      <div class="register-sidebar__block">
+        <span class="register-sidebar__label">Persona</span>
+        <div class="segmented" role="tablist" aria-label="Tipo de persona">
+          <button
+            type="button"
+            class="segmented__btn"
+            role="tab"
+            [attr.aria-selected]="registerAudience() === 'members'"
+            [class.is-active]="registerAudience() === 'members'"
+            (click)="setRegisterAudience('members')"
           >
-            <option value="">Selecciona entrenador…</option>
-            @for (t of trainers(); track t.id) {
-              <option [value]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
-            }
-          </select>
-        </label>
-        @if (selectedStaffFace(); as trainer) {
-          <p class="face-selected">
-            <strong>{{ trainer.firstName }} {{ trainer.lastName }}</strong>
-          </p>
-        }
-        <p class="face-status">{{ staffFaceStatus() }}</p>
-        <app-face-webcam-capture
-          #staffFaceCapture
-          [compact]="true"
-          [allowCameraSwitch]="true"
-          (statusChange)="onStaffFaceStatus($event)"
-        />
-        <button
-          type="button"
-          class="btn btn-primary"
-          [disabled]="saving() || staffFaceEmployeeId() == null"
-          (click)="enrollStaffFace()"
-        >
-          {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
-        </button>
+            Afiliados
+          </button>
+          <button
+            type="button"
+            class="segmented__btn"
+            role="tab"
+            [attr.aria-selected]="registerAudience() === 'staff'"
+            [class.is-active]="registerAudience() === 'staff'"
+            (click)="setRegisterAudience('staff')"
+          >
+            Entrenadores
+          </button>
+        </div>
       </div>
-    </section>
-  </div>
+      <div class="register-sidebar__block">
+        <span class="register-sidebar__label">Método</span>
+        <div class="segmented segmented--stack" role="tablist" aria-label="Método biométrico">
+          <button
+            type="button"
+            class="segmented__btn"
+            role="tab"
+            [attr.aria-selected]="registerMethod() === 'fingerprint'"
+            [class.is-active]="registerMethod() === 'fingerprint'"
+            (click)="setRegisterMethod('fingerprint')"
+          >
+            Huella en lector
+          </button>
+          <button
+            type="button"
+            class="segmented__btn"
+            role="tab"
+            [attr.aria-selected]="registerMethod() === 'face'"
+            [class.is-active]="registerMethod() === 'face'"
+            (click)="setRegisterMethod('face')"
+          >
+            Rostro con cámara
+          </button>
+        </div>
+      </div>
+      <p class="register-sidebar__legend muted small">
+        En afiliados, <span class="legend-chip on">Huella</span> / <span class="legend-chip on">Rostro</span> en verde = ya registrado.
+      </p>
+    </aside>
 
-  <p class="access-legend muted small">
-    En el buscador verás <span class="legend-chip on">Huella</span> y <span class="legend-chip on">Rostro</span>
-    (verde = ya registrado).
-  </p>
+    <article class="register-workspace panel">
+      @if (registerAudience() === 'members' && registerMethod() === 'fingerprint') {
+        <header class="register-workspace__head">
+          <h3>Afiliado · huella</h3>
+          <p class="muted small">Vincula el ID que aparece en el lector (ZKTeco, Suprema, etc.).</p>
+        </header>
+        <form class="register-form" [formGroup]="enrollForm" (ngSubmit)="enroll()">
+          <div class="register-form__fields">
+            <app-member-search-select
+              [members]="members()"
+              [accessByMemberId]="accessByMemberId()"
+              formControlName="memberId"
+            />
+            <label>
+              ID de huella en el lector
+              <input formControlName="deviceUserId" placeholder="Ej: 10042" />
+            </label>
+            <label>
+              Nota (opcional)
+              <input formControlName="deviceLabel" placeholder="Ej: Entrada principal" />
+            </label>
+          </div>
+          <footer class="register-form__actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">
+              {{ saving() ? 'Guardando…' : 'Vincular huella' }}
+            </button>
+          </footer>
+        </form>
+      }
+
+      @if (registerAudience() === 'members' && registerMethod() === 'face') {
+        <header class="register-workspace__head">
+          <h3>Afiliado · rostro</h3>
+          <p class="muted small">Cámara de la entrada. No se guarda foto, solo la plantilla.</p>
+        </header>
+        <div class="register-form register-form--split">
+          <div class="register-form__fields">
+            <app-member-search-select
+              [members]="members()"
+              [accessByMemberId]="accessByMemberId()"
+              label="Afiliado"
+              [memberId]="faceMemberId()"
+              (memberIdChange)="onFaceMemberSelected($event)"
+            />
+            <p class="register-hint">{{ faceStatus() }}</p>
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="saving() || faceMemberId() == null"
+              (click)="enrollFace()"
+            >
+              {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
+            </button>
+          </div>
+          <div class="register-form__camera">
+            <app-face-webcam-capture
+              #memberFaceCapture
+              [compact]="true"
+              [allowCameraSwitch]="true"
+              (statusChange)="onFaceStatus($event)"
+            />
+          </div>
+        </div>
+      }
+
+      @if (registerAudience() === 'staff' && registerMethod() === 'fingerprint') {
+        <header class="register-workspace__head">
+          <h3>Entrenador · huella</h3>
+          <p class="muted small">Acceso de personal en el mismo lector de la entrada.</p>
+        </header>
+        <form class="register-form" [formGroup]="staffEnrollForm" (ngSubmit)="enrollStaff()">
+          <div class="register-form__fields">
+            <label>
+              Entrenador
+              <select formControlName="employeeId">
+                <option [ngValue]="null">Selecciona entrenador…</option>
+                @for (t of trainers(); track t.id) {
+                  <option [ngValue]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              ID de huella en el lector
+              <input formControlName="deviceUserId" placeholder="Ej: 20001" />
+            </label>
+            <label>
+              Nota (opcional)
+              <input formControlName="deviceLabel" placeholder="Ej: Entrada personal" />
+            </label>
+          </div>
+          <footer class="register-form__actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">
+              {{ saving() ? 'Guardando…' : 'Vincular huella' }}
+            </button>
+          </footer>
+        </form>
+      }
+
+      @if (registerAudience() === 'staff' && registerMethod() === 'face') {
+        <header class="register-workspace__head">
+          <h3>Entrenador · rostro</h3>
+          <p class="muted small">Misma cámara que usan los afiliados.</p>
+        </header>
+        <div class="register-form register-form--split">
+          <div class="register-form__fields">
+            <label>
+              Entrenador
+              <select
+                [value]="staffFaceEmployeeId() ?? ''"
+                (change)="onStaffFaceSelected($any($event.target).value ? +$any($event.target).value : null)"
+              >
+                <option value="">Selecciona entrenador…</option>
+                @for (t of trainers(); track t.id) {
+                  <option [value]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
+                }
+              </select>
+            </label>
+            <p class="register-hint">{{ staffFaceStatus() }}</p>
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="saving() || staffFaceEmployeeId() == null"
+              (click)="enrollStaffFace()"
+            >
+              {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
+            </button>
+          </div>
+          <div class="register-form__camera">
+            <app-face-webcam-capture
+              #staffFaceCapture
+              [compact]="true"
+              [allowCameraSwitch]="true"
+              (statusChange)="onStaffFaceStatus($event)"
+            />
+          </div>
+        </div>
+      }
+    </article>
+  </div>
 }
 
 @if (section() === 'registered') {
-  <div class="access-lists-grid">
-    <section class="panel access-card">
-      <header class="access-card__head">
-        <h3>Huellas vinculadas</h3>
-        <span class="access-card__count">{{ fingerprintCount() }}</span>
-      </header>
-      <app-data-table
-        [rows]="fingerprintEnrollments()"
-        [columns]="fingerprintColumns"
-        searchPlaceholder="Buscar…"
-        emptyMessage="Sin huellas registradas."
-        [showActions]="true"
-        [pageSizeDefault]="10"
-      >
-        <ng-template #actions let-row>
-          <button type="button" class="btn btn-success btn-sm" (click)="manualOpen(row.memberId)">Abrir</button>
-          <button
-            type="button"
-            class="btn btn-delete btn-sm"
-            (click)="removeEnrollment(row.memberId, 'FINGERPRINT')"
+  <div class="registered-layout">
+    <section class="registered-block panel">
+      <h3 class="registered-block__title">Afiliados registrados</h3>
+      <div class="registered-block__grid">
+        <article class="access-card">
+          <header class="access-card__head">
+            <h4>Huellas</h4>
+            <span class="access-card__count">{{ fingerprintCount() }}</span>
+          </header>
+          <app-data-table
+            [rows]="fingerprintEnrollments()"
+            [columns]="fingerprintColumns"
+            searchPlaceholder="Buscar…"
+            emptyMessage="Sin huellas registradas."
+            [showActions]="true"
+            [pageSizeDefault]="10"
           >
-            Quitar
-          </button>
-        </ng-template>
-      </app-data-table>
+            <ng-template #actions let-row>
+              <button type="button" class="btn btn-success btn-sm" (click)="manualOpen(row.memberId)">Abrir</button>
+              <button
+                type="button"
+                class="btn btn-delete btn-sm"
+                (click)="removeEnrollment(row.memberId, 'FINGERPRINT')"
+              >
+                Quitar
+              </button>
+            </ng-template>
+          </app-data-table>
+        </article>
+
+        <article class="access-card">
+          <header class="access-card__head">
+            <h4>Rostros</h4>
+            <span class="access-card__count">{{ faceCount() }}</span>
+          </header>
+          <app-data-table
+            [rows]="memberFaceEnrollments()"
+            [columns]="faceColumns"
+            searchPlaceholder="Nombre o cédula…"
+            emptyMessage="Sin rostros registrados."
+            [showActions]="true"
+            [pageSizeDefault]="10"
+          >
+            <ng-template #actions let-row>
+              <button type="button" class="btn btn-success btn-sm" (click)="manualOpen(row.memberId)">Abrir</button>
+              <button type="button" class="btn btn-delete btn-sm" (click)="removeFaceEnrollment(row.memberId)">
+                Quitar
+              </button>
+            </ng-template>
+          </app-data-table>
+        </article>
+      </div>
     </section>
 
-    <section class="panel access-card">
-      <header class="access-card__head">
-        <h3>Rostros en lector biométrico</h3>
-        <span class="access-card__count">{{ faceCount() }}</span>
-      </header>
-      <app-data-table
-        [rows]="memberFaceEnrollments()"
-        [columns]="faceColumns"
-        searchPlaceholder="Nombre o cédula…"
-        emptyMessage="Sin rostros registrados."
-        [showActions]="true"
-        [pageSizeDefault]="10"
-      >
-        <ng-template #actions let-row>
-          <button type="button" class="btn btn-success btn-sm" (click)="manualOpen(row.memberId)">Abrir</button>
-          <button type="button" class="btn btn-delete btn-sm" (click)="removeFaceEnrollment(row.memberId)">
-            Quitar
-          </button>
-        </ng-template>
-      </app-data-table>
-    </section>
+    @if (staffFingerprintCount() > 0 || staffFaceCount() > 0) {
+      <section class="registered-block panel">
+        <h3 class="registered-block__title">Entrenadores registrados</h3>
+        <div class="registered-block__grid">
+          @if (staffFingerprintEnrollments().length > 0) {
+            <article class="access-card">
+              <header class="access-card__head">
+                <h4>Huellas</h4>
+                <span class="access-card__count">{{ staffFingerprintCount() }}</span>
+              </header>
+              <app-data-table
+                [rows]="staffFingerprintEnrollments()"
+                [columns]="staffFingerprintColumns"
+                searchPlaceholder="Buscar…"
+                emptyMessage="Sin huellas de entrenadores."
+                [showActions]="true"
+                [pageSizeDefault]="10"
+              >
+                <ng-template #actions let-row>
+                  <button
+                    type="button"
+                    class="btn btn-delete btn-sm"
+                    (click)="removeStaffEnrollment(row.employeeId!, 'FINGERPRINT')"
+                  >
+                    Quitar
+                  </button>
+                </ng-template>
+              </app-data-table>
+            </article>
+          }
 
-    @if (staffFingerprintEnrollments().length > 0) {
-      <section class="panel access-card">
-        <header class="access-card__head">
-          <h3>Entrenadores — huella</h3>
-          <span class="access-card__count">{{ staffFingerprintCount() }}</span>
-        </header>
-        <app-data-table
-          [rows]="staffFingerprintEnrollments()"
-          [columns]="staffFingerprintColumns"
-          searchPlaceholder="Buscar…"
-          emptyMessage="Sin huellas de entrenadores."
-          [showActions]="true"
-          [pageSizeDefault]="10"
-        >
-          <ng-template #actions let-row>
-            <button
-              type="button"
-              class="btn btn-delete btn-sm"
-              (click)="removeStaffEnrollment(row.employeeId!, 'FINGERPRINT')"
-            >
-              Quitar
-            </button>
-          </ng-template>
-        </app-data-table>
-      </section>
-    }
-
-    @if (staffFaceEnrollments().length > 0) {
-      <section class="panel access-card">
-        <header class="access-card__head">
-          <h3>Entrenadores — rostro</h3>
-          <span class="access-card__count">{{ staffFaceCount() }}</span>
-        </header>
-        <app-data-table
-          [rows]="staffFaceEnrollments()"
-          [columns]="staffFaceColumns"
-          searchPlaceholder="Buscar…"
-          emptyMessage="Sin rostros de entrenadores."
-          [showActions]="true"
-          [pageSizeDefault]="10"
-        >
-          <ng-template #actions let-row>
-            <button
-              type="button"
-              class="btn btn-delete btn-sm"
-              (click)="removeStaffFaceEnrollment(row.employeeId!)"
-            >
-              Quitar
-            </button>
-          </ng-template>
-        </app-data-table>
+          @if (staffFaceEnrollments().length > 0) {
+            <article class="access-card">
+              <header class="access-card__head">
+                <h4>Rostros</h4>
+                <span class="access-card__count">{{ staffFaceCount() }}</span>
+              </header>
+              <app-data-table
+                [rows]="staffFaceEnrollments()"
+                [columns]="staffFaceColumns"
+                searchPlaceholder="Buscar…"
+                emptyMessage="Sin rostros de entrenadores."
+                [showActions]="true"
+                [pageSizeDefault]="10"
+              >
+                <ng-template #actions let-row>
+                  <button
+                    type="button"
+                    class="btn btn-delete btn-sm"
+                    (click)="removeStaffFaceEnrollment(row.employeeId!)"
+                  >
+                    Quitar
+                  </button>
+                </ng-template>
+              </app-data-table>
+            </article>
+          }
+        </div>
       </section>
     }
   </div>

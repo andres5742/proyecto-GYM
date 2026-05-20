@@ -29,14 +29,14 @@ public class ShiftHandoverController {
         return handoverService.findAll();
     }
 
-    @GetMapping("/{id}")
-    public ShiftHandoverResponse findById(@PathVariable Long id) {
-        return handoverService.findById(id);
-    }
-
     @GetMapping("/shift/{workShiftId}")
     public ShiftHandoverResponse previewForShift(@PathVariable Long workShiftId) {
         return handoverService.previewForShift(workShiftId);
+    }
+
+    @GetMapping("/{id:\\d+}")
+    public ShiftHandoverResponse findById(@PathVariable Long id) {
+        return handoverService.findById(id);
     }
 
     @PostMapping

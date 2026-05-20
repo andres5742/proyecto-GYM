@@ -65,6 +65,12 @@ public class DataInitializer {
                     "Cierre de caja y entrega de dinero del entrenador",
                     ModuleCategory.PANEL,
                     order++);
+            saveModule(
+                    "DESCUADRES_CAJA",
+                    "Descuadres de caja",
+                    "Faltantes de efectivo en entrega de turno para cobro al cierre del mes",
+                    ModuleCategory.PANEL,
+                    order++);
             saveModule("JORNADA", "Jornada", "Control de jornada del equipo", ModuleCategory.PANEL, order++);
             saveModule("ENTRENADORES", "Entrenadores", "Personal y accesos del equipo", ModuleCategory.PANEL, order++);
             saveModule("NOMINA", "Pago por hora", "Configuración de nómina", ModuleCategory.PANEL, order++);
@@ -115,6 +121,22 @@ public class DataInitializer {
                         ModuleCategory.PANEL,
                         6);
             }
+            if (!appModuleRepository.existsById("DESCUADRES_CAJA")) {
+                saveModule(
+                        "DESCUADRES_CAJA",
+                        "Descuadres de caja",
+                        "Registro de faltantes de efectivo en entrega de turno para cobro mensual",
+                        ModuleCategory.PANEL,
+                        7);
+            }
+            if (!appModuleRepository.existsById("FIADO")) {
+                saveModule(
+                        "FIADO",
+                        "Fiado",
+                        "Crédito de productos a afiliados y registro de abonos",
+                        ModuleCategory.PANEL,
+                        8);
+            }
             appModuleService.ensureDefaultRolePermissions();
         };
     }
@@ -131,6 +153,177 @@ public class DataInitializer {
                 jdbc.execute("ALTER TABLE billing_payments ALTER COLUMN member_id DROP NOT NULL");
             } catch (Exception ignored) {
                 // Columna ya nullable o tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureBillingPaymentTypeConstraint(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_payments
+                        DROP CONSTRAINT IF EXISTS billing_payments_payment_type_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_payments
+                        ADD CONSTRAINT billing_payments_payment_type_check
+                        CHECK (payment_type IN ('DAY_WORKOUT', 'SPORTS_DANCE', 'MEMBERSHIP'))
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada o motor distinto a PostgreSQL
+            }
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureMemberMembershipFreezeColumns(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE members
+                        ADD COLUMN IF NOT EXISTS membership_frozen BOOLEAN DEFAULT FALSE
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE members
+                        ADD COLUMN IF NOT EXISTS frozen_remaining_days INTEGER
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE members SET membership_frozen = FALSE
+                        WHERE membership_frozen IS NULL
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureMembershipPlanTiqueteraColumns(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE membership_plans
+                        ADD COLUMN IF NOT EXISTS plan_kind VARCHAR(20) DEFAULT 'REGULAR'
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE membership_plans
+                        ADD COLUMN IF NOT EXISTS monthly_entry_limit INTEGER
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE membership_plans
+                        SET plan_kind = 'REGULAR'
+                        WHERE plan_kind IS NULL
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE membership_plans
+                        SET plan_kind = 'TIQUETERA',
+                            monthly_entry_limit = COALESCE(monthly_entry_limit, 16),
+                            duration_days = CASE
+                                WHEN duration_days IS NULL OR duration_days < 7 THEN 30
+                                ELSE duration_days
+                            END
+                        WHERE LOWER(name) LIKE '%tiquetera%'
+                          AND (plan_kind IS NULL OR plan_kind = 'REGULAR')
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE membership_plans
+                        SET monthly_entry_limit = COALESCE(monthly_entry_limit, 16),
+                            duration_days = CASE
+                                WHEN duration_days IS NULL OR duration_days < 7 THEN 30
+                                ELSE duration_days
+                            END
+                        WHERE plan_kind = 'TIQUETERA'
+                          AND (monthly_entry_limit IS NULL OR monthly_entry_limit < 1)
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureBillingExpensePaymentMethod(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_cash_register_expenses
+                        ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20)
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE billing_cash_register_expenses
+                        SET payment_method = 'CASH'
+                        WHERE payment_method IS NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_cash_register_expenses
+                        ALTER COLUMN payment_method SET DEFAULT 'CASH'
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_cash_register_expenses
+                        ALTER COLUMN payment_method SET NOT NULL
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
+    CommandLineRunner dedupeBillingCashRegisters(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        DELETE FROM billing_cash_register_expenses e
+                        WHERE e.cash_register_id IN (
+                          SELECT a.id FROM billing_cash_registers a
+                          INNER JOIN billing_cash_registers b
+                            ON a.register_date = b.register_date AND a.id < b.id
+                        )
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE billing_payments p
+                        SET billing_cash_register_id = (
+                          SELECT MAX(b.id) FROM billing_cash_registers b
+                          WHERE b.register_date = (
+                            SELECT register_date FROM billing_cash_registers WHERE id = p.billing_cash_register_id
+                          )
+                        )
+                        WHERE billing_cash_register_id IN (
+                          SELECT a.id FROM billing_cash_registers a
+                          INNER JOIN billing_cash_registers b
+                            ON a.register_date = b.register_date AND a.id < b.id
+                        )
+                        """);
+                jdbc.execute(
+                        """
+                        DELETE FROM billing_cash_registers a
+                        USING billing_cash_registers b
+                        WHERE a.register_date = b.register_date AND a.id < b.id
+                        """);
+                jdbc.execute(
+                        """
+                        CREATE UNIQUE INDEX IF NOT EXISTS uk_billing_cash_register_date
+                        ON billing_cash_registers (register_date)
+                        """);
+            } catch (Exception ignored) {
+                // Tablas aún no creadas
             }
         };
     }
@@ -154,6 +347,15 @@ public class DataInitializer {
                         .description("Pase de entreno por un solo día (Facturación / F2)")
                         .durationDays(1)
                         .price(new BigDecimal("15000"))
+                        .active(true)
+                        .build());
+            }
+            if (planRepository.findByNameIgnoreCase("Bailes deportivos").isEmpty()) {
+                planRepository.save(MembershipPlan.builder()
+                        .name("Bailes deportivos")
+                        .description("Pase de bailes deportivos por un solo día (Facturación / F3)")
+                        .durationDays(1)
+                        .price(new BigDecimal("12000"))
                         .active(true)
                         .build());
             }

@@ -43,4 +43,12 @@ export class MemberService {
   resetPortalPassword(id: number): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/${id}/portal-password/reset`, null);
   }
+
+  freezeMembership(id: number): Observable<Member> {
+    return this.http.post<Member>(`${this.baseUrl}/${id}/freeze-membership`, null);
+  }
+
+  unfreezeMembership(id: number): Observable<Member> {
+    return this.http.post<Member>(`${this.baseUrl}/${id}/unfreeze-membership`, null);
+  }
 }

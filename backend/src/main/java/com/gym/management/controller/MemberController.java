@@ -46,6 +46,7 @@ public class MemberController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public MemberResponse create(@Valid @RequestBody MemberRequest request) {
         return memberService.create(request);
@@ -56,7 +57,18 @@ public class MemberController {
         return memberService.update(id, request);
     }
 
+    @PostMapping("/{id}/freeze-membership")
+    public MemberResponse freezeMembership(@PathVariable Long id) {
+        return memberService.freezeMembership(id);
+    }
+
+    @PostMapping("/{id}/unfreeze-membership")
+    public MemberResponse unfreezeMembership(@PathVariable Long id) {
+        return memberService.unfreezeMembership(id);
+    }
+
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         memberService.delete(id);

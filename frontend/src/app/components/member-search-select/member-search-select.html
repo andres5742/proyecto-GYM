@@ -27,7 +27,20 @@
   @if (open() && !disabled()) {
     <ul class="member-search__results" role="listbox">
       @if (filteredMembers().length === 0) {
-        <li class="member-search__empty">Sin coincidencias</li>
+        <li class="member-search__empty">
+          @if (allowRegisterNew() && searchQuery().trim().length >= 2) {
+            <button
+              type="button"
+              class="member-search__new-btn"
+              (pointerdown)="$event.preventDefault()"
+              (click)="onRegisterNew($event)"
+            >
+              ➕ No encontrado — Registrar como afiliado nuevo
+            </button>
+          } @else {
+            Sin coincidencias
+          }
+        </li>
       } @else {
         @for (m of filteredMembers(); track m.id) {
           <li>

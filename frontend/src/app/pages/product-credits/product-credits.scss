@@ -1,0 +1,697 @@
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fiado-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fiado-page {
+  .page-header h1 {
+    letter-spacing: -0.02em;
+  }
+
+  .page-lead {
+    color: var(--color-text-muted);
+    max-width: 42rem;
+    line-height: 1.55;
+  }
+
+  .banner {
+    padding: 0.65rem 1rem;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+    border: 1px solid var(--color-success-border);
+    margin-bottom: 1rem;
+
+    &--error {
+      background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+      border-color: var(--color-danger-border);
+    }
+  }
+
+  .warn-banner {
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-warning-border);
+    background: var(--color-warning-soft);
+    margin-bottom: 1rem;
+  }
+
+  .shift-hint {
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary-soft);
+    font-size: 0.88rem;
+    display: inline-block;
+  }
+}
+
+.form-panel,
+.list-panel {
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.form-panel h2,
+.list-panel h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  margin-bottom: 1rem;
+
+  .field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  input,
+  select {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
+    }
+  }
+}
+
+.member-suggest {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  max-height: 11rem;
+  overflow-y: auto;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+
+  button {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.65rem;
+    border: none;
+    border-radius: calc(var(--radius-sm) - 2px);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover {
+      background: var(--color-primary-soft);
+    }
+
+    small {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.line-total {
+  margin-bottom: 0.85rem;
+  font-size: 0.95rem;
+}
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.15rem;
+
+  h2 {
+    margin: 0;
+    flex: 1;
+  }
+
+  .filter select {
+    padding: 0.4rem 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+  }
+
+  .pending-total {
+    padding: 0.4rem 0.85rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-warning-soft);
+    border: 1px solid var(--color-warning-border);
+    font-size: 0.88rem;
+  }
+}
+
+:host ::ng-deep .fiado-data-table {
+  .data-table__toolbar {
+    padding: 0.75rem 1rem;
+    background: color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-surface));
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+
+  .data-table__wrap {
+    border: 1px solid var(--color-border);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    overflow: hidden;
+  }
+
+  .data-table__table thead th {
+    background: color-mix(in srgb, var(--color-primary-soft) 40%, var(--color-surface));
+  }
+
+  .col-amount {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .amount-warn {
+    color: var(--color-warning);
+    font-weight: 700;
+  }
+
+  .col-muted {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+  }
+
+  .data-table__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+  }
+}
+
+/* ——— Modales ——— */
+.fiado-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.75rem, 3vw, 1.5rem);
+  background: rgb(30 34 40 / 55%);
+  backdrop-filter: blur(8px);
+  animation: fade-in 0.2s ease;
+}
+
+.fiado-modal {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow:
+    0 32px 80px rgb(44 48 56 / 28%),
+    0 0 0 1px rgb(255 255 255 / 70%) inset;
+  animation: fiado-modal-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &--detail {
+    max-width: 58rem;
+    max-height: calc(100vh - 2rem);
+  }
+
+  &--payall {
+    max-width: 26rem;
+  }
+}
+
+.fiado-modal__header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem 1.1rem;
+  background: linear-gradient(
+    145deg,
+    var(--color-primary-soft) 0%,
+    var(--color-warm-soft) 45%,
+    var(--color-surface) 100%
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--color-border));
+
+  &--payall {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 0 1.25rem;
+    border-bottom: none;
+  }
+}
+
+.fiado-modal__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.fiado-modal__avatar {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-warm-accent) 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 35%, transparent);
+
+  &--lg {
+    width: 4rem;
+    height: 4rem;
+    font-size: 1.25rem;
+    margin: 0 auto 0.75rem;
+  }
+}
+
+.fiado-modal__eyebrow {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+}
+
+.fiado-modal__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.fiado-modal__meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.fiado-modal__close {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 65%);
+  color: var(--color-text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  .fiado-modal__header--payall & {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 2;
+  }
+
+  &:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+}
+
+.fiado-modal__payall-hero {
+  text-align: center;
+  padding: 1.5rem 1.35rem 0;
+}
+
+.fiado-modal__amount {
+  margin: 0.5rem 0 0.2rem;
+  font-size: clamp(1.75rem, 5vw, 2.15rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-primary);
+  line-height: 1.1;
+}
+
+.fiado-modal__summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  padding: 0 1.35rem 0.85rem;
+}
+
+.fiado-modal__summary-item {
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning-soft) 55%, var(--color-surface));
+  border: 1px solid var(--color-warning-border);
+
+  span {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.2rem;
+  }
+
+  strong {
+    font-size: 1.05rem;
+    color: var(--color-warning);
+  }
+}
+
+.fiado-modal__tip {
+  margin: 0;
+  padding: 0 1.35rem 1rem;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.fiado-modal__body {
+  padding: 1.15rem 1.35rem;
+  overflow-y: auto;
+  flex: 1;
+
+  &--payall {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    padding-top: 0.5rem;
+  }
+}
+
+.fiado-modal__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem 1.35rem 1.25rem;
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-muted) 35%, var(--color-surface));
+}
+
+.fiado-modal__cta {
+  width: 100%;
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.fiado-info-callout {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-trust-soft) 50%, var(--color-surface));
+  border: 1px solid var(--color-trust-border);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--color-text);
+
+  p {
+    margin: 0;
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+  }
+}
+
+.fiado-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+
+  &--wide {
+    width: 100%;
+  }
+
+  &__label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+}
+
+.fiado-input {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.95rem;
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+}
+
+.pay-method-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+
+  &--lg {
+    gap: 0.55rem;
+  }
+}
+
+.pay-method-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.65rem 0.4rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.12s ease;
+
+  &:hover {
+    border-color: var(--color-primary-border);
+    background: var(--color-primary-soft);
+  }
+
+  &--active {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary-soft) 80%, var(--color-surface));
+    box-shadow: 0 0 0 1px var(--color-primary);
+  }
+
+  &__icon {
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  &__text {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+}
+
+.fiado-detail-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.fiado-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  th,
+  td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  }
+
+  thead th {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    background: color-mix(in srgb, var(--color-surface-muted) 60%, var(--color-surface));
+    white-space: nowrap;
+  }
+
+  tbody tr:hover td {
+    background: color-mix(in srgb, var(--color-primary-soft) 25%, transparent);
+  }
+
+  &__row--paid {
+    opacity: 0.72;
+  }
+
+  &__balance {
+    color: var(--color-warning);
+    font-weight: 700;
+  }
+
+  &__badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-success-soft);
+    color: var(--color-success);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  &__payments td {
+    padding-top: 0.25rem;
+    padding-bottom: 0.75rem;
+    background: color-mix(in srgb, var(--color-surface-muted) 40%, var(--color-surface));
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+
+  &__payments-label {
+    display: inline-block;
+    font-weight: 700;
+    margin-right: 0.5rem;
+    color: var(--color-text);
+  }
+}
+
+.fiado-payment-tag {
+  display: inline-block;
+  margin: 0.2rem 0.35rem 0.2rem 0;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+  font-size: 0.75rem;
+  color: var(--color-text);
+}
+
+.fiado-pay-card {
+  margin-top: 1.15rem;
+  padding: 1.1rem 1.15rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-primary-soft) 70%, var(--color-surface)) 0%,
+    var(--color-surface) 100%
+  );
+  border: 1px solid var(--color-primary-border);
+  box-shadow: var(--shadow);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+
+    h4 {
+      margin: 0;
+      font-size: 1rem;
+    }
+  }
+
+  &__balance {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--color-primary);
+  }
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--color-border);
+  }
+}
+
+.fiado-modal__loading,
+.fiado-modal__empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 540px) {
+  .pay-method-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fiado-modal__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .fiado-pay-card__actions {
+    flex-direction: column;
+
+    .btn {
+      width: 100%;
+    }
+  }
+}

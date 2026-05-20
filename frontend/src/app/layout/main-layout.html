@@ -2,7 +2,7 @@
   <aside class="sidebar">
     <div class="brand">
       <img src="/logo-sport-gym.png" alt="Sport Gym R.IO" class="gym-logo brand-logo" />
-      <p class="brand-tagline">Cuidamos tu gimnasio, paso a paso</p>
+      <p class="brand-tagline">Cuidamos tu progeso, paso a paso</p>
     </div>
 
     @if (auth.currentUser(); as user) {
@@ -21,26 +21,26 @@
         <span class="nav-icon">📋</span> Muro público
       </a>
 
-      @if (auth.isAdmin()) {
-        @if (modules.isEnabled('SOCIOS') || modules.isEnabled('PLANES')) {
-          <span class="nav-group-label">Clientes</span>
-        }
-        @if (modules.isEnabled('SOCIOS')) {
-          <a routerLink="/panel/socios" routerLinkActive="active">
-            <span class="nav-icon">👥</span> Socios
-          </a>
-        }
-        @if (modules.isEnabled('PLANES')) {
-          <a routerLink="/panel/planes" routerLinkActive="active">
-            <span class="nav-icon">📋</span> Planes
-          </a>
-        }
+      @if (modules.isEnabled('SOCIOS') || modules.isEnabled('PLANES')) {
+        <span class="nav-group-label">Clientes</span>
+      }
+      @if (modules.isEnabled('SOCIOS')) {
+        <a routerLink="/panel/afiliados" routerLinkActive="active">
+          <span class="nav-icon">👥</span> Afiliados
+        </a>
+      }
+      @if (modules.isEnabled('PLANES')) {
+        <a routerLink="/panel/planes" routerLinkActive="active">
+          <span class="nav-icon">📋</span> Planes
+        </a>
       }
 
       @if (
         modules.isEnabled('VENTAS') ||
         modules.isEnabled('FACTURACION') ||
         modules.isEnabled('ENTREGA_TURNO') ||
+        modules.isEnabled('DESCUADRES_CAJA') ||
+        modules.isEnabled('FIADO') ||
         modules.isEnabled('JORNADA') ||
         modules.isEnabled('INVENTARIO')
       ) {
@@ -59,6 +59,16 @@
       @if (modules.isEnabled('ENTREGA_TURNO')) {
         <a routerLink="/panel/entrega-turno" routerLinkActive="active">
           <span class="nav-icon">🧾</span> Entrega de turno
+        </a>
+      }
+      @if (modules.isEnabled('DESCUADRES_CAJA')) {
+        <a routerLink="/panel/descuadres-caja" routerLinkActive="active">
+          <span class="nav-icon">⚠️</span> Descuadres de caja
+        </a>
+      }
+      @if (modules.isEnabled('FIADO')) {
+        <a routerLink="/panel/fiado" routerLinkActive="active">
+          <span class="nav-icon">📝</span> Fiado
         </a>
       }
       @if (modules.isEnabled('INVENTARIO')) {
@@ -131,36 +141,36 @@
   </main>
 </div>
 
-@if (f2ModalOpen()) {
+@if (dayPassModal()) {
   <div
     class="f2-modal-backdrop"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="f2-modal-title"
-    (click)="closeF2Modal()"
+    aria-labelledby="day-pass-modal-title"
+    (click)="closeDayPassModal()"
   >
     <div class="f2-modal panel" (click)="$event.stopPropagation()">
-      <h2 id="f2-modal-title">Entreno del día — invitado</h2>
+      <h2 id="day-pass-modal-title">{{ dayPassModalTitle() }}</h2>
       <p class="muted small">Pase de un día sin estar en el sistema. Elige cómo pagó:</p>
       <label class="f2-modal__field">
         Medio de pago
-        <select [ngModel]="f2PaymentMethod()" (ngModelChange)="f2PaymentMethod.set($event)">
+        <select [ngModel]="dayPassPaymentMethod()" (ngModelChange)="dayPassPaymentMethod.set($event)">
           @for (pm of paymentMethods; track pm.value) {
             <option [ngValue]="pm.value">{{ pm.label }}</option>
           }
         </select>
       </label>
       <div class="f2-modal__actions">
-        <button type="button" class="btn btn-secondary" [disabled]="f2Processing()" (click)="closeF2Modal()">
+        <button type="button" class="btn btn-secondary" [disabled]="dayPassProcessing()" (click)="closeDayPassModal()">
           Cancelar
         </button>
         <button
           type="button"
           class="btn btn-primary"
-          [disabled]="f2Processing()"
-          (click)="confirmF2GuestWorkout()"
+          [disabled]="dayPassProcessing()"
+          (click)="confirmDayPass()"
         >
-          {{ f2Processing() ? 'Procesando…' : 'Confirmar y abrir acceso' }}
+          {{ dayPassProcessing() ? 'Procesando…' : 'Confirmar y abrir acceso' }}
         </button>
       </div>
     </div>

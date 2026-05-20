@@ -128,10 +128,15 @@ nav {
 }
 
 .content {
+  --layout-pad-inline: clamp(0.75rem, 2vw, 2.5rem);
+  --layout-pad-block: clamp(0.85rem, 2vw, 2.25rem);
   background: var(--color-bg-warm);
-  padding: 2.25rem 2.5rem;
+  padding: var(--layout-pad-block) var(--layout-pad-inline);
   min-height: 100vh;
   position: relative;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .shortcut-toast {
@@ -203,7 +208,8 @@ nav {
   }
 
   .content {
-    padding: clamp(0.85rem, 3vw, 1.25rem);
+    --layout-pad-inline: clamp(0.65rem, 3vw, 1rem);
+    --layout-pad-block: clamp(0.75rem, 3vw, 1rem);
     min-height: auto;
   }
 

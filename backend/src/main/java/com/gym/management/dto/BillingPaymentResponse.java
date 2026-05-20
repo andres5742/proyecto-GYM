@@ -21,4 +21,6 @@ public record BillingPaymentResponse(
         LocalDate paymentDate,
         LocalDate membershipStart,
         LocalDate membershipEnd,
+        Long recordedByEmployeeId,
+        String recordedByEmployeeName,
         Instant createdAt) {}

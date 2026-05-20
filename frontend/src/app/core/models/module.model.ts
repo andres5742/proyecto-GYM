@@ -5,6 +5,8 @@ export type ModuleCode =
   | 'VENTAS'
   | 'FACTURACION'
   | 'ENTREGA_TURNO'
+  | 'DESCUADRES_CAJA'
+  | 'FIADO'
   | 'JORNADA'
   | 'ENTRENADORES'
   | 'NOMINA'

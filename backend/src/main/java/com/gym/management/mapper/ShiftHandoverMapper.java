@@ -19,12 +19,22 @@ public final class ShiftHandoverMapper {
             BigDecimal expensesTotal,
             BigDecimal priorPaymentsTotal,
             com.gym.management.dto.ShiftDetailResponse shiftDetail,
-            List<com.gym.management.dto.ShiftHandoverComparisonResponse> comparisons) {
+            BigDecimal billingCashExpected,
+            BigDecimal previousShiftSalesCash,
+            BigDecimal previousShiftShortfallsDeducted,
+            String previousShiftName,
+            BigDecimal salesCashExpected,
+            BigDecimal previousShiftCreditPaymentsCash,
+            BigDecimal creditPaymentsCashExpected,
+            BigDecimal expectedCashTotal,
+            List<com.gym.management.dto.ShiftHandoverComparisonResponse> comparisons,
+            BigDecimal registeredShortfallAmount,
+            Long cashShortfallId) {
         BigDecimal cashTotal = CashCountUtil.totalCash(handover);
         BigDecimal declaredGrand = cashTotal
-                .add(handover.getAuxAmount())
-                .add(handover.getNequiAmount())
-                .add(handover.getBankAmount())
+                .add(nullToZero(handover.getAuxAmount()))
+                .add(nullToZero(handover.getNequiAmount()))
+                .add(nullToZero(handover.getBankAmount()))
                 .add(priorPaymentsTotal)
                 .subtract(expensesTotal);
 
@@ -47,6 +57,14 @@ public final class ShiftHandoverMapper {
                 handover.getCoin100(),
                 handover.getCoin50(),
                 cashTotal,
+                billingCashExpected,
+                previousShiftSalesCash,
+                previousShiftShortfallsDeducted,
+                previousShiftName,
+                salesCashExpected,
+                previousShiftCreditPaymentsCash,
+                creditPaymentsCashExpected,
+                expectedCashTotal,
                 handover.getAuxAmount(),
                 handover.getNequiAmount(),
                 handover.getBankAmount(),
@@ -57,7 +75,9 @@ public final class ShiftHandoverMapper {
                 handover.getExpenses().stream().map(ShiftHandoverMapper::toExpenseResponse).toList(),
                 handover.getPriorPayments().stream().map(ShiftHandoverMapper::toPriorPaymentResponse).toList(),
                 shiftDetail,
-                comparisons);
+                comparisons,
+                registeredShortfallAmount,
+                cashShortfallId);
     }
 
     public static ShiftHandoverExpenseResponse toExpenseResponse(ShiftHandoverExpense expense) {
@@ -72,5 +92,9 @@ public final class ShiftHandoverMapper {
                 payment.getPaymentMethod(),
                 SaleMapper.paymentMethodLabel(payment.getPaymentMethod()),
                 payment.getNotes());
+    }
+
+    private static BigDecimal nullToZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 }

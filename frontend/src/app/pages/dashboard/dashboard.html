@@ -32,26 +32,26 @@
         Registrar jornada
       </a>
     }
-    @if (auth.isAdmin() && modules.isEnabled('SOCIOS')) {
-      <a routerLink="/panel/socios" class="quick-action-btn">
+    @if (modules.isEnabled('SOCIOS')) {
+      <a routerLink="/panel/afiliados" class="quick-action-btn">
         <span class="qa-icon">👥</span>
-        Ver socios
+        Ver afiliados
       </a>
     }
   </div>
 </section>
 
-@if (auth.isAdmin() && (modules.isEnabled('SOCIOS') || modules.isEnabled('PLANES') || modules.isEnabled('INVENTARIO'))) {
+@if (modules.isEnabled('SOCIOS') || modules.isEnabled('PLANES') || modules.isEnabled('INVENTARIO')) {
   <p class="form-section-title" style="margin-bottom: 1rem">Resumen de tu gimnasio</p>
 
   <div class="cards">
     @if (modules.isEnabled('SOCIOS')) {
       <article class="card card-members">
         <span class="card-emoji">👥</span>
-        <h3>Socios</h3>
+        <h3>Afiliados</h3>
         <p class="metric">{{ memberCount() }}</p>
         <span class="hint">personas que confían en ti</span>
-        <a routerLink="/panel/socios" class="card-link">Gestionar socios</a>
+        <a routerLink="/panel/afiliados" class="card-link">Gestionar afiliados</a>
       </article>
     }
 

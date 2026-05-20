@@ -71,6 +71,8 @@ export class AccessControlPage implements OnInit {
   protected readonly faceStatus = signal('Busca un afiliado por nombre o cédula y mira la cámara del lector biométrico.');
   protected readonly staffFaceStatus = signal('Selecciona un entrenador y mira la cámara del lector biométrico.');
   protected readonly section = signal<'register' | 'registered' | 'logs'>('register');
+  protected readonly registerAudience = signal<'members' | 'staff'>('members');
+  protected readonly registerMethod = signal<'fingerprint' | 'face'>('fingerprint');
 
   private readonly faceCapture = viewChild('memberFaceCapture', { read: FaceWebcamCaptureComponent });
   private readonly staffFaceCapture = viewChild('staffFaceCapture', { read: FaceWebcamCaptureComponent });
@@ -297,6 +299,14 @@ export class AccessControlPage implements OnInit {
 
   setSection(next: 'register' | 'registered' | 'logs'): void {
     this.section.set(next);
+  }
+
+  setRegisterAudience(audience: 'members' | 'staff'): void {
+    this.registerAudience.set(audience);
+  }
+
+  setRegisterMethod(method: 'fingerprint' | 'face'): void {
+    this.registerMethod.set(method);
   }
 
   async enrollFace(): Promise<void> {

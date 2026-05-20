@@ -20,6 +20,7 @@
     "@vladmandic/face-api": "^1.7.15",
     "emoji-picker-element": "^1.29.1",
     "rxjs": "~7.8.0",
+    "sweetalert2": "^11.26.24",
     "tslib": "^2.3.0"
   },
   "devDependencies": {

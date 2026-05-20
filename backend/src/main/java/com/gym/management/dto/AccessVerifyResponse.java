@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.gym.management.model.AccessPersonType;
 import com.gym.management.model.AccessResult;
 import com.gym.management.model.BiometricCredentialType;
+import com.gym.management.model.Gender;
 
 public record AccessVerifyResponse(
         AccessResult result,
@@ -14,7 +15,8 @@ public record AccessVerifyResponse(
         AccessPersonType personType,
         String memberName,
         String deviceUserId,
-        BiometricCredentialType credentialType) {
+        BiometricCredentialType credentialType,
+        Gender gender) {
 
     public AccessVerifyResponse {
         if (personType == null) {

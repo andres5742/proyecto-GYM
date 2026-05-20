@@ -38,6 +38,7 @@ public class SaleService {
     private final EmployeeService employeeService;
     private final ProductService productService;
     private final WorkShiftService workShiftService;
+    private final ProductCreditService productCreditService;
 
     @Transactional(readOnly = true)
     public List<SaleResponse> findAll(Long employeeId, Long workShiftId) {
@@ -112,6 +113,49 @@ public class SaleService {
             }
         }
 
+        Map<Long, Integer> pendingQtyByProduct = new HashMap<>();
+        for (var line : request.lines()) {
+            if (line.paymentMethod() != PaymentMethod.PENDING) {
+                continue;
+            }
+            if (line.memberId() == null) {
+                Product product = productService.getProduct(line.productId());
+                throw new BusinessException(
+                        "En «Pendiente / deuda» debe indicar el afiliado para "
+                                + product.getName()
+                                + " ("
+                                + line.quantity()
+                                + " unidad"
+                                + (line.quantity() == 1 ? "" : "es")
+                                + ")");
+            }
+            pendingQtyByProduct.merge(line.productId(), line.quantity(), Integer::sum);
+        }
+        for (var entry : quantityByProduct.entrySet()) {
+            int pendingTotal = pendingQtyByProduct.getOrDefault(entry.getKey(), 0);
+            int otherAndPending = entry.getValue();
+            if (pendingTotal > 0) {
+                int nonPending = 0;
+                for (var line : request.lines()) {
+                    if (line.productId().equals(entry.getKey()) && line.paymentMethod() != PaymentMethod.PENDING) {
+                        nonPending += line.quantity();
+                    }
+                }
+                int pendingInMatrix = entry.getValue() - nonPending;
+                if (pendingTotal != pendingInMatrix) {
+                    Product product = productService.getProduct(entry.getKey());
+                    throw new BusinessException(
+                            "Las unidades fiadas de "
+                                    + product.getName()
+                                    + " deben sumar "
+                                    + pendingInMatrix
+                                    + " (repartiste "
+                                    + pendingTotal
+                                    + ")");
+                }
+            }
+        }
+
         List<SaleResponse> created = new ArrayList<>();
         LocalDateTime saleDate = LocalDateTime.now();
         for (var line : request.lines()) {
@@ -133,7 +177,11 @@ public class SaleService {
                     .paymentMethod(line.paymentMethod())
                     .saleDate(saleDate)
                     .build();
-            created.add(SaleMapper.toResponse(saleRepository.save(sale)));
+            Sale saved = saleRepository.save(sale);
+            if (line.paymentMethod() == PaymentMethod.PENDING) {
+                productCreditService.createFromPendingSale(saved, line.memberId());
+            }
+            created.add(SaleMapper.toResponse(saved));
         }
         return created;
     }

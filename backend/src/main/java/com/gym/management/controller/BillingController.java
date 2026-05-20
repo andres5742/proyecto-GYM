@@ -1,9 +1,12 @@
 package com.gym.management.controller;
 
 import com.gym.management.dto.BillingDailySummaryResponse;
+import com.gym.management.dto.BillingMonthlySummaryResponse;
 import com.gym.management.dto.BillingPaymentResponse;
 import com.gym.management.dto.DayWorkoutRegisterRequest;
 import com.gym.management.dto.DayWorkoutRegisterResponse;
+import com.gym.management.dto.MembershipOnboardingRequest;
+import com.gym.management.dto.MembershipOnboardingResponse;
 import com.gym.management.dto.MembershipPaymentRequest;
 import com.gym.management.service.BillingService;
 import jakarta.validation.Valid;
@@ -42,14 +45,30 @@ public class BillingController {
         return billingService.dailySummary(date);
     }
 
+    @GetMapping("/summary/monthly")
+    public BillingMonthlySummaryResponse monthlySummary(
+            @RequestParam int year, @RequestParam int month) {
+        return billingService.monthlySummary(year, month);
+    }
+
     @PostMapping("/day-workout/register")
     public DayWorkoutRegisterResponse registerDayWorkout(@Valid @RequestBody DayWorkoutRegisterRequest request) {
         return billingService.registerDayWorkoutAndOpenGate(request);
     }
 
+    @PostMapping("/sports-dance/register")
+    public DayWorkoutRegisterResponse registerSportsDance(@Valid @RequestBody DayWorkoutRegisterRequest request) {
+        return billingService.registerSportsDanceAndOpenGate(request);
+    }
+
     @PostMapping("/membership-payment")
     public BillingPaymentResponse membershipPayment(@Valid @RequestBody MembershipPaymentRequest request) {
         return billingService.registerMembershipPayment(request);
+    }
+
+    @PostMapping("/membership-onboarding")
+    public MembershipOnboardingResponse membershipOnboarding(@Valid @RequestBody MembershipOnboardingRequest request) {
+        return billingService.registerMembershipOnboarding(request);
     }
 
     @DeleteMapping("/payments/{id}")

@@ -1,7 +1,11 @@
 import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MembershipPlan, MembershipPlanRequest } from '../../core/models/plan.model';
+import {
+  MembershipPlan,
+  MembershipPlanKind,
+  MembershipPlanRequest,
+} from '../../core/models/plan.model';
 import { PlanService } from '../../core/services/plan.service';
 
 @Component({
@@ -20,13 +24,17 @@ export class Plans implements OnInit {
   protected readonly message = signal<string | null>(null);
   protected readonly editingId = signal<number | null>(null);
 
-  protected readonly form = this.fb.nonNullable.group({
+  protected readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(80)]],
     description: [''],
     durationDays: [30, [Validators.required, Validators.min(1)]],
+    planKind: ['REGULAR' as MembershipPlanKind, Validators.required],
+    monthlyEntryLimit: [null as number | null],
     price: [0, [Validators.required, Validators.min(0)]],
     active: [true],
   });
+
+  protected readonly isTiqueteraForm = () => this.form.controls.planKind.value === 'TIQUETERA';
 
   ngOnInit(): void {
     this.loadPlans();
@@ -48,7 +56,15 @@ export class Plans implements OnInit {
 
   startCreate(): void {
     this.editingId.set(null);
-    this.form.reset({ name: '', description: '', durationDays: 30, price: 0, active: true });
+    this.form.reset({
+      name: '',
+      description: '',
+      durationDays: 30,
+      planKind: 'REGULAR',
+      monthlyEntryLimit: null,
+      price: 0,
+      active: true,
+    });
   }
 
   startEdit(plan: MembershipPlan): void {
@@ -57,6 +73,8 @@ export class Plans implements OnInit {
       name: plan.name,
       description: plan.description ?? '',
       durationDays: plan.durationDays,
+      planKind: plan.planKind ?? 'REGULAR',
+      monthlyEntryLimit: plan.monthlyEntryLimit ?? null,
       price: plan.price,
       active: plan.active,
     });
@@ -68,7 +86,22 @@ export class Plans implements OnInit {
       return;
     }
 
-    const request: MembershipPlanRequest = this.form.getRawValue();
+    const raw = this.form.getRawValue();
+    const planKind = raw.planKind ?? 'REGULAR';
+    if (planKind === 'TIQUETERA' && (raw.monthlyEntryLimit == null || raw.monthlyEntryLimit < 1)) {
+      this.message.set('Indica el número de entrenos de la tiquetera (por ejemplo 16).');
+      return;
+    }
+
+    const request: MembershipPlanRequest = {
+      name: raw.name ?? '',
+      description: raw.description ?? '',
+      durationDays: raw.durationDays ?? 30,
+      planKind,
+      monthlyEntryLimit: planKind === 'TIQUETERA' ? raw.monthlyEntryLimit : null,
+      price: raw.price ?? 0,
+      active: raw.active ?? true,
+    };
     this.saving.set(true);
     const id = this.editingId();
     const action = id ? this.planService.update(id, request) : this.planService.create(request);

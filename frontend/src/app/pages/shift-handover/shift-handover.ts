@@ -10,7 +10,6 @@ import {
   ShiftHandover,
   ShiftHandoverCashForm,
   ShiftHandoverComparison,
-  ShiftHandoverExpenseLine,
   ShiftHandoverPriorPaymentLine,
 } from '../../core/models/shift-handover.model';
 import { PAYMENT_METHODS, PaymentMethod } from '../../core/models/sale.model';
@@ -38,7 +37,9 @@ export class ShiftHandoverPage implements OnInit {
   protected readonly coinDenominations = CASH_DENOMINATIONS.filter((d) => d.type === 'coin').sort(
     (a, b) => b.value - a.value,
   );
-  protected readonly paymentMethods = PAYMENT_METHODS.filter((p) => p.value !== 'PENDING');
+  protected readonly paymentMethods = PAYMENT_METHODS.filter(
+    (p) => p.value !== 'PENDING' && p.value !== 'AUX',
+  );
   protected readonly computeCash = computeCashTotal;
 
   protected readonly loading = signal(true);
@@ -50,11 +51,7 @@ export class ShiftHandoverPage implements OnInit {
   protected readonly selectedHistoryId = signal<number | null>(null);
 
   protected readonly cash = signal<ShiftHandoverCashForm>(emptyCashForm());
-  protected readonly auxAmount = signal(0);
-  protected readonly nequiAmount = signal(0);
-  protected readonly bankAmount = signal(0);
   protected readonly notes = signal('');
-  protected readonly expenses = signal<ShiftHandoverExpenseLine[]>([]);
   protected readonly priorPayments = signal<ShiftHandoverPriorPaymentLine[]>([]);
 
   protected readonly alreadySubmitted = computed(() => !!this.preview()?.id);
@@ -65,21 +62,37 @@ export class ShiftHandoverPage implements OnInit {
     this.coinDenominations.reduce((sum, d) => sum + (this.cash()[d.key] || 0) * d.value, 0),
   );
   protected readonly cashTotal = computed(() => this.billTotal() + this.coinTotal());
-  protected readonly expensesTotal = computed(() =>
-    this.expenses().reduce((s, e) => s + (e.amount || 0), 0),
-  );
   protected readonly priorTotal = computed(() =>
     this.priorPayments().reduce((s, p) => s + (p.amount || 0), 0),
   );
 
-  protected readonly salesCashTotal = computed(
-    () => this.preview()?.shiftDetail?.summary?.amountByPaymentMethod?.['CASH'] ?? 0,
+  protected readonly billingCashExpected = computed(
+    () => this.preview()?.billingCashExpected ?? 0,
   );
-  protected readonly salesAuxTotal = computed(
-    () => this.preview()?.shiftDetail?.summary?.amountByPaymentMethod?.['AUX'] ?? 0,
+  protected readonly previousShiftSalesCash = computed(
+    () => this.preview()?.previousShiftSalesCash ?? 0,
+  );
+  protected readonly previousShiftShortfallsDeducted = computed(
+    () => this.preview()?.previousShiftShortfallsDeducted ?? 0,
+  );
+  protected readonly previousShiftName = computed(() => this.preview()?.previousShiftName ?? null);
+  protected readonly salesCashExpected = computed(
+    () => this.preview()?.salesCashExpected ?? 0,
+  );
+  protected readonly previousShiftCreditPaymentsCash = computed(
+    () => this.preview()?.previousShiftCreditPaymentsCash ?? 0,
+  );
+  protected readonly creditPaymentsCashExpected = computed(
+    () => this.preview()?.creditPaymentsCashExpected ?? 0,
   );
   protected readonly expectedCashInDrawer = computed(
-    () => this.salesCashTotal() + (this.auxAmount() || 0),
+    () =>
+      this.preview()?.expectedCashTotal ??
+      this.billingCashExpected() +
+        this.previousShiftSalesCash() +
+        this.previousShiftCreditPaymentsCash() +
+        this.salesCashExpected() +
+        this.creditPaymentsCashExpected(),
   );
 
   protected readonly cashMatchesDeclared = computed(
@@ -92,14 +105,9 @@ export class ShiftHandoverPage implements OnInit {
       return [];
     }
     const by = summary.amountByPaymentMethod;
-    const salesCash = by['CASH'] ?? 0;
-    const salesAux = by['AUX'] ?? 0;
-    const auxDeclared = this.auxAmount() || 0;
+    const expectedCash = this.expectedCashInDrawer();
     return [
-      this.cmp('Dinero contado (billetes + monedas)', this.cashTotal(), salesCash + auxDeclared),
-      this.cmp('Monto AUX declarado', auxDeclared, salesAux),
-      this.cmp('Nequi declarado', this.nequiAmount(), by['NEQUI'] ?? 0),
-      this.cmp('Bancolombia declarado', this.bankAmount(), by['BANCOLOMBIA'] ?? 0),
+      this.cmp('Dinero contado (billetes + monedas)', this.cashTotal(), expectedCash),
       this.cmp('Cobros deudas anteriores', this.priorTotal(), by['PENDING'] ?? 0),
     ];
   });
@@ -145,7 +153,10 @@ export class ShiftHandoverPage implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        this.message.set(err?.error?.message ?? 'No se pudo cargar la entrega');
+        const msg =
+          (typeof err?.error === 'string' ? err.error : err?.error?.message) ??
+          'No se pudo cargar la entrega del turno';
+        this.message.set(msg);
         this.loading.set(false);
       },
     });
@@ -165,11 +176,7 @@ export class ShiftHandoverPage implements OnInit {
       coin100: data.coin100 ?? 0,
       coin50: data.coin50 ?? 0,
     });
-    this.auxAmount.set(data.auxAmount ?? 0);
-    this.nequiAmount.set(data.nequiAmount ?? 0);
-    this.bankAmount.set(data.bankAmount ?? 0);
     this.notes.set(data.notes ?? '');
-    this.expenses.set(data.expenses?.map((e) => ({ description: e.description, amount: e.amount })) ?? []);
     this.priorPayments.set(
       data.priorPayments?.map((p) => ({
         description: p.description,
@@ -182,14 +189,6 @@ export class ShiftHandoverPage implements OnInit {
 
   updateCash(key: keyof ShiftHandoverCashForm, value: number): void {
     this.cash.update((c) => ({ ...c, [key]: Math.max(0, value || 0) }));
-  }
-
-  addExpense(): void {
-    this.expenses.update((list) => [...list, { description: '', amount: 0 }]);
-  }
-
-  removeExpense(index: number): void {
-    this.expenses.update((list) => list.filter((_, i) => i !== index));
   }
 
   addPriorPayment(): void {
@@ -208,7 +207,6 @@ export class ShiftHandoverPage implements OnInit {
     if (!shift || this.alreadySubmitted()) {
       return;
     }
-    const validExpenses = this.expenses().filter((e) => e.description.trim() && e.amount > 0);
     const validPrior = this.priorPayments().filter((p) => p.description.trim() && p.amount > 0);
 
     this.saving.set(true);
@@ -216,16 +214,18 @@ export class ShiftHandoverPage implements OnInit {
       .submit({
         workShiftId: shift.id,
         ...this.cash(),
-        auxAmount: this.auxAmount(),
-        nequiAmount: this.nequiAmount(),
-        bankAmount: this.bankAmount(),
         notes: this.notes() || undefined,
-        expenses: validExpenses,
+        expenses: [],
         priorPayments: validPrior,
       })
       .subscribe({
         next: (result) => {
-          this.message.set('Entrega de turno registrada. El turno fue cerrado.');
+          let msg = 'Entrega de turno registrada. El turno fue cerrado.';
+          if (result.registeredShortfallAmount && result.registeredShortfallAmount > 0) {
+            msg +=
+              ` Se registró un faltante de ${result.registeredShortfallAmount} en Descuadres de caja para cobro al fin de mes.`;
+          }
+          this.message.set(msg);
           this.preview.set(result);
           this.openShift.set(null);
           this.saving.set(false);
