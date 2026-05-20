@@ -1,9 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
+import { environment } from '../../../environments/environment';
 import { FaceWebcamCaptureComponent } from '../../components/face-webcam-capture/face-webcam-capture';
 import { AccessVerifyResponse } from '../../core/models/access.model';
 import { AccessService } from '../../core/services/access.service';
 import { firstNameFromFullName, playAccessWelcome } from '../../core/utils/access-welcome-audio';
+import { httpErrorMessage } from '../../core/utils/http-error-message';
 
 @Component({
   selector: 'app-access-kiosk',
@@ -36,6 +38,19 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.clockTimer = setInterval(() => this.clock.set(new Date()), 1000);
+    if (!environment.accessDeviceKey?.trim() || environment.accessDeviceKey === '__ACCESS_DEVICE_KEY__') {
+      const msg =
+        'Clave del torniquete no configurada. En el servidor: define ACCESS_DEVICE_KEY en deploy/.env y reconstruye el frontend (docker compose --build).';
+      this.statusLine.set(msg);
+      this.lastResult.set({
+        result: 'DENIED',
+        gateOpened: false,
+        message: msg,
+        deviceUserId: 'CONFIG',
+        credentialType: 'FACE',
+      });
+      return;
+    }
     requestAnimationFrame(() => this.startAccessLoop());
   }
 
@@ -201,11 +216,11 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   private handleVerifyError(
-    err: { error?: { message?: string } },
+    err: unknown,
     id: string,
     credentialType: 'FINGERPRINT' | 'FACE',
   ): void {
-    const message = err?.error?.message ?? 'Error de conexión con el servidor';
+    const message = httpErrorMessage(err);
     this.lastResult.set({
       result: 'DENIED',
       gateOpened: false,

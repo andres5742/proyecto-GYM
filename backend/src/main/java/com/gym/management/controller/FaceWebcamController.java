@@ -4,7 +4,6 @@ import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.FaceWebcamEnrollRequest;
 import com.gym.management.dto.FaceWebcamEnrollResponse;
 import com.gym.management.dto.FaceWebcamVerifyRequest;
-import com.gym.management.exception.BusinessException;
 import com.gym.management.service.FaceWebcamService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -12,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,7 +58,7 @@ public class FaceWebcamController {
 
     private void validateDeviceKey(String deviceKey) {
         if (deviceKey == null || !deviceApiKey.equals(deviceKey)) {
-            throw new BusinessException("Dispositivo de acceso no autorizado");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Dispositivo de acceso no autorizado");
         }
     }
 }

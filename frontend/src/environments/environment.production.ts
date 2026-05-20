@@ -4,5 +4,5 @@ export const environment: Environment = {
   production: true,
   apiUrl: 'http://localhost:8081/api',
   uploadsBaseUrl: 'http://localhost:8081',
-  accessDeviceKey: '',
+  accessDeviceKey: '__ACCESS_DEVICE_KEY__',
 };
