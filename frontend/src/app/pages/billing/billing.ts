@@ -604,10 +604,6 @@ export class BillingPage implements OnInit {
   }
 
   setMembershipMonthsPaid(value: number | string): void {
-    if (this.membershipIsDayPass()) {
-      this.membershipMonthsPaid.set(1);
-      return;
-    }
     const parsed = Math.floor(Number(value));
     if (!Number.isFinite(parsed)) {
       this.membershipMonthsPaid.set(1);
