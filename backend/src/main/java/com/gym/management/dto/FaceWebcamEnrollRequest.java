@@ -5,4 +5,4 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record FaceWebcamEnrollRequest(
-        @NotNull Long memberId, @NotNull @Size(min = 128, max = 128) List<Double> descriptor) {}
+        Long memberId, Long employeeId, @NotNull @Size(min = 128, max = 128) List<Double> descriptor) {}

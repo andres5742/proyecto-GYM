@@ -4,7 +4,15 @@ import { environment } from '../../../environments/environment';
 import { FaceWebcamCaptureComponent } from '../../components/face-webcam-capture/face-webcam-capture';
 import { AccessVerifyResponse } from '../../core/models/access.model';
 import { AccessService } from '../../core/services/access.service';
-import { firstNameFromFullName, playAccessWelcome } from '../../core/utils/access-welcome-audio';
+import {
+  firstNameFromFullName,
+  isWelcomeAudioSupported,
+  isWelcomeAudioUnlocked,
+  playAccessWelcome,
+  prepareWelcomeSpeech,
+  unlockWelcomeAudio,
+  welcomeHeadline,
+} from '../../core/utils/access-welcome-audio';
 import { httpErrorMessage } from '../../core/utils/http-error-message';
 
 @Component({
@@ -35,9 +43,15 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly lastResult = signal<AccessVerifyResponse | null>(null);
   protected readonly clock = signal(new Date());
   protected readonly statusLine = signal('Iniciando lectores…');
+  protected readonly welcomeTitle = signal<string | null>(null);
+  protected readonly audioUnlocked = signal(false);
+  protected readonly kioskReady = signal(false);
+  protected readonly showWelcomeAudioBtn = signal(false);
+  protected readonly audioSupported = isWelcomeAudioSupported();
 
   ngOnInit(): void {
     this.clockTimer = setInterval(() => this.clock.set(new Date()), 1000);
+    prepareWelcomeSpeech();
     if (!environment.accessDeviceKey?.trim() || environment.accessDeviceKey === '__ACCESS_DEVICE_KEY__') {
       const msg =
         'Clave del torniquete no configurada. En el servidor: define ACCESS_DEVICE_KEY en deploy/.env y reconstruye el frontend (docker compose --build).';
@@ -51,7 +65,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
       });
       return;
     }
-    requestAnimationFrame(() => this.startAccessLoop());
   }
 
   ngOnDestroy(): void {
@@ -59,6 +72,30 @@ export class AccessKiosk implements OnInit, OnDestroy {
       clearInterval(this.clockTimer);
     }
     this.stopAccessLoop();
+  }
+
+  startKiosk(): void {
+    if (this.audioSupported) {
+      const ok = unlockWelcomeAudio();
+      this.audioUnlocked.set(ok);
+    } else {
+      this.audioUnlocked.set(false);
+    }
+    this.kioskReady.set(true);
+    requestAnimationFrame(() => this.startAccessLoop());
+  }
+
+  playWelcomeNow(): void {
+    const firstName = firstNameFromFullName(this.lastResult()?.memberName);
+    if (!isWelcomeAudioUnlocked()) {
+      const ok = unlockWelcomeAudio();
+      this.audioUnlocked.set(ok);
+      if (!ok) {
+        return;
+      }
+    }
+    playAccessWelcome(firstName);
+    this.showWelcomeAudioBtn.set(false);
   }
 
   onFaceStatus(message: string): void {
@@ -85,7 +122,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     } else if (this.lastResult()) {
       this.statusLine.set('Retírate de la cámara cuando hayas pasado…');
     } else if (!this.verifyInFlight) {
-      this.statusLine.set('Esperando al siguiente afiliado… Coloca huella o mira la cámara.');
+      this.statusLine.set('Esperando… Coloca huella o mira la cámara.');
     }
   }
 
@@ -168,7 +205,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       if (!this.facePresent() && this.canAcceptNextPerson() && this.lastResult()) {
         this.clearResultAndWait();
       } else if (!this.facePresent() && !this.lastResult() && !this.verifyInFlight) {
-        this.statusLine.set('Esperando al siguiente afiliado…');
+        this.statusLine.set('Esperando…');
       }
       return;
     }
@@ -208,9 +245,23 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.cooldownUntil = Date.now() + cooldown;
 
     if (res.result === 'GRANTED') {
-      playAccessWelcome(firstNameFromFullName(res.memberName));
-      this.statusLine.set('¡Ingreso autorizado! Pasa al siguiente cuando salgas del encuadre.');
+      const firstName = firstNameFromFullName(res.memberName);
+      this.welcomeTitle.set(welcomeHeadline(firstName));
+      prepareWelcomeSpeech();
+      if (isWelcomeAudioUnlocked()) {
+        const spoke = playAccessWelcome(firstName);
+        this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
+      } else {
+        this.showWelcomeAudioBtn.set(this.audioSupported);
+      }
+      this.statusLine.set(
+        firstName
+          ? `${welcomeHeadline(firstName)} Pasa al torniquete.`
+          : '¡Ingreso autorizado! Pasa al torniquete.',
+      );
     } else {
+      this.showWelcomeAudioBtn.set(false);
+      this.welcomeTitle.set(null);
       this.statusLine.set(res.message);
     }
   }
@@ -234,7 +285,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
   private clearResultAndWait(): void {
     this.lastResult.set(null);
+    this.welcomeTitle.set(null);
+    this.showWelcomeAudioBtn.set(false);
     this.consecutiveFaces = 0;
-    this.statusLine.set('Esperando al siguiente afiliado… Coloca huella o mira la cámara.');
+      this.statusLine.set('Esperando… Coloca huella o mira la cámara.');
   }
 }

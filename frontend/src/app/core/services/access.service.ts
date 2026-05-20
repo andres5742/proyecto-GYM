@@ -55,6 +55,18 @@ export class AccessService {
     return this.http.delete<void>(`${this.baseUrl}/enroll/${memberId}`, { params });
   }
 
+  removeStaffEnrollment(
+    employeeId: number,
+    credentialType: BiometricCredentialType = 'FINGERPRINT',
+  ): Observable<void> {
+    const params = new HttpParams().set('type', credentialType);
+    return this.http.delete<void>(`${this.baseUrl}/enroll/staff/${employeeId}`, { params });
+  }
+
+  enrollStaff(request: Omit<BiometricEnrollRequest, 'memberId'> & { employeeId: number }): Observable<BiometricEnrollResponse> {
+    return this.http.post<BiometricEnrollResponse>(`${this.baseUrl}/enroll`, request);
+  }
+
   logs(): Observable<AccessLogEntry[]> {
     return this.http.get<AccessLogEntry[]>(`${this.baseUrl}/logs`);
   }
@@ -85,11 +97,22 @@ export class AccessService {
     });
   }
 
+  enrollStaffWebcam(employeeId: number, descriptor: number[]): Observable<FaceWebcamEnrollResponse> {
+    return this.http.post<FaceWebcamEnrollResponse>(`${this.baseUrl}/webcam/enroll`, {
+      employeeId,
+      descriptor,
+    });
+  }
+
   listWebcamEnrollments(): Observable<FaceWebcamEnrollResponse[]> {
     return this.http.get<FaceWebcamEnrollResponse[]>(`${this.baseUrl}/webcam/enrollments`);
   }
 
   removeWebcamEnrollment(memberId: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/webcam/enroll/${memberId}`);
+  }
+
+  removeStaffWebcamEnrollment(employeeId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/webcam/enroll/staff/${employeeId}`);
   }
 }

@@ -52,8 +52,14 @@ public class FaceWebcamController {
 
     @DeleteMapping("/enroll/{memberId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeEnrollment(@PathVariable Long memberId) {
+    public void removeMemberEnrollment(@PathVariable Long memberId) {
         faceWebcamService.removeEnrollment(memberId);
+    }
+
+    @DeleteMapping("/enroll/staff/{employeeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeStaffEnrollment(@PathVariable Long employeeId) {
+        faceWebcamService.removeStaffEnrollment(employeeId);
     }
 
     private void validateDeviceKey(String deviceKey) {

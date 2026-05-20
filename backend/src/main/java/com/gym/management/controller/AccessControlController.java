@@ -63,6 +63,14 @@ public class AccessControlController {
         accessControlService.removeEnrollment(memberId, type);
     }
 
+    @DeleteMapping("/enroll/staff/{employeeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeStaffEnrollment(
+            @PathVariable Long employeeId,
+            @RequestParam(defaultValue = "FINGERPRINT") BiometricCredentialType type) {
+        accessControlService.removeStaffEnrollment(employeeId, type);
+    }
+
     @GetMapping("/logs")
     public List<AccessLogResponse> logs() {
         return accessControlService.recentLogs();

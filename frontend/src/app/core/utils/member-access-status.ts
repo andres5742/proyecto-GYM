@@ -1,4 +1,8 @@
-import { BiometricEnrollResponse, FaceWebcamEnrollResponse } from '../models/access.model';
+import {
+  BiometricEnrollResponse,
+  FaceWebcamEnrollResponse,
+  isMemberPerson,
+} from '../models/access.model';
 
 export interface MemberAccessFlags {
   fingerprint: boolean;
@@ -23,13 +27,15 @@ export function buildMemberAccessMap(
   };
 
   for (const e of enrollments) {
-    if (e.credentialType === 'FINGERPRINT') {
+    if (isMemberPerson(e) && e.memberId != null && e.credentialType === 'FINGERPRINT') {
       ensure(e.memberId).fingerprint = true;
     }
   }
 
   for (const w of webcamEnrollments) {
-    ensure(w.memberId).face = true;
+    if (isMemberPerson(w) && w.memberId != null) {
+      ensure(w.memberId).face = true;
+    }
   }
 
   for (const flags of Object.values(map)) {

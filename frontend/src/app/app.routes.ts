@@ -33,11 +33,10 @@ export const routes: Routes = [
     component: PublicLayout,
     children: [{ path: '', component: HomeWall }],
   },
+  /** Torniquete: sin login, solo verificación biométrica. */
   {
     path: 'acceso',
     component: AccessKiosk,
-    canActivate: [moduleGuard],
-    data: { moduleKey: 'PUBLIC_ACCESO' },
   },
   {
     path: 'login',

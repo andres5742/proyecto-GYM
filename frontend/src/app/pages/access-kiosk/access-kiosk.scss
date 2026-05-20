@@ -60,6 +60,80 @@
   font-weight: 700;
 }
 
+.welcome-headline {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  text-shadow: 0 2px 12px rgb(0 0 0 / 35%);
+  animation: welcome-pop 0.45s ease-out;
+}
+
+.kiosk-start {
+  max-width: 22rem;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgb(255 255 255 / 10%);
+  border: 2px solid rgb(255 255 255 / 25%);
+  border-radius: var(--radius);
+
+  &__title {
+    margin: 0 0 0.75rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+  }
+
+  &__text {
+    margin: 0 0 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    opacity: 0.92;
+  }
+
+  &__warn {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    opacity: 0.85;
+  }
+
+  &__btn {
+    width: 100%;
+    min-height: 3rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+}
+
+.audio-ready-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.audio-unlock-btn {
+  display: inline-block;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 1rem;
+  border: 2px solid rgb(255 255 255 / 55%);
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 18%);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+
+  &:hover {
+    background: rgb(255 255 255 / 28%);
+  }
+
+  &--pulse {
+    animation: audio-pulse 1.2s ease-in-out infinite;
+  }
+}
+
 .scan-sub {
   margin: 0 0 1rem;
   opacity: 0.92;
@@ -178,5 +252,26 @@
     color: var(--color-text);
     padding: 0 0.85rem;
     font-size: 1rem;
+  }
+}
+
+@keyframes audio-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 255 255 / 35%);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgb(255 255 255 / 0%);
+  }
+}
+
+@keyframes welcome-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }

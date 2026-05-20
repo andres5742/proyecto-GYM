@@ -14,6 +14,7 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
             """
             SELECT a FROM AccessLog a
             LEFT JOIN FETCH a.member
+            LEFT JOIN FETCH a.employee
             ORDER BY a.createdAt DESC
             """)
     List<AccessLog> findRecent();
@@ -22,6 +23,7 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
             """
             SELECT a FROM AccessLog a
             LEFT JOIN FETCH a.member
+            LEFT JOIN FETCH a.employee
             WHERE a.result = com.gym.management.model.AccessResult.GRANTED
             ORDER BY a.createdAt DESC
             """)

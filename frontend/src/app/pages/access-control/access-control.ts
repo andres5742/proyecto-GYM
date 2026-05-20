@@ -12,10 +12,14 @@ import {
   BiometricCredentialType,
   BiometricEnrollResponse,
   FaceWebcamEnrollResponse,
+  isMemberPerson,
+  isStaffPerson,
 } from '../../core/models/access.model';
+import { Employee } from '../../core/models/employee.model';
 import { Member } from '../../core/models/member.model';
 import { AccessService } from '../../core/services/access.service';
 import { AuthService } from '../../core/services/auth.service';
+import { EmployeeService } from '../../core/services/employee.service';
 import { MemberService } from '../../core/services/member.service';
 import { buildMemberAccessMap } from '../../core/utils/member-access-status';
 
@@ -49,6 +53,7 @@ export class AccessControlPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly accessService = inject(AccessService);
   private readonly memberService = inject(MemberService);
+  private readonly employeeService = inject(EmployeeService);
   private readonly auth = inject(AuthService);
 
   protected readonly typeLabels = BIOMETRIC_TYPE_LABELS;
@@ -57,22 +62,43 @@ export class AccessControlPage implements OnInit {
   protected readonly saving = signal(false);
   protected readonly clearingLogs = signal(false);
   protected readonly members = signal<Member[]>([]);
+  protected readonly trainers = signal<Employee[]>([]);
   protected readonly enrollments = signal<BiometricEnrollResponse[]>([]);
   protected readonly faceEnrollments = signal<FaceWebcamEnrollResponse[]>([]);
   protected readonly logs = signal<AccessLogEntry[]>([]);
   protected readonly faceMemberId = signal<number | null>(null);
+  protected readonly staffFaceEmployeeId = signal<number | null>(null);
   protected readonly faceStatus = signal('Busca un afiliado por nombre o cédula y mira la cámara del lector biométrico.');
+  protected readonly staffFaceStatus = signal('Selecciona un entrenador y mira la cámara del lector biométrico.');
   protected readonly section = signal<'register' | 'registered' | 'logs'>('register');
 
-  private readonly faceCapture = viewChild(FaceWebcamCaptureComponent);
+  private readonly faceCapture = viewChild('memberFaceCapture', { read: FaceWebcamCaptureComponent });
+  private readonly staffFaceCapture = viewChild('staffFaceCapture', { read: FaceWebcamCaptureComponent });
 
-  protected readonly fingerprintCount = computed(() => this.fingerprintEnrollments().length);
-  protected readonly faceCount = computed(() => this.faceEnrollments().length);
+  protected readonly fingerprintCount = computed(() => this.memberFingerprintEnrollments().length);
+  protected readonly faceCount = computed(() => this.memberFaceEnrollments().length);
+  protected readonly staffFingerprintCount = computed(() => this.staffFingerprintEnrollments().length);
+  protected readonly staffFaceCount = computed(() => this.staffFaceEnrollments().length);
   protected readonly logsCount = computed(() => this.logs().length);
 
-  protected readonly fingerprintEnrollments = computed(() =>
-    this.enrollments().filter((e) => e.credentialType === 'FINGERPRINT'),
+  protected readonly memberFingerprintEnrollments = computed(() =>
+    this.enrollments().filter((e) => e.credentialType === 'FINGERPRINT' && isMemberPerson(e)),
   );
+
+  protected readonly staffFingerprintEnrollments = computed(() =>
+    this.enrollments().filter((e) => e.credentialType === 'FINGERPRINT' && isStaffPerson(e)),
+  );
+
+  protected readonly memberFaceEnrollments = computed(() =>
+    this.faceEnrollments().filter((e) => isMemberPerson(e)),
+  );
+
+  protected readonly staffFaceEnrollments = computed(() =>
+    this.faceEnrollments().filter((e) => isStaffPerson(e)),
+  );
+
+  /** @deprecated use memberFingerprintEnrollments */
+  protected readonly fingerprintEnrollments = this.memberFingerprintEnrollments;
 
   protected readonly selectedFaceMember = computed(() => {
     const id = this.faceMemberId();
@@ -80,6 +106,14 @@ export class AccessControlPage implements OnInit {
       return undefined;
     }
     return this.members().find((m) => m.id === id);
+  });
+
+  protected readonly selectedStaffFace = computed(() => {
+    const id = this.staffFaceEmployeeId();
+    if (id == null) {
+      return undefined;
+    }
+    return this.trainers().find((t) => t.id === id);
   });
 
   protected readonly accessByMemberId = computed(() =>
@@ -109,6 +143,52 @@ export class AccessControlPage implements OnInit {
     {
       id: 'date',
       header: 'Vinculado',
+      sortable: true,
+      sortValue: (r) => r.enrolledAt,
+      cell: (r) => formatAccessDateTime(r.enrolledAt),
+    },
+  ];
+
+  protected readonly staffFingerprintColumns: DataTableColumn<BiometricEnrollResponse>[] = [
+    {
+      id: 'name',
+      header: 'Entrenador',
+      sortable: true,
+      sortValue: (r) => r.memberName,
+      cell: (r) => r.memberName,
+    },
+    {
+      id: 'device',
+      header: 'ID lector',
+      sortable: true,
+      sortValue: (r) => r.deviceUserId,
+      cell: (r) => r.deviceUserId,
+    },
+    {
+      id: 'label',
+      header: 'Nota',
+      cell: (r) => r.deviceLabel ?? '—',
+    },
+    {
+      id: 'date',
+      header: 'Vinculado',
+      sortable: true,
+      sortValue: (r) => r.enrolledAt,
+      cell: (r) => formatAccessDateTime(r.enrolledAt),
+    },
+  ];
+
+  protected readonly staffFaceColumns: DataTableColumn<FaceWebcamEnrollResponse>[] = [
+    {
+      id: 'name',
+      header: 'Entrenador',
+      sortable: true,
+      sortValue: (r) => r.memberName,
+      cell: (r) => r.memberName,
+    },
+    {
+      id: 'date',
+      header: 'Registrado',
       sortable: true,
       sortValue: (r) => r.enrolledAt,
       cell: (r) => formatAccessDateTime(r.enrolledAt),
@@ -185,6 +265,12 @@ export class AccessControlPage implements OnInit {
     deviceLabel: [''],
   });
 
+  protected readonly staffEnrollForm = this.fb.nonNullable.group({
+    employeeId: [null as number | null, Validators.required],
+    deviceUserId: ['', [Validators.required, Validators.maxLength(64)]],
+    deviceLabel: [''],
+  });
+
   ngOnInit(): void {
     this.loadAll();
   }
@@ -192,6 +278,9 @@ export class AccessControlPage implements OnInit {
   loadAll(): void {
     this.memberService.findAll().subscribe({
       next: (m) => this.members.set(m),
+    });
+    this.employeeService.findActive().subscribe({
+      next: (t) => this.trainers.set(t),
     });
     this.accessService.listEnrollments().subscribe({
       next: (e) => this.enrollments.set(e),
@@ -255,6 +344,110 @@ export class AccessControlPage implements OnInit {
     } else {
       this.faceStatus.set('Busca un afiliado por nombre o cédula y mira la cámara del lector biométrico.');
     }
+  }
+
+  async enrollStaffFace(): Promise<void> {
+    const employeeId = this.staffFaceEmployeeId();
+    if (employeeId == null) {
+      this.message.set('Selecciona un entrenador para registrar su rostro');
+      return;
+    }
+    const capture = this.staffFaceCapture() ?? this.faceCapture();
+    if (!capture) {
+      return;
+    }
+    this.saving.set(true);
+    const descriptor = await capture.captureDescriptor();
+    if (!descriptor) {
+      this.saving.set(false);
+      this.message.set('No se pudo capturar el rostro. Mejora la luz y mira de frente.');
+      return;
+    }
+    this.accessService.enrollStaffWebcam(employeeId, descriptor).subscribe({
+      next: () => {
+        this.message.set('Rostro del entrenador registrado');
+        this.saving.set(false);
+        this.loadAll();
+      },
+      error: (err) => {
+        this.message.set(err?.error?.message ?? 'No se pudo guardar el rostro');
+        this.saving.set(false);
+      },
+    });
+  }
+
+  onStaffFaceStatus(status: string): void {
+    this.staffFaceStatus.set(status);
+  }
+
+  onStaffFaceSelected(employeeId: number | null): void {
+    this.staffFaceEmployeeId.set(employeeId);
+    const trainer = employeeId != null ? this.trainers().find((t) => t.id === employeeId) : undefined;
+    if (trainer) {
+      this.staffFaceStatus.set(
+        `Registrando a ${trainer.firstName} ${trainer.lastName} en el lector biométrico. Mira la cámara.`,
+      );
+    } else {
+      this.staffFaceStatus.set('Selecciona un entrenador y mira la cámara del lector biométrico.');
+    }
+  }
+
+  removeStaffFaceEnrollment(employeeId: number): void {
+    if (!confirm('¿Quitar el rostro del lector biométrico de este entrenador?')) {
+      return;
+    }
+    this.accessService.removeStaffWebcamEnrollment(employeeId).subscribe({
+      next: () => {
+        this.message.set('Rostro del entrenador eliminado');
+        this.loadAll();
+      },
+      error: () => this.message.set('No se pudo eliminar'),
+    });
+  }
+
+  enrollStaff(): void {
+    if (this.staffEnrollForm.invalid) {
+      this.staffEnrollForm.markAllAsTouched();
+      return;
+    }
+    const raw = this.staffEnrollForm.getRawValue();
+    if (raw.employeeId == null) {
+      return;
+    }
+    this.saving.set(true);
+    this.accessService
+      .enrollStaff({
+        employeeId: raw.employeeId,
+        deviceUserId: raw.deviceUserId,
+        credentialType: 'FINGERPRINT',
+        deviceLabel: raw.deviceLabel || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.message.set('Huella vinculada al entrenador correctamente');
+          this.saving.set(false);
+          this.staffEnrollForm.patchValue({ deviceUserId: '', deviceLabel: '' });
+          this.loadAll();
+        },
+        error: (err) => {
+          this.message.set(err?.error?.message ?? 'No se pudo registrar');
+          this.saving.set(false);
+        },
+      });
+  }
+
+  removeStaffEnrollment(employeeId: number, type: BiometricCredentialType): void {
+    const label = this.typeLabels[type].toLowerCase();
+    if (!confirm(`¿Quitar la ${label} de este entrenador?`)) {
+      return;
+    }
+    this.accessService.removeStaffEnrollment(employeeId, type).subscribe({
+      next: () => {
+        this.message.set(`${this.typeLabels[type]} eliminado`);
+        this.loadAll();
+      },
+      error: () => this.message.set('No se pudo eliminar'),
+    });
   }
 
   removeFaceEnrollment(memberId: number): void {

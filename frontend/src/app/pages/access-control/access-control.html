@@ -2,13 +2,14 @@
   <div class="access-header__main">
     <h2>Acceso biométrico y torniquete</h2>
     <p class="muted">
-      Registra huella o rostro. Un ingreso permitido por afiliado y por día.
+      Registra afiliados y entrenadores (huella o rostro). Afiliados: un ingreso por día.
     </p>
     <a routerLink="/acceso" target="_blank" class="kiosk-link">Abrir pantalla del torniquete ↗</a>
   </div>
   <ul class="access-stats">
     <li><strong>{{ fingerprintCount() }}</strong> huellas</li>
-    <li><strong>{{ faceCount() }}</strong> rostros</li>
+    <li><strong>{{ faceCount() + staffFaceCount() }}</strong> rostros</li>
+    <li><strong>{{ staffFingerprintCount() }}</strong> entrenadores (huella)</li>
     <li><strong>{{ logsCount() }}</strong> ingresos</li>
   </ul>
 </section>
@@ -96,6 +97,7 @@
         }
         <p class="face-status">{{ faceStatus() }}</p>
         <app-face-webcam-capture
+          #memberFaceCapture
           [compact]="true"
           [allowCameraSwitch]="true"
           (statusChange)="onFaceStatus($event)"
@@ -105,6 +107,76 @@
           class="btn btn-primary"
           [disabled]="saving() || faceMemberId() == null"
           (click)="enrollFace()"
+        >
+          {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="panel access-card access-card--staff">
+      <header class="access-card__head">
+        <h3>🏋️ Entrenador — huella</h3>
+        <p class="muted small">Lector físico en la entrada</p>
+      </header>
+      <form class="access-form" [formGroup]="staffEnrollForm" (ngSubmit)="enrollStaff()">
+        <label>
+          Entrenador
+          <select formControlName="employeeId">
+            <option [ngValue]="null">Selecciona entrenador…</option>
+            @for (t of trainers(); track t.id) {
+              <option [ngValue]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          ID de huella en el lector
+          <input formControlName="deviceUserId" placeholder="Ej: 20001" />
+        </label>
+        <label>
+          Nota (opcional)
+          <input formControlName="deviceLabel" placeholder="Ej: Entrada personal" />
+        </label>
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando…' : 'Vincular huella' }}
+        </button>
+      </form>
+    </section>
+
+    <section class="panel access-card access-card--staff">
+      <header class="access-card__head">
+        <h3>🏋️ Entrenador — rostro</h3>
+        <p class="muted small">Misma cámara del lector biométrico</p>
+      </header>
+      <div class="access-form">
+        <label>
+          Entrenador
+          <select
+            [value]="staffFaceEmployeeId() ?? ''"
+            (change)="onStaffFaceSelected($any($event.target).value ? +$any($event.target).value : null)"
+          >
+            <option value="">Selecciona entrenador…</option>
+            @for (t of trainers(); track t.id) {
+              <option [value]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
+            }
+          </select>
+        </label>
+        @if (selectedStaffFace(); as trainer) {
+          <p class="face-selected">
+            <strong>{{ trainer.firstName }} {{ trainer.lastName }}</strong>
+          </p>
+        }
+        <p class="face-status">{{ staffFaceStatus() }}</p>
+        <app-face-webcam-capture
+          #staffFaceCapture
+          [compact]="true"
+          [allowCameraSwitch]="true"
+          (statusChange)="onStaffFaceStatus($event)"
+        />
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="saving() || staffFaceEmployeeId() == null"
+          (click)="enrollStaffFace()"
         >
           {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
         </button>
@@ -152,7 +224,7 @@
         <span class="access-card__count">{{ faceCount() }}</span>
       </header>
       <app-data-table
-        [rows]="faceEnrollments()"
+        [rows]="memberFaceEnrollments()"
         [columns]="faceColumns"
         searchPlaceholder="Nombre o cédula…"
         emptyMessage="Sin rostros registrados."
@@ -167,6 +239,60 @@
         </ng-template>
       </app-data-table>
     </section>
+
+    @if (staffFingerprintEnrollments().length > 0) {
+      <section class="panel access-card">
+        <header class="access-card__head">
+          <h3>Entrenadores — huella</h3>
+          <span class="access-card__count">{{ staffFingerprintCount() }}</span>
+        </header>
+        <app-data-table
+          [rows]="staffFingerprintEnrollments()"
+          [columns]="staffFingerprintColumns"
+          searchPlaceholder="Buscar…"
+          emptyMessage="Sin huellas de entrenadores."
+          [showActions]="true"
+          [pageSizeDefault]="10"
+        >
+          <ng-template #actions let-row>
+            <button
+              type="button"
+              class="btn btn-delete btn-sm"
+              (click)="removeStaffEnrollment(row.employeeId!, 'FINGERPRINT')"
+            >
+              Quitar
+            </button>
+          </ng-template>
+        </app-data-table>
+      </section>
+    }
+
+    @if (staffFaceEnrollments().length > 0) {
+      <section class="panel access-card">
+        <header class="access-card__head">
+          <h3>Entrenadores — rostro</h3>
+          <span class="access-card__count">{{ staffFaceCount() }}</span>
+        </header>
+        <app-data-table
+          [rows]="staffFaceEnrollments()"
+          [columns]="staffFaceColumns"
+          searchPlaceholder="Buscar…"
+          emptyMessage="Sin rostros de entrenadores."
+          [showActions]="true"
+          [pageSizeDefault]="10"
+        >
+          <ng-template #actions let-row>
+            <button
+              type="button"
+              class="btn btn-delete btn-sm"
+              (click)="removeStaffFaceEnrollment(row.employeeId!)"
+            >
+              Quitar
+            </button>
+          </ng-template>
+        </app-data-table>
+      </section>
+    }
   </div>
 }
 
