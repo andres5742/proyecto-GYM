@@ -39,7 +39,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en deploy/.env}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ORIGINS: ${CORS_ORIGINS}
-      ACCESS_DEVICE_KEY: ${ACCESS_DEVICE_KEY:-}
+      ACCESS_DEVICE_KEY: ${ACCESS_DEVICE_KEY:-gym-turnstile-dev-key}
       UPLOAD_DIR: /app/uploads
     volumes:
       - gym_uploads:/app/uploads
@@ -55,6 +55,7 @@ services:
       args:
         API_URL: ${API_URL}
         UPLOADS_BASE_URL: ${UPLOADS_BASE_URL}
+        ACCESS_DEVICE_KEY: ${ACCESS_DEVICE_KEY:-gym-turnstile-dev-key}
     container_name: gym-frontend
     restart: unless-stopped
     ports:

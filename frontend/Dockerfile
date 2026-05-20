@@ -5,7 +5,11 @@ RUN npm ci
 COPY . .
 ARG API_URL=https://api.gym.tudominio.com/api
 ARG UPLOADS_BASE_URL=https://api.gym.tudominio.com
-RUN sed -i "s|http://localhost:8081/api|${API_URL}|g; s|http://localhost:8081|${UPLOADS_BASE_URL}|g" \
+ARG ACCESS_DEVICE_KEY=gym-turnstile-dev-key
+RUN sed -i \
+    "s|http://localhost:8081/api|${API_URL}|g; \
+     s|http://localhost:8081|${UPLOADS_BASE_URL}|g; \
+     s|accessDeviceKey: ''|accessDeviceKey: '${ACCESS_DEVICE_KEY}'|g" \
     src/environments/environment.production.ts && \
     npm run build -- --configuration production
 
