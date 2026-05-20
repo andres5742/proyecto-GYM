@@ -2,6 +2,7 @@ package com.gym.management.config;
 
 import com.gym.management.security.JwtAuthenticationFilter;
 import com.gym.management.security.ModuleAccessFilter;
+import com.gym.management.service.AppModuleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,10 +25,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final ModuleAccessFilter moduleAccessFilter;
+    private final AppModuleService appModuleService;
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    ModuleAccessFilter moduleAccessFilter() {
+        return new ModuleAccessFilter(appModuleService);
+    }
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ModuleAccessFilter moduleAccessFilter)
+            throws Exception {
         http.cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

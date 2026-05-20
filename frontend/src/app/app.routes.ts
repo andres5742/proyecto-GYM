@@ -20,6 +20,7 @@ import { FeedbackInboxPage } from './pages/feedback-inbox/feedback-inbox';
 import { TrainerRatingsAdminPage } from './pages/trainer-ratings-admin/trainer-ratings-admin';
 import { ModulesAdminPage } from './pages/modules-admin/modules-admin';
 import { PortalContentPage } from './pages/portal-content/portal-content';
+import { BillingPage } from './pages/billing/billing';
 import { Sales } from './pages/sales/sales';
 import { ShiftHandoverPage } from './pages/shift-handover/shift-handover';
 import { Login } from './pages/login/login';
@@ -90,6 +91,12 @@ export const routes: Routes = [
         component: Sales,
         canActivate: [moduleGuard],
         data: { moduleKey: 'VENTAS' },
+      },
+      {
+        path: 'facturacion',
+        component: BillingPage,
+        canActivate: [moduleGuard],
+        data: { moduleKey: 'FACTURACION' },
       },
       {
         path: 'entrega-turno',

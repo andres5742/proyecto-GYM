@@ -12,14 +12,15 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpMethod;
 import org.springframework.lang.NonNull;
-import org.springframework.stereotype.Component;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Bloquea APIs del panel si el módulo no está habilitado para el rol del usuario
  * (según configuración global + permisos por rol).
  */
-@Component
 @RequiredArgsConstructor
 public class ModuleAccessFilter extends OncePerRequestFilter {
 
@@ -41,6 +42,7 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             new ApiModuleRule("/api/trainer-ratings/monthly", "CALIFICACIONES", Set.of()),
             new ApiModuleRule("/api/access", "ACCESO", Set.of()),
             new ApiModuleRule("/api/sales", "VENTAS", Set.of()),
+            new ApiModuleRule("/api/billing", "FACTURACION", Set.of()),
             new ApiModuleRule("/api/shifts", "VENTAS", Set.of()),
             new ApiModuleRule("/api/shift-handovers", "ENTREGA_TURNO", Set.of()),
             new ApiModuleRule("/api/attendance", "JORNADA", Set.of()));
@@ -51,14 +53,24 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
-        if (SecurityUtils.isSuperAdmin()
-                || SecurityUtils.currentUser() == null
+        String path = request.getRequestURI();
+
+        // F2 / entreno del día: no depende del módulo Facturación en BD
+        if (path.startsWith("/api/billing/day-workout/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken
+                || SecurityUtils.isSuperAdmin()
                 || SecurityUtils.currentRole() == UserRole.AFFILIATE) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String path = request.getRequestURI();
         HttpMethod method;
         try {
             method = HttpMethod.valueOf(request.getMethod());

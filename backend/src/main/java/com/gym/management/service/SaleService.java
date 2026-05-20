@@ -7,6 +7,7 @@ import com.gym.management.dto.SaleRequest;
 import com.gym.management.dto.SaleResponse;
 import com.gym.management.dto.SalesSummaryResponse;
 import com.gym.management.dto.ShiftDetailResponse;
+import com.gym.management.dto.WorkShiftResponse;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.SaleMapper;

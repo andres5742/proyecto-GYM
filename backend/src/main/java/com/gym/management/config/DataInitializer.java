@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -121,6 +122,42 @@ public class DataInitializer {
     @Bean
     CommandLineRunner ensureRoleModulePermissions() {
         return args -> appModuleService.ensureDefaultRolePermissions();
+    }
+
+    @Bean
+    CommandLineRunner relaxBillingGuestMemberColumn(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute("ALTER TABLE billing_payments ALTER COLUMN member_id DROP NOT NULL");
+            } catch (Exception ignored) {
+                // Columna ya nullable o tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureBillingModuleAndDayPlan() {
+        return args -> {
+            if (appModuleRepository.findById("FACTURACION").isEmpty()) {
+                saveModule(
+                        "FACTURACION",
+                        "Facturación",
+                        "Entrenos del día, membresías y medios de pago",
+                        ModuleCategory.PANEL,
+                        61);
+            }
+            appModuleService.ensureFacturacionStaffAccess();
+            appModuleService.ensureDefaultRolePermissions();
+            if (planRepository.findByNameIgnoreCase("Entreno día").isEmpty()) {
+                planRepository.save(MembershipPlan.builder()
+                        .name("Entreno día")
+                        .description("Pase de entreno por un solo día (Facturación / F2)")
+                        .durationDays(1)
+                        .price(new BigDecimal("15000"))
+                        .active(true)
+                        .build());
+            }
+        };
     }
 
     private void saveModule(

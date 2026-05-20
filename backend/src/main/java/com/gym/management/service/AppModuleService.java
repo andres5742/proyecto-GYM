@@ -29,7 +29,7 @@ public class AppModuleService {
     public static final String CODE_MODULE_ADMIN = "MODULOS_SISTEMA";
 
     private static final Set<String> TRAINER_DEFAULT_ALLOWED =
-            Set.of("VENTAS", "ENTREGA_TURNO", "JORNADA");
+            Set.of("VENTAS", "FACTURACION", "ENTREGA_TURNO", "JORNADA");
 
     private final AppModuleRepository appModuleRepository;
     private final RoleModulePermissionRepository roleModulePermissionRepository;
@@ -128,6 +128,25 @@ public class AppModuleService {
                             .allowed(defaultAllowedForRole(role, module.getCode()))
                             .build());
                 }
+            }
+        }
+    }
+
+    @Transactional
+    public void ensureFacturacionStaffAccess() {
+        if (appModuleRepository.findById("FACTURACION").isEmpty()) {
+            return;
+        }
+        for (UserRole role : List.of(UserRole.TRAINER, UserRole.ADMIN)) {
+            RoleModulePermission permission = roleModulePermissionRepository
+                    .findById(new com.gym.management.model.RoleModulePermissionId(role, "FACTURACION"))
+                    .orElse(RoleModulePermission.builder()
+                            .role(role)
+                            .moduleCode("FACTURACION")
+                            .build());
+            if (!roleModulePermissionRepository.existsByRoleAndModuleCode(role, "FACTURACION")) {
+                permission.setAllowed(defaultAllowedForRole(role, "FACTURACION"));
+                roleModulePermissionRepository.save(permission);
             }
         }
     }

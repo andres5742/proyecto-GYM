@@ -14,6 +14,8 @@ public final class ApiAuthorizationRules {
     public static void apply(
             AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/billing/day-workout/register")
+                .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
                 .requestMatchers("/api/auth/**", "/api/health/**")
                 .permitAll()
                 .requestMatchers(HttpMethod.GET, "/uploads/**")
@@ -81,6 +83,10 @@ public final class ApiAuthorizationRules {
                 .hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/shift-handovers/**")
                 .hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/billing/payments/**")
+                .hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/billing/**")
+                .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
                 .requestMatchers("/api/members/**", "/api/plans/**")
                 .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
                 .requestMatchers(HttpMethod.POST, "/api/products/**")

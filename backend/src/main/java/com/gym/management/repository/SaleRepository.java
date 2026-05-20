@@ -4,6 +4,7 @@ import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Sale;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findByEmployeeIdOrderBySaleDateDescCreatedAtDesc(Long employeeId);
 
     List<Sale> findByWorkShiftIdOrderBySaleDateDescCreatedAtDesc(Long workShiftId);
+
+    Optional<Sale> findFirstByWorkShiftIdOrderByCreatedAtDesc(Long workShiftId);
+
+    Optional<Sale> findFirstByOrderByCreatedAtDesc();
 
     List<Sale> findByWorkShiftIdAndEmployeeIdOrderBySaleDateDescCreatedAtDesc(
             Long workShiftId, Long employeeId);

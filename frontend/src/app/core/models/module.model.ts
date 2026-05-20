@@ -3,6 +3,7 @@ export type ModuleCode =
   | 'PLANES'
   | 'INVENTARIO'
   | 'VENTAS'
+  | 'FACTURACION'
   | 'ENTREGA_TURNO'
   | 'JORNADA'
   | 'ENTRENADORES'

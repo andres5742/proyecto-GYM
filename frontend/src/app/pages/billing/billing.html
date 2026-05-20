@@ -1,0 +1,133 @@
+<section class="page-header">
+  <h2>Facturación</h2>
+  <p>
+    Membresías y resumen del día. El pase diario se registra con <kbd>F2</kbd> (medio de pago → voz → torniquete).
+    Precio según el plan <strong>Entreno día</strong> en Planes.
+  </p>
+</section>
+
+@if (message()) {
+  <p class="alert info">{{ message() }}</p>
+}
+
+<nav class="billing-nav">
+  <button type="button" [class.active]="section() === 'membership'" (click)="section.set('membership')">
+    Pago membresía
+  </button>
+  <button type="button" [class.active]="section() === 'summary'" (click)="section.set('summary')">
+    Resumen del día
+  </button>
+</nav>
+
+@if (section() === 'membership') {
+  <section class="panel billing-card">
+    <h3>Generar pago de membresía</h3>
+    <p class="muted small">Activa el plan desde hoy por los días configurados en el plan.</p>
+    <div class="billing-form">
+      <app-member-search-select
+        [members]="members()"
+        label="Afiliado"
+        [memberId]="membershipMemberId()"
+        (memberIdChange)="membershipMemberId.set($event)"
+      />
+      <label>
+        Plan
+        <select [ngModel]="membershipPlanId()" (ngModelChange)="membershipPlanId.set($event)">
+          <option [ngValue]="null">Selecciona plan…</option>
+          @for (plan of membershipPlans(); track plan.id) {
+            <option [ngValue]="plan.id">{{ plan.name }} — {{ plan.durationDays }} días — {{ plan.price | cop }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Medio de pago
+        <select [ngModel]="membershipPaymentMethod()" (ngModelChange)="membershipPaymentMethod.set($event)">
+          @for (pm of paymentMethods; track pm.value) {
+            <option [ngValue]="pm.value">{{ pm.label }}</option>
+          }
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="registerMembership()">
+        {{ saving() ? 'Guardando…' : 'Generar pago y activar plan' }}
+      </button>
+    </div>
+  </section>
+}
+
+@if (section() === 'summary' && summary(); as s) {
+  <section class="panel billing-summary">
+    <h3>Resumen {{ s.date | date: 'dd/MM/yyyy' }}</h3>
+    <div class="summary-grid">
+      <article>
+        <h4>Entrenos del día</h4>
+        <p><strong>{{ s.dayWorkoutCount }}</strong> registros · {{ s.dayWorkoutTotal | cop }}</p>
+        <ul class="method-list">
+          @for (pm of paymentMethods; track pm.value) {
+            @if (methodTotal(s.dayWorkoutByMethod, pm.value) > 0) {
+              <li>{{ pm.label }}: {{ methodTotal(s.dayWorkoutByMethod, pm.value) | cop }}</li>
+            }
+          }
+        </ul>
+      </article>
+      <article>
+        <h4>Membresías</h4>
+        <p><strong>{{ s.membershipCount }}</strong> pagos · {{ s.membershipTotal | cop }}</p>
+        <ul class="method-list">
+          @for (pm of paymentMethods; track pm.value) {
+            @if (methodTotal(s.membershipByMethod, pm.value) > 0) {
+              <li>{{ pm.label }}: {{ methodTotal(s.membershipByMethod, pm.value) | cop }}</li>
+            }
+          }
+        </ul>
+      </article>
+      <article class="summary-total">
+        <h4>Total del día</h4>
+        <p class="total-amount">{{ s.grandTotal | cop }}</p>
+      </article>
+    </div>
+    <h4>Movimientos de hoy</h4>
+    @if (payments().length === 0) {
+      <p class="muted">Sin movimientos hoy.</p>
+    } @else {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Tipo</th>
+              <th>Afiliado</th>
+              <th>Medio</th>
+              <th>Monto</th>
+              @if (isSuperAdmin()) {
+                <th></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of payments(); track row.id) {
+              <tr>
+                <td>{{ row.createdAt | date: 'HH:mm' }}</td>
+                <td>{{ row.paymentTypeLabel }}</td>
+                <td>{{ row.memberName }}</td>
+                <td>{{ row.paymentMethodLabel }}</td>
+                <td>{{ row.amount | cop }}</td>
+                @if (isSuperAdmin()) {
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-delete btn-sm"
+                      (click)="deletePayment(row, $event)"
+                      [disabled]="deletingPaymentId() === row.id"
+                    >
+                      {{ deletingPaymentId() === row.id ? '…' : 'Eliminar' }}
+                    </button>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+}

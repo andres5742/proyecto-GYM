@@ -175,6 +175,19 @@ export function unlockWelcomeAudio(): boolean {
   return true;
 }
 
+/** Desbloquea audio sin reproducir frase (atajos como F2 en recepción). */
+export function ensureWelcomeAudioUnlocked(): boolean {
+  const speech = getSpeech();
+  if (!speech) {
+    return false;
+  }
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
+  audioUnlocked = true;
+  return true;
+}
+
 export function isWelcomeAudioUnlocked(): boolean {
   return audioUnlocked;
 }
@@ -226,6 +239,16 @@ export function playAccessWelcome(firstName?: string | null): boolean {
     return false;
   }
   speakSequence(speech, welcomeSegments(firstName));
+  return true;
+}
+
+/** Anuncio corto (ej. último ticket en recepción). */
+export function speakAnnouncement(text: string): boolean {
+  const speech = getSpeech();
+  if (!speech || !text.trim()) {
+    return false;
+  }
+  speakSequence(speech, [{ text: text.trim(), rate: 0.93, pitch: 1 }]);
   return true;
 }
 

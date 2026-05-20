@@ -37,3 +37,9 @@ app:
     turnstile-webhook-url: ${TURNSTILE_WEBHOOK:}
     # Distancia euclidiana face-api: menor = más parecido (típico 0.45–0.55)
     face-match-max-distance: ${FACE_MATCH_MAX_DISTANCE:0.55}
+  sales:
+    # (Legacy) Categorías de producto usadas solo si aún venden pases como producto en inventario.
+    workout-day-product-categories: ${WORKOUT_DAY_CATEGORIES:ENTRENO_DIA,ENTRENO,Plan entreno}
+    workout-day-name-keywords: ${WORKOUT_DAY_KEYWORDS:entreno,pase,día,dia}
+  billing:
+    day-workout-plan-name: ${DAY_WORKOUT_PLAN_NAME:Entreno día}

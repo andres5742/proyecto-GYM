@@ -30,6 +30,12 @@ public final class SecurityUtils {
         return currentRole() == UserRole.SUPER_ADMIN;
     }
 
+    /** F2 / entreno del día: personal de recepción (no depende del módulo Facturación en BD). */
+    public static boolean canRegisterDayWorkout() {
+        UserRole role = currentRole();
+        return role == UserRole.SUPER_ADMIN || role == UserRole.ADMIN || role == UserRole.TRAINER;
+    }
+
     public static boolean isAdmin() {
         UserRole role = currentRole();
         return role == UserRole.ADMIN || role == UserRole.SUPER_ADMIN;

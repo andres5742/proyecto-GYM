@@ -39,6 +39,7 @@
 
       @if (
         modules.isEnabled('VENTAS') ||
+        modules.isEnabled('FACTURACION') ||
         modules.isEnabled('ENTREGA_TURNO') ||
         modules.isEnabled('JORNADA') ||
         modules.isEnabled('INVENTARIO')
@@ -48,6 +49,11 @@
       @if (modules.isEnabled('VENTAS')) {
         <a routerLink="/panel/ventas" routerLinkActive="active">
           <span class="nav-icon">💳</span> Ventas
+        </a>
+      }
+      @if (modules.isEnabled('FACTURACION')) {
+        <a routerLink="/panel/facturacion" routerLinkActive="active">
+          <span class="nav-icon">🧾</span> Facturación
         </a>
       }
       @if (modules.isEnabled('ENTREGA_TURNO')) {
@@ -118,6 +124,45 @@
     </nav>
   </aside>
   <main class="content">
+    @if (shortcutMessage(); as msg) {
+      <p class="shortcut-toast" role="status">{{ msg }}</p>
+    }
     <router-outlet />
   </main>
 </div>
+
+@if (f2ModalOpen()) {
+  <div
+    class="f2-modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="f2-modal-title"
+    (click)="closeF2Modal()"
+  >
+    <div class="f2-modal panel" (click)="$event.stopPropagation()">
+      <h2 id="f2-modal-title">Entreno del día — invitado</h2>
+      <p class="muted small">Pase de un día sin estar en el sistema. Elige cómo pagó:</p>
+      <label class="f2-modal__field">
+        Medio de pago
+        <select [ngModel]="f2PaymentMethod()" (ngModelChange)="f2PaymentMethod.set($event)">
+          @for (pm of paymentMethods; track pm.value) {
+            <option [ngValue]="pm.value">{{ pm.label }}</option>
+          }
+        </select>
+      </label>
+      <div class="f2-modal__actions">
+        <button type="button" class="btn btn-secondary" [disabled]="f2Processing()" (click)="closeF2Modal()">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="f2Processing()"
+          (click)="confirmF2GuestWorkout()"
+        >
+          {{ f2Processing() ? 'Procesando…' : 'Confirmar y abrir acceso' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

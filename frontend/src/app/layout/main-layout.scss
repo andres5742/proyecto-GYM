@@ -131,6 +131,62 @@ nav {
   background: var(--color-bg-warm);
   padding: 2.25rem 2.5rem;
   min-height: 100vh;
+  position: relative;
+}
+
+.shortcut-toast {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: #1a4d2e;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.f2-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 45%);
+}
+
+.f2-modal {
+  width: min(100%, 22rem);
+  padding: 1.25rem;
+
+  h2 {
+    margin: 0 0 0.35rem;
+    font-size: 1.15rem;
+  }
+}
+
+.f2-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 1rem 0;
+
+  select {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+  }
+}
+
+.f2-modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
