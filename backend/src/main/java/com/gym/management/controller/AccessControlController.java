@@ -6,6 +6,7 @@ import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.dto.KioskAccessEventResponse;
+import com.gym.management.dto.LastDeviceReadResponse;
 import com.gym.management.dto.ZktAccessEventRequest;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.model.BiometricCredentialType;
@@ -71,6 +72,18 @@ public class AccessControlController {
     }
 
     /** Pantalla /acceso: consulta ingresos recientes (tarjeta/huella vía ZKTeco). */
+    /** Recepción: última tarjeta/huella leída en el ZKT (para vincular al afiliado). */
+    @GetMapping("/last-read")
+    public LastDeviceReadResponse lastRead(@RequestParam(required = false) String since) {
+        Instant sinceInstant =
+                since != null && !since.isBlank()
+                        ? Instant.parse(since)
+                        : Instant.now().minus(30, java.time.temporal.ChronoUnit.MINUTES);
+        return accessControlService
+                .lastDeviceReadSince(sinceInstant)
+                .orElse(null);
+    }
+
     @GetMapping("/kiosk/events")
     public List<KioskAccessEventResponse> kioskEvents(
             @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,

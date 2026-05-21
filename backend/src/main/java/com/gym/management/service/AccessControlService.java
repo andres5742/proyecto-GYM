@@ -6,6 +6,7 @@ import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.dto.KioskAccessEventResponse;
+import com.gym.management.dto.LastDeviceReadResponse;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.model.AccessLog;
@@ -27,6 +28,7 @@ import com.gym.management.util.WelcomeMessageUtils;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -233,10 +235,33 @@ public class AccessControlService {
 
     @Transactional(readOnly = true)
     public List<AccessLogResponse> recentLogs() {
-        return accessLogRepository.findRecentGranted().stream().map(this::toLogResponse).toList();
+        return accessLogRepository.findRecent().stream()
+                .limit(400)
+                .map(this::toLogResponse)
+                .toList();
     }
 
     /** Eventos nuevos para la pantalla /acceso (tras lectura en ZKTeco). */
+    /** Última lectura del lector ZKT (para copiar Pin/tarjeta al vincular afiliado). */
+    @Transactional(readOnly = true)
+    public Optional<LastDeviceReadResponse> lastDeviceReadSince(Instant since) {
+        Instant from = since != null ? since : Instant.now().minus(30, ChronoUnit.MINUTES);
+        return accessLogRepository.findFirstByCreatedAtAfterOrderByIdDesc(from).map(this::toLastDeviceRead);
+    }
+
+    private LastDeviceReadResponse toLastDeviceRead(AccessLog log) {
+        BiometricCredentialType type = log.getCredentialType() != null
+                ? log.getCredentialType()
+                : BiometricCredentialType.FINGERPRINT;
+        return new LastDeviceReadResponse(
+                log.getId(),
+                log.getFingerprintUserId(),
+                type,
+                type.displayLabel(),
+                log.getResult(),
+                log.getCreatedAt());
+    }
+
     @Transactional(readOnly = true)
     public List<KioskAccessEventResponse> kioskEventsSince(Instant since, Long afterId) {
         if (afterId != null && afterId > 0) {

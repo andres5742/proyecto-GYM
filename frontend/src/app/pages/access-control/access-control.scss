@@ -383,6 +383,32 @@
   }
 }
 
+.logs-last-read {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(145deg, rgb(232 168 92 / 20%), rgb(255 255 255 / 5%));
+  border: 1px solid rgb(232 168 92 / 50%);
+  border-radius: 0.65rem;
+
+  &__label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted, var(--color-text));
+  }
+
+  &__pin {
+    font-size: 1.35rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+    color: var(--color-trust);
+  }
+}
+
 .logs-panel {
   overflow: hidden;
 }
@@ -397,6 +423,41 @@
 
   h3 {
     margin: 0;
+  }
+}
+
+:host ::ng-deep .logs-panel {
+  .log-code {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+
+    &--card {
+      font-size: 1.05em;
+      color: var(--color-trust);
+    }
+  }
+
+  .log-code-cell {
+    min-width: 8rem;
+  }
+
+  .log-result--ok {
+    color: var(--color-success, #2d8a55);
+    font-weight: 600;
+  }
+
+  .log-result--deny {
+    color: var(--color-danger, #c44);
+    font-weight: 600;
+  }
+
+  tr.row-denied {
+    background: rgb(200 60 60 / 8%);
+  }
+
+  tr.row-granted {
+    background: rgb(45 138 85 / 6%);
   }
 }
 
@@ -532,5 +593,36 @@
 @media (max-width: 400px) {
   .access-stats {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+.reader-capture {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  background: linear-gradient(145deg, rgb(232 168 92 / 18%), rgb(255 255 255 / 6%));
+  border: 1px solid rgb(232 168 92 / 45%);
+  border-radius: 0.65rem;
+
+  &__title {
+    margin: 0 0 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  &__pin {
+    margin: 0;
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    color: var(--color-trust);
+    word-break: break-all;
+  }
+
+  &__hint,
+  &__wait {
+    margin: 0.35rem 0 0;
   }
 }

@@ -67,6 +67,16 @@ export type FingerprintEnrollResponse = BiometricEnrollResponse;
 /** @deprecated Use BiometricEnrollRequest */
 export type FingerprintEnrollRequest = BiometricEnrollRequest;
 
+/** Última lectura ZKT en recepción (vincular tarjeta/huella). */
+export interface LastDeviceRead {
+  logId: number;
+  pin: string;
+  credentialType: BiometricCredentialType;
+  credentialTypeLabel: string;
+  result: AccessResult;
+  readAt: string;
+}
+
 /** Evento para pantalla /acceso (polling tras ZKTeco). */
 export interface KioskAccessEvent {
   id: number;

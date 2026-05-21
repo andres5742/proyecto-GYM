@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import {
   AccessLogEntry,
   KioskAccessEvent,
+  LastDeviceRead,
   AccessVerifyResponse,
   BiometricCredentialType,
   BiometricEnrollRequest,
@@ -50,6 +51,12 @@ export class AccessService {
       { pin: pin.trim() },
       { headers },
     );
+  }
+
+  /** Última lectura del lector (registrar tarjeta/huella en recepción). */
+  lastDeviceRead(sinceIso: string): Observable<LastDeviceRead | null> {
+    const params = new HttpParams().set('since', sinceIso);
+    return this.http.get<LastDeviceRead | null>(`${this.baseUrl}/last-read`, { params });
   }
 
   /** Eventos de acceso desde el lector ZKTeco (pantalla /acceso). */

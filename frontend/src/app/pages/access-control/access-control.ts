@@ -1,5 +1,5 @@
 import { formatDate } from '@angular/common';
-import { Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DataTableComponent } from '../../components/data-table/data-table';
@@ -37,6 +37,8 @@ function formatAccessDateTime(value: string | null | undefined): string {
   }
 }
 
+const CAPTURE_POLL_MS = 1000;
+
 @Component({
   selector: 'app-access-control',
   imports: [
@@ -49,7 +51,7 @@ function formatAccessDateTime(value: string | null | undefined): string {
   templateUrl: './access-control.html',
   styleUrl: './access-control.scss',
 })
-export class AccessControlPage implements OnInit {
+export class AccessControlPage implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly accessService = inject(AccessService);
   private readonly memberService = inject(MemberService);
@@ -68,6 +70,12 @@ export class AccessControlPage implements OnInit {
   protected readonly logs = signal<AccessLogEntry[]>([]);
   protected readonly faceMemberId = signal<number | null>(null);
   protected readonly staffFaceEmployeeId = signal<number | null>(null);
+  protected readonly lastCapturedPin = signal<string | null>(null);
+  protected readonly captureWaiting = signal(false);
+
+  private capturePollTimer: ReturnType<typeof setInterval> | null = null;
+  private captureSinceIso = new Date().toISOString();
+  private lastCaptureLogId = 0;
   protected readonly faceStatus = signal('Busca un afiliado por nombre o cédula y mira la cámara del lector biométrico.');
   protected readonly staffFaceStatus = signal('Selecciona un entrenador y mira la cámara del lector biométrico.');
   protected readonly section = signal<'register' | 'registered' | 'logs'>('register');
@@ -302,6 +310,14 @@ export class AccessControlPage implements OnInit {
       cell: (r) => formatAccessDateTime(r.createdAt),
     },
     {
+      id: 'result',
+      header: 'Resultado',
+      sortable: true,
+      sortValue: (r) => r.result,
+      cell: (r) => r.resultLabel,
+      cellInnerClass: (r) => (r.result === 'GRANTED' ? 'log-result log-result--ok' : 'log-result log-result--deny'),
+    },
+    {
       id: 'type',
       header: 'Tipo',
       sortable: true,
@@ -309,16 +325,21 @@ export class AccessControlPage implements OnInit {
       cell: (r) => r.credentialTypeLabel,
     },
     {
+      id: 'code',
+      header: 'Código tarjeta / ID',
+      sortable: true,
+      sortValue: (r) => this.logDeviceCode(r),
+      cell: (r) => this.logDeviceCode(r),
+      cellClass: () => 'log-code-cell',
+      cellInnerClass: (r) =>
+        r.credentialType === 'CARD' ? 'log-code log-code--card' : 'log-code',
+    },
+    {
       id: 'member',
       header: 'Afiliado',
       sortable: true,
       sortValue: (r) => r.memberName ?? '',
       cell: (r) => r.memberName ?? '—',
-    },
-    {
-      id: 'device',
-      header: 'ID lector',
-      cell: (r) => r.deviceUserId ?? r.fingerprintUserId ?? '—',
     },
     {
       id: 'message',
@@ -347,6 +368,11 @@ export class AccessControlPage implements OnInit {
 
   ngOnInit(): void {
     this.loadAll();
+    this.syncCapturePolling();
+  }
+
+  ngOnDestroy(): void {
+    this.stopCapturePolling();
   }
 
   loadAll(): void {
@@ -372,14 +398,14 @@ export class AccessControlPage implements OnInit {
     });
   }
 
-  protected readonly grantedRowClass = (): string => 'row-granted';
-
   setSection(next: 'register' | 'registered' | 'logs'): void {
     this.section.set(next);
+    this.syncCapturePolling();
   }
 
   setRegisterAudience(audience: 'members' | 'staff'): void {
     this.registerAudience.set(audience);
+    this.syncCapturePolling();
   }
 
   setRegisterMethod(method: 'fingerprint' | 'card' | 'face'): void {
@@ -389,6 +415,104 @@ export class AccessControlPage implements OnInit {
     } else if (method === 'fingerprint') {
       this.enrollForm.patchValue({ credentialType: 'FINGERPRINT' });
     }
+    this.syncCapturePolling();
+  }
+
+  protected captureActive(): boolean {
+    if (this.section() === 'logs') {
+      return true;
+    }
+    return (
+      this.section() === 'register' &&
+      (this.registerMethod() === 'card' || this.registerMethod() === 'fingerprint')
+    );
+  }
+
+  protected logDeviceCode(row: AccessLogEntry): string {
+    const code = row.deviceUserId ?? row.fingerprintUserId ?? '';
+    return code.trim() || '—';
+  }
+
+  protected logRowClass(row: AccessLogEntry): string {
+    return row.result === 'GRANTED' ? 'row-granted' : 'row-denied';
+  }
+
+  protected goVincularCapturedPin(): void {
+    const pin = this.lastCapturedPin();
+    if (!pin) {
+      return;
+    }
+    this.setSection('register');
+    this.setRegisterAudience('members');
+    this.setRegisterMethod('card');
+    this.enrollForm.patchValue({ deviceUserId: pin, credentialType: 'CARD' });
+    this.message.set(`Código ${pin} listo para vincular al afiliado`);
+  }
+
+  protected linkCardFromLog(row: AccessLogEntry): void {
+    const pin = this.logDeviceCode(row);
+    if (pin === '—') {
+      return;
+    }
+    this.lastCapturedPin.set(pin);
+    this.setSection('register');
+    this.setRegisterAudience('members');
+    this.setRegisterMethod(row.credentialType === 'CARD' ? 'card' : 'fingerprint');
+    if (row.credentialType === 'CARD') {
+      this.enrollForm.patchValue({ deviceUserId: pin, credentialType: 'CARD' });
+    } else {
+      this.enrollForm.patchValue({ deviceUserId: pin, credentialType: 'FINGERPRINT' });
+    }
+    this.message.set(`Código ${pin} listo para vincular al afiliado`);
+  }
+
+  private syncCapturePolling(): void {
+    if (this.captureActive()) {
+      this.startCapturePolling();
+    } else {
+      this.stopCapturePolling();
+    }
+  }
+
+  private startCapturePolling(): void {
+    this.stopCapturePolling();
+    this.captureSinceIso = new Date().toISOString();
+    this.lastCaptureLogId = 0;
+    this.lastCapturedPin.set(null);
+    this.captureWaiting.set(true);
+    void this.pollLastRead();
+    this.capturePollTimer = setInterval(() => void this.pollLastRead(), CAPTURE_POLL_MS);
+  }
+
+  private stopCapturePolling(): void {
+    if (this.capturePollTimer) {
+      clearInterval(this.capturePollTimer);
+      this.capturePollTimer = null;
+    }
+    this.captureWaiting.set(false);
+  }
+
+  private pollLastRead(): void {
+    this.accessService.lastDeviceRead(this.captureSinceIso).subscribe({
+      next: (read) => {
+        if (!read?.pin?.trim() || read.logId <= this.lastCaptureLogId) {
+          return;
+        }
+        this.lastCaptureLogId = read.logId;
+        const pin = read.pin.trim();
+        this.lastCapturedPin.set(pin);
+        this.captureWaiting.set(false);
+        if (this.registerAudience() === 'members') {
+          this.enrollForm.patchValue({ deviceUserId: pin });
+        } else {
+          this.staffEnrollForm.patchValue({ deviceUserId: pin });
+        }
+        this.message.set(`Lectura capturada: ${pin} (${read.credentialTypeLabel})`);
+        this.accessService.logs().subscribe({
+          next: (l) => this.logs.set(l),
+        });
+      },
+    });
   }
 
   async enrollFace(): Promise<void> {

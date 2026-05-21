@@ -4,6 +4,7 @@ import com.gym.management.model.AccessLog;
 import com.gym.management.model.AccessResult;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -48,6 +49,8 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
             ORDER BY a.id ASC
             """)
     List<AccessLog> findAfterId(@Param("afterId") long afterId);
+
+    Optional<AccessLog> findFirstByCreatedAtAfterOrderByIdDesc(Instant since);
 
     @Query(
             """

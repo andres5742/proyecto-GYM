@@ -138,6 +138,15 @@
           <h3>Afiliado · huella</h3>
           <p class="muted small">Vincula el ID que aparece en el lector (ZKTeco, Suprema, etc.).</p>
         </header>
+        <div class="reader-capture">
+          <p class="reader-capture__title">Pase la tarjeta o huella en el lector</p>
+          @if (lastCapturedPin(); as pin) {
+            <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
+            <p class="reader-capture__hint muted small">Código capturado — ya está en el campo de abajo.</p>
+          } @else if (captureWaiting()) {
+            <p class="reader-capture__wait muted small">Esperando lectura… (ZKT debe enviar eventos al servidor)</p>
+          }
+        </div>
         <form class="register-form" [formGroup]="enrollForm" (ngSubmit)="enroll()">
           <div class="register-form__fields">
             <app-member-search-select
@@ -166,9 +175,18 @@
         <header class="register-workspace__head">
           <h3>Afiliado · tarjeta ZKTeco</h3>
           <p class="muted small">
-            Vincula el número que muestra el lector al pasar la tarjeta (campo Pin / Card en el ZKTeco).
+            Pase la tarjeta en el lector: el número aparecerá aquí para vincularlo al afiliado.
           </p>
         </header>
+        <div class="reader-capture">
+          <p class="reader-capture__title">Pase la tarjeta en el lector</p>
+          @if (lastCapturedPin(); as pin) {
+            <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
+            <p class="reader-capture__hint muted small">Código capturado — ya está en el campo de abajo.</p>
+          } @else if (captureWaiting()) {
+            <p class="reader-capture__wait muted small">Esperando lectura… (ZKT debe enviar eventos al servidor)</p>
+          }
+        </div>
         <form class="register-form" [formGroup]="enrollForm" (ngSubmit)="enroll()">
           <div class="register-form__fields">
             <app-member-search-select
@@ -233,6 +251,15 @@
           <h3>Entrenador · huella</h3>
           <p class="muted small">Acceso de personal en el mismo lector de la entrada.</p>
         </header>
+        <div class="reader-capture">
+          <p class="reader-capture__title">Pase la tarjeta o huella en el lector</p>
+          @if (lastCapturedPin(); as pin) {
+            <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
+            <p class="reader-capture__hint muted small">Código capturado — ya está en el campo de abajo.</p>
+          } @else if (captureWaiting()) {
+            <p class="reader-capture__wait muted small">Esperando lectura…</p>
+          }
+        </div>
         <form class="register-form" [formGroup]="staffEnrollForm" (ngSubmit)="enrollStaff()">
           <div class="register-form__fields">
             <label>
@@ -264,8 +291,17 @@
       @if (registerAudience() === 'staff' && registerMethod() === 'card') {
         <header class="register-workspace__head">
           <h3>Entrenador · tarjeta ZKTeco</h3>
-          <p class="muted small">Mismo lector de tarjetas en la entrada.</p>
+          <p class="muted small">Pase la tarjeta: el número aparecerá aquí para vincularlo.</p>
         </header>
+        <div class="reader-capture">
+          <p class="reader-capture__title">Pase la tarjeta en el lector</p>
+          @if (lastCapturedPin(); as pin) {
+            <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
+            <p class="reader-capture__hint muted small">Código capturado — ya está en el campo de abajo.</p>
+          } @else if (captureWaiting()) {
+            <p class="reader-capture__wait muted small">Esperando lectura…</p>
+          }
+        </div>
         <form class="register-form" [formGroup]="staffEnrollForm" (ngSubmit)="enrollStaff()">
           <div class="register-form__fields">
             <label>
@@ -506,10 +542,21 @@
 
 @if (section() === 'logs') {
   <section class="panel access-card logs-panel">
+    @if (lastCapturedPin(); as pin) {
+      <div class="logs-last-read">
+        <span class="logs-last-read__label">Última lectura en el lector</span>
+        <strong class="logs-last-read__pin">{{ pin }}</strong>
+        <button type="button" class="btn btn-primary btn-sm" (click)="goVincularCapturedPin()">
+          Vincular este código
+        </button>
+      </div>
+    }
     <header class="logs-header">
       <div>
         <h3>Historial de ingresos</h3>
-        <p class="muted small">Solo quienes ingresaron correctamente.</p>
+        <p class="muted small">
+          Incluye tarjetas y huellas no reconocidas: use la columna <strong>Código tarjeta / ID</strong> para vincular.
+        </p>
       </div>
       @if (isSuperAdmin()) {
         <button
@@ -525,10 +572,19 @@
     <app-data-table
       [rows]="logs()"
       [columns]="logColumns"
-      searchPlaceholder="Buscar afiliado, tipo…"
-      emptyMessage="Aún no hay ingresos registrados."
+      searchPlaceholder="Buscar código, afiliado, tipo…"
+      emptyMessage="Aún no hay lecturas. Pase una tarjeta en el lector (ZKT conectado al servidor)."
       [pageSizeDefault]="25"
-      [rowClass]="grantedRowClass"
-    />
+      [rowClass]="logRowClass"
+      [showActions]="true"
+    >
+      <ng-template #actions let-row>
+        @if (row.result === 'DENIED' && (row.credentialType === 'CARD' || row.credentialType === 'FINGERPRINT')) {
+          <button type="button" class="btn btn-primary btn-sm" (click)="linkCardFromLog(row)">
+            Vincular
+          </button>
+        }
+      </ng-template>
+    </app-data-table>
   </section>
 }
