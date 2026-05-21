@@ -120,12 +120,67 @@
           }
         </div>
       </article>
+      <article class="kpi-card kpi-card--products">
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Productos vendidos</span>
+          <strong class="kpi-card__value">{{ reg.dayProductSalesTotal | cop }}</strong>
+          <span class="kpi-card__sub">
+            Todos los turnos del día
+            @if (reg.dayProductSalesShiftCount > 0) {
+              · {{ reg.dayProductSalesShiftCount }}
+              {{ reg.dayProductSalesShiftCount === 1 ? 'turno' : 'turnos' }}
+            }
+          </span>
+          @if (reg.dayProductSalesCount > 0) {
+            <span class="kpi-card__sub kpi-card__sub--detail">
+              {{ reg.dayProductSalesCount }}
+              {{ reg.dayProductSalesCount === 1 ? 'venta' : 'ventas' }}
+              · {{ reg.dayProductUnitsSold }}
+              {{ reg.dayProductUnitsSold === 1 ? 'unidad' : 'unidades' }}
+            </span>
+          }
+        </div>
+        @if (reg.dayProductSalesCash > 0) {
+          <div class="method-chips method-chips--kpi">
+            <span class="method-chip method-chip--cash">Efectivo {{ reg.dayProductSalesCash | cop }}</span>
+          </div>
+        }
+      </article>
+      <article class="kpi-card kpi-card--concept-cash">
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Efectivo por concepto</span>
+          <strong class="kpi-card__value">{{ sessionCashBillingTotal(reg) | cop }}</strong>
+          <span class="kpi-card__sub">Membresías, entrenos y bailes (facturación)</span>
+        </div>
+        <div class="method-chips method-chips--kpi">
+          @if (reg.sessionCashMembership > 0) {
+            <span class="method-chip method-chip--membership"
+              >Membresías {{ reg.sessionCashMembership | cop }}</span
+            >
+          }
+          @if (reg.sessionCashDayWorkout > 0) {
+            <span class="method-chip method-chip--workout"
+              >Entrenos {{ reg.sessionCashDayWorkout | cop }}</span
+            >
+          }
+          @if (reg.sessionCashSportsDance > 0) {
+            <span class="method-chip method-chip--dance"
+              >Bailes {{ reg.sessionCashSportsDance | cop }}</span
+            >
+          }
+          @if (sessionCashBillingTotal(reg) === 0) {
+            <span class="kpi-card__sub">Sin cobros en efectivo aún</span>
+          }
+        </div>
+      </article>
       @if (efectivoEnCaja(); as neto) {
         <article class="kpi-card kpi-card--net">
           <div class="kpi-card__body">
             <span class="kpi-card__label">Efectivo en caja</span>
             <strong class="kpi-card__value">{{ neto | cop }}</strong>
-            <span class="kpi-card__sub">Inicio + cobros efectivo − gastos efectivo</span>
+            <span class="kpi-card__sub"
+              >Inicio + productos efectivo + facturación efectivo − gastos efectivo</span
+            >
           </div>
         </article>
       }
@@ -437,127 +492,550 @@
       <time class="billing-summary__date">{{ s.date | date: "EEEE, d 'de' MMMM" }}</time>
     </header>
 
-    <div class="summary-layout">
-      <section class="summary-layout__group" aria-labelledby="summary-income-title">
-        <h4 id="summary-income-title" class="billing-summary__section-title">Ingresos por concepto</h4>
-        <div class="summary-kpi summary-kpi--concepts">
-          <article class="summary-kpi__card">
-            <div class="summary-kpi__body">
-              <span class="summary-kpi__label">Entrenos del día</span>
-              <strong class="summary-kpi__amount">{{ s.dayWorkoutTotal | cop }}</strong>
-              <span class="summary-kpi__meta">{{ s.dayWorkoutCount }} registros</span>
-            </div>
-            <div class="method-chips">
-              @for (pm of paymentMethods; track pm.value) {
-                @if (hasMethodAmount(s.dayWorkoutByMethod, pm.value)) {
-                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.dayWorkoutByMethod, pm.value) | cop }}</span>
-                }
-              }
-            </div>
-          </article>
-          <article class="summary-kpi__card">
-            <div class="summary-kpi__body">
-              <span class="summary-kpi__label">Bailes deportivos</span>
-              <strong class="summary-kpi__amount">{{ s.sportsDanceTotal | cop }}</strong>
-              <span class="summary-kpi__meta">{{ s.sportsDanceCount }} registros</span>
-            </div>
-            <div class="method-chips">
-              @for (pm of paymentMethods; track pm.value) {
-                @if (hasMethodAmount(s.sportsDanceByMethod, pm.value)) {
-                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.sportsDanceByMethod, pm.value) | cop }}</span>
-                }
-              }
-            </div>
-          </article>
-          <article class="summary-kpi__card">
-            <div class="summary-kpi__body">
-              <span class="summary-kpi__label">Membresías</span>
-              <strong class="summary-kpi__amount">{{ s.membershipTotal | cop }}</strong>
-              <span class="summary-kpi__meta">{{ s.membershipCount }} pagos</span>
-            </div>
-            <div class="method-chips">
-              @for (pm of paymentMethods; track pm.value) {
-                @if (hasMethodAmount(s.membershipByMethod, pm.value)) {
-                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.membershipByMethod, pm.value) | cop }}</span>
-                }
-              }
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="summary-layout__group" aria-labelledby="summary-totals-title">
+    <section class="billing-summary__totals-block" aria-labelledby="summary-totals-title">
+      <div class="billing-summary__totals-bar">
         <h4 id="summary-totals-title" class="billing-summary__section-title">Totales del día</h4>
-        <div class="summary-kpi summary-kpi--totals">
-          <article class="summary-kpi__card summary-kpi__card--income-total">
-            <div class="summary-kpi__body">
-              <span class="summary-kpi__label">Total ingresos</span>
-              <strong class="summary-kpi__amount summary-kpi__amount--hero">{{ s.grandTotal | cop }}</strong>
-            </div>
-            <div class="method-chips">
-              @for (pm of paymentMethods; track pm.value) {
-                @if (hasMethodAmount(s.incomeByMethod, pm.value)) {
-                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.incomeByMethod, pm.value) | cop }}</span>
-                }
-              }
-            </div>
-          </article>
-          <article class="summary-kpi__card summary-kpi__card--expense">
-            <div class="summary-kpi__body">
-              <span class="summary-kpi__label">Gastos del día</span>
-              <strong class="summary-kpi__amount">{{ s.expensesTotal | cop }}</strong>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="openIncomeByConceptModal()">
+          Ver ingresos por concepto
+        </button>
+      </div>
+      <div class="summary-kpi summary-kpi--totals">
+        <article class="summary-kpi__card summary-kpi__card--income-total">
+          <div class="summary-kpi__body">
+            <span class="summary-kpi__label">Total ingresos</span>
+            <strong class="summary-kpi__amount summary-kpi__amount--hero">{{ s.grandTotal | cop }}</strong>
+            @if (hasAnyMethodAmount(s.incomeByMethod)) {
+              <div class="summary-kpi__footer">
+                <span class="summary-kpi__meta">Desglose del día</span>
+                <button
+                  type="button"
+                  class="summary-kpi__breakdown-btn"
+                  (click)="openSummaryBreakdown('Total ingresos', s.incomeByMethod, s.grandTotal)"
+                >
+                  Medios de pago
+                </button>
+              </div>
+            }
+          </div>
+        </article>
+        <article class="summary-kpi__card summary-kpi__card--expense">
+          <div class="summary-kpi__body">
+            <span class="summary-kpi__label">Gastos del día</span>
+            <strong class="summary-kpi__amount">{{ s.expensesTotal | cop }}</strong>
+            <div class="summary-kpi__footer">
               <span class="summary-kpi__meta">{{ s.expenseCount }} registros</span>
-            </div>
-            <div class="method-chips">
-              @for (pm of paymentMethods; track pm.value) {
-                @if (hasMethodAmount(s.expensesByMethod, pm.value)) {
-                  <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(s.expensesByMethod, pm.value) | cop }}</span>
-                }
+              @if (hasAnyMethodAmount(s.expensesByMethod)) {
+                <button
+                  type="button"
+                  class="summary-kpi__breakdown-btn"
+                  (click)="openSummaryBreakdown('Gastos del día', s.expensesByMethod, s.expensesTotal)"
+                >
+                  Medios de pago
+                </button>
               }
             </div>
-          </article>
-        </div>
-      </section>
-    </div>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <div class="movements-panel panel">
       <header class="movements-panel__head">
-        <h4>Movimientos de hoy</h4>
-        <span class="movements-panel__count">{{ payments().length }} registros</span>
+        <div class="movements-panel__brand">
+          <span class="movements-panel__icon" aria-hidden="true">📋</span>
+          <div class="movements-panel__titles">
+            <h4 id="movements-day-title">Movimientos de hoy</h4>
+            <p class="movements-panel__subtitle">Cobros registrados en la caja del día</p>
+          </div>
+        </div>
+        <div class="movements-panel__stats">
+          <span class="movements-panel__badge">{{ payments().length }} registros</span>
+          <span class="movements-panel__total">{{ paymentsDayTotal() | cop }}</span>
+          @if (payments().length > 0) {
+            <label class="movements-panel__pagesize">
+              Filas
+              <select
+                [value]="movementsPageSize()"
+                (change)="onMovementsPageSizeChange($any($event.target).value)"
+              >
+                @for (size of tablePageSizes; track size) {
+                  <option [value]="size">{{ size }}</option>
+                }
+              </select>
+            </label>
+          }
+        </div>
       </header>
-      <app-data-table
-        class="movements-data-table"
-        [rows]="payments()"
-        [columns]="paymentColumns"
-        [rowTrack]="trackPaymentRow"
-        [showSearch]="false"
-        [showPageSize]="true"
-        [showPagination]="true"
-        [showRecordCount]="true"
-        [pageSizes]="tablePageSizes"
-        initialSortColumnId="time"
-        [initialSortDescending]="true"
-        emptyMessage="Sin movimientos registrados."
-        [pageSizeDefault]="10"
-        [showActions]="isSuperAdmin()"
-      >
-        <ng-template #actions let-row>
-          <button
-            type="button"
-            class="btn btn-delete btn-sm"
-            (click)="deletePayment(row, $event)"
-            [disabled]="deletingPaymentId() === row.id"
-          >
-            {{ deletingPaymentId() === row.id ? '…' : 'Eliminar' }}
-          </button>
-        </ng-template>
-      </app-data-table>
+
+      @if (payments().length === 0) {
+        <p class="movements-panel__empty muted">Sin movimientos registrados.</p>
+      } @else {
+        <div class="movements-panel__table-wrap">
+          <table class="movements-table">
+            <thead>
+              <tr>
+                <th class="movements-th movements-th--time">Hora</th>
+                <th class="movements-th movements-th--type">Concepto</th>
+                <th class="movements-th movements-th--member">Afiliado</th>
+                <th class="movements-th movements-th--user">Registró</th>
+                <th class="movements-th movements-th--method">Medio de pago</th>
+                <th class="movements-th movements-th--amount">Monto</th>
+                @if (isSuperAdmin()) {
+                  <th class="movements-th movements-th--actions">Acciones</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of paginatedDayPayments(); track p.id) {
+                <tr>
+                  <td class="col-time">{{ formatPaymentTime(p.createdAt) }}</td>
+                  <td class="col-type">
+                    <span [class]="paymentTypeBadgeClass(p.paymentType)">{{ p.paymentTypeLabel }}</span>
+                  </td>
+                  <td class="col-member">{{ p.memberName }}</td>
+                  <td class="col-recorded-by">{{ p.recordedByEmployeeName }}</td>
+                  <td class="col-method">{{ p.paymentMethodLabel }}</td>
+                  <td class="col-amount">{{ p.amount | cop }}</td>
+                  @if (isSuperAdmin()) {
+                    <td class="col-actions">
+                      <button
+                        type="button"
+                        class="btn btn-delete btn-sm"
+                        (click)="deletePayment(p, $event)"
+                        [disabled]="deletingPaymentId() === p.id"
+                      >
+                        {{ deletingPaymentId() === p.id ? '…' : 'Eliminar' }}
+                      </button>
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (movementsTotalPages() > 1) {
+          <footer class="movements-panel__pager">
+            <span
+              >Mostrando {{ movementsPageStart() }}–{{ movementsPageEnd() }} de
+              {{ sortedDayPayments().length }}</span
+            >
+            <div class="movements-panel__pager-btns">
+              <button
+                type="button"
+                class="secondary"
+                [disabled]="movementsPage() <= 1"
+                (click)="goToMovementsPage(movementsPage() - 1)"
+              >
+                Anterior
+              </button>
+              <span>Página {{ movementsPage() }} / {{ movementsTotalPages() }}</span>
+              <button
+                type="button"
+                class="secondary"
+                [disabled]="movementsPage() >= movementsTotalPages()"
+                (click)="goToMovementsPage(movementsPage() + 1)"
+              >
+                Siguiente
+              </button>
+            </div>
+          </footer>
+        }
+      }
     </div>
   </section>
 }
 
   </div>
 </div>
+
+@if (incomeByConceptModalOpen() && summary(); as s) {
+  <div class="modal-backdrop" (click)="closeIncomeByConceptModal()">
+    <div
+      class="modal-panel modal-panel--income-concepts"
+      role="dialog"
+      aria-labelledby="income-concepts-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="income-concepts-modal__head">
+        <div class="income-concepts-modal__title-wrap">
+          <span class="income-concepts-modal__icon" aria-hidden="true">📊</span>
+          <div>
+            <h3 id="income-concepts-title">Ingresos por concepto</h3>
+            <time class="income-concepts-modal__date">{{ s.date | date: "EEEE, d 'de' MMMM" }}</time>
+          </div>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeIncomeByConceptModal()">
+          ×
+        </button>
+      </header>
+
+      <div class="income-concepts-grid">
+        <article
+          class="income-concept-card"
+          [class.income-concept-card--active]="hasConceptActivity(s.dayWorkoutTotal, s.dayWorkoutCount)"
+          [class.income-concept-card--empty]="!hasConceptActivity(s.dayWorkoutTotal, s.dayWorkoutCount)"
+        >
+          <span class="income-concept-card__label">Entrenos del día</span>
+          <strong class="income-concept-card__amount">{{ s.dayWorkoutTotal | cop }}</strong>
+          <footer class="income-concept-card__footer">
+            <span class="income-concept-card__count">{{ movementCountLabel(s.dayWorkoutCount) }}</span>
+            @if (hasAnyMethodAmount(s.dayWorkoutByMethod)) {
+              <button
+                type="button"
+                class="income-concept-card__methods-btn"
+                (click)="openSummaryBreakdown('Entrenos del día', s.dayWorkoutByMethod, s.dayWorkoutTotal)"
+              >
+                Ver medios de pago
+              </button>
+            } @else {
+              <span class="income-concept-card__hint">Sin cobros hoy</span>
+            }
+          </footer>
+        </article>
+
+        <article
+          class="income-concept-card"
+          [class.income-concept-card--active]="hasConceptActivity(s.sportsDanceTotal, s.sportsDanceCount)"
+          [class.income-concept-card--empty]="!hasConceptActivity(s.sportsDanceTotal, s.sportsDanceCount)"
+        >
+          <span class="income-concept-card__label">Bailes deportivos</span>
+          <strong class="income-concept-card__amount">{{ s.sportsDanceTotal | cop }}</strong>
+          <footer class="income-concept-card__footer">
+            <span class="income-concept-card__count">{{ movementCountLabel(s.sportsDanceCount) }}</span>
+            @if (hasAnyMethodAmount(s.sportsDanceByMethod)) {
+              <button
+                type="button"
+                class="income-concept-card__methods-btn"
+                (click)="openSummaryBreakdown('Bailes deportivos', s.sportsDanceByMethod, s.sportsDanceTotal)"
+              >
+                Ver medios de pago
+              </button>
+            } @else {
+              <span class="income-concept-card__hint">Sin cobros hoy</span>
+            }
+          </footer>
+        </article>
+
+        <article
+          class="income-concept-card"
+          [class.income-concept-card--active]="hasConceptActivity(s.membershipTotal, s.membershipCount)"
+          [class.income-concept-card--empty]="!hasConceptActivity(s.membershipTotal, s.membershipCount)"
+        >
+          <span class="income-concept-card__label">Membresías</span>
+          <strong class="income-concept-card__amount">{{ s.membershipTotal | cop }}</strong>
+          <footer class="income-concept-card__footer">
+            <span class="income-concept-card__count">{{ movementCountLabel(s.membershipCount) }}</span>
+            @if (hasAnyMethodAmount(s.membershipByMethod)) {
+              <button
+                type="button"
+                class="income-concept-card__methods-btn"
+                (click)="openSummaryBreakdown('Membresías', s.membershipByMethod, s.membershipTotal)"
+              >
+                Ver medios de pago
+              </button>
+            } @else {
+              <span class="income-concept-card__hint">Sin cobros hoy</span>
+            }
+          </footer>
+        </article>
+      </div>
+
+      <footer class="income-concepts-modal__foot">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="closeIncomeByConceptModal()">Cerrar</button>
+      </footer>
+    </div>
+  </div>
+}
+
+@if (summaryBreakdownModal(); as breakdown) {
+  <div class="modal-backdrop modal-backdrop--stack" (click)="closeSummaryBreakdown()">
+    <div
+      class="modal-panel modal-panel--breakdown"
+      role="dialog"
+      aria-labelledby="summary-breakdown-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">💳</span>
+          <h3 id="summary-breakdown-title">{{ breakdown.title }}</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeSummaryBreakdown()">
+          ×
+        </button>
+      </header>
+      <p class="breakdown-modal__total">
+        Total: <strong>{{ breakdown.total | cop }}</strong>
+      </p>
+      <ul class="breakdown-modal__list">
+        @for (pm of paymentMethods; track pm.value) {
+          @if (hasMethodAmount(breakdown.map, pm.value)) {
+            <li class="breakdown-modal__row">
+              <span [class]="methodChipClass(pm.value)">{{ pm.label }}</span>
+              <strong>{{ methodTotal(breakdown.map, pm.value) | cop }}</strong>
+            </li>
+          }
+        }
+      </ul>
+      <div class="modal-actions modal-actions--footer">
+        <button type="button" class="btn btn-secondary" (click)="closeSummaryBreakdown()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (closeCajaModal() && closeCajaPreview(); as preview) {
+  @if (openRegister(); as reg) {
+    <div class="modal-backdrop close-caja-backdrop" (click)="closeCloseCajaModal()">
+      <div
+        class="modal-panel modal-panel--close-caja"
+        role="dialog"
+        aria-labelledby="close-caja-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="close-caja-modal__head">
+          <div class="close-caja-modal__title-wrap">
+            <span class="close-caja-modal__icon" aria-hidden="true">🔒</span>
+            <div>
+              <h3 id="close-caja-title">Cerrar caja del día</h3>
+              <p class="close-caja-modal__subtitle">Cuente el efectivo y confirme el inventario</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeCloseCajaModal()">×</button>
+        </header>
+
+        <div class="close-caja-modal__body">
+          <div class="close-caja-modal__top">
+          <div class="close-caja-compare" [class.close-caja-compare--ok]="closeCashMatches()">
+            <article class="close-caja-compare__card">
+              <span class="close-caja-compare__label">Usted contó</span>
+              <strong class="close-caja-compare__value">{{ closeCashTotal() | cop }}</strong>
+              <span class="close-caja-compare__meta"
+                >Billetes {{ closeBillTotal() | cop }} · Monedas {{ closeCoinTotal() | cop }}</span
+              >
+            </article>
+            <span class="close-caja-compare__vs" aria-hidden="true">=</span>
+            <article class="close-caja-compare__card close-caja-compare__card--expected">
+              <span class="close-caja-compare__label">Debe haber</span>
+              <strong class="close-caja-compare__value">{{ closeExpectedCashRounded() | cop }}</strong>
+              @if (closeCashMatches()) {
+                <span class="close-caja-compare__status close-caja-compare__status--ok">Cuadra</span>
+              } @else if (closeCashDiff() < 0) {
+                <span class="close-caja-compare__status close-caja-compare__status--warn">
+                  Falta {{ -closeCashDiff() | cop }}
+                </span>
+              } @else {
+                <span class="close-caja-compare__status close-caja-compare__status--info">
+                  Sobra {{ closeCashDiff() | cop }}
+                </span>
+              }
+            </article>
+          </div>
+
+          <section class="close-caja-breakdown">
+            <h4 class="close-caja-breakdown__title">¿De dónde sale el total esperado?</h4>
+            <dl class="close-caja-breakdown__list">
+              <div class="close-caja-breakdown__row">
+                <dt>Efectivo inicial</dt>
+                <dd>+ {{ reg.openingCashAmount | cop }}</dd>
+              </div>
+              <div class="close-caja-breakdown__row">
+                <dt>Productos vendidos (efectivo, todos los turnos)</dt>
+                <dd>+ {{ reg.dayProductSalesCash | cop }}</dd>
+              </div>
+              <div class="close-caja-breakdown__row close-caja-breakdown__row--group">
+                <dt>Facturación en efectivo</dt>
+                <dd>+ {{ sessionCashBillingTotal(reg) | cop }}</dd>
+              </div>
+              @if (reg.sessionCashMembership > 0) {
+                <div class="close-caja-breakdown__chip-row">
+                  <span>Membresías</span>
+                  <span>{{ reg.sessionCashMembership | cop }}</span>
+                </div>
+              }
+              @if (reg.sessionCashDayWorkout > 0) {
+                <div class="close-caja-breakdown__chip-row">
+                  <span>Entrenos</span>
+                  <span>{{ reg.sessionCashDayWorkout | cop }}</span>
+                </div>
+              }
+              @if (reg.sessionCashSportsDance > 0) {
+                <div class="close-caja-breakdown__chip-row">
+                  <span>Bailes</span>
+                  <span>{{ reg.sessionCashSportsDance | cop }}</span>
+                </div>
+              }
+              @if (closeRegisterCashExpenses(reg) > 0) {
+                <div class="close-caja-breakdown__row close-caja-breakdown__row--minus">
+                  <dt>Gastos en efectivo</dt>
+                  <dd>− {{ closeRegisterCashExpenses(reg) | cop }}</dd>
+                </div>
+              }
+              <div class="close-caja-breakdown__row close-caja-breakdown__row--sub">
+                <dt>Efectivo en caja (sistema)</dt>
+                <dd>{{ preview.cashInDrawer | cop }}</dd>
+              </div>
+              @if (preview.fiadoCashCollected > 0) {
+                <div class="close-caja-breakdown__row">
+                  <dt>Fiado cobrado hoy (efectivo)</dt>
+                  <dd>+ {{ preview.fiadoCashCollected | cop }}</dd>
+                </div>
+              }
+              <div class="close-caja-breakdown__row close-caja-breakdown__row--total">
+                <dt>Total a contar en caja</dt>
+                <dd>{{ closeExpectedCashRounded() | cop }}</dd>
+              </div>
+            </dl>
+            @if (closeCashDiff() !== 0) {
+              <p class="close-caja-breakdown__hint">
+                Si confirma con diferencia, se registrará un descuadre de efectivo en Descuadres de caja.
+              </p>
+            }
+          </section>
+          </div>
+
+          <section class="close-caja-cash">
+            <h4 class="close-caja-section-title">Conteo de billetes y monedas</h4>
+            <div class="close-caja-cash__grid">
+            <div class="close-caja-denom-block close-caja-denom-block--bills">
+              <div class="close-caja-denom-block__head">
+                <span>Billetes</span>
+                <strong>{{ closeBillTotal() | cop }}</strong>
+              </div>
+              <table class="close-caja-denom-table">
+                <thead>
+                  <tr>
+                    <th>Valor</th>
+                    <th>Cantidad</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (d of billDenominations; track d.key) {
+                    <tr>
+                      <td>{{ d.label }}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          class="close-caja-denom-input"
+                          [disabled]="closingCaja()"
+                          [ngModel]="closeCash()[d.key]"
+                          (ngModelChange)="updateCloseCash(d.key, $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                        />
+                      </td>
+                      <td class="col-amount">{{ (closeCash()[d.key] || 0) * d.value | cop }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="close-caja-denom-block close-caja-denom-block--coins">
+              <div class="close-caja-denom-block__head">
+                <span>Monedas</span>
+                <strong>{{ closeCoinTotal() | cop }}</strong>
+              </div>
+              <table class="close-caja-denom-table">
+                <thead>
+                  <tr>
+                    <th>Valor</th>
+                    <th>Cantidad</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (d of coinDenominations; track d.key) {
+                    <tr>
+                      <td>{{ d.label }}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          class="close-caja-denom-input"
+                          [disabled]="closingCaja()"
+                          [ngModel]="closeCash()[d.key]"
+                          (ngModelChange)="updateCloseCash(d.key, $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                        />
+                      </td>
+                      <td class="col-amount">{{ (closeCash()[d.key] || 0) * d.value | cop }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            </div>
+          </section>
+
+          @if (preview.products.length > 0) {
+            <section class="close-caja-inventory">
+              <div class="close-caja-inventory__head">
+                <h4 class="close-caja-section-title">Conteo de inventario</h4>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="fillCloseInventoryExpected()">
+                  Copiar del sistema
+                </button>
+              </div>
+              <div class="close-caja-inventory-wrap">
+                <table class="close-caja-inventory-table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Sistema</th>
+                      <th>Contó</th>
+                      <th>Faltan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of preview.products; track line.productId) {
+                      <tr [class.has-missing]="closeInventoryMissingQty(line) > 0">
+                        <td class="col-product">
+                          <strong>{{ line.productName }}</strong>
+                          @if (line.category) {
+                            <span class="col-product__cat">{{ line.category }}</span>
+                          }
+                        </td>
+                        <td class="col-num">{{ line.expectedQuantity }}</td>
+                        <td class="col-num">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            class="close-caja-inventory-input"
+                            [value]="closeInventoryCounts()[line.productId] ?? 0"
+                            (input)="setCloseInventoryCount(line.productId, $any($event.target).value)"
+                          />
+                        </td>
+                        <td class="col-missing">{{ closeInventoryMissingQty(line) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @if (hasCloseInventoryMissing()) {
+                <p class="close-caja-warn">
+                  Hay productos faltantes. Al confirmar se registrará un descuadre de inventario con el detalle
+                  de cada producto.
+                </p>
+              }
+            </section>
+          }
+        </div>
+
+        <footer class="close-caja-modal__foot">
+          <button type="button" class="btn btn-secondary" [disabled]="closingCaja()" (click)="closeCloseCajaModal()">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-warn" [disabled]="closingCaja()" (click)="confirmCloseCaja()">
+            {{ closingCaja() ? 'Cerrando…' : 'Confirmar cierre de caja' }}
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+}
 
 @if (openCajaModal()) {
   <div class="modal-backdrop" (click)="closeOpenCajaModal()">

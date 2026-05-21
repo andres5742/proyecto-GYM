@@ -1,8 +1,11 @@
 package com.gym.management.controller;
 
+import com.gym.management.dto.BillingCashRegisterClosePreviewResponse;
+import com.gym.management.dto.BillingCashRegisterCloseResultResponse;
 import com.gym.management.dto.BillingCashRegisterExpenseRequest;
 import com.gym.management.dto.BillingCashRegisterExpenseResponse;
 import com.gym.management.dto.BillingCashRegisterResponse;
+import com.gym.management.dto.CloseBillingCashRegisterRequest;
 import com.gym.management.dto.OpenBillingCashRegisterRequest;
 import com.gym.management.service.BillingCashRegisterService;
 import jakarta.validation.Valid;
@@ -55,9 +58,15 @@ public class BillingCashRegisterController {
         return cashRegisterService.open(request);
     }
 
+    @GetMapping("/{id}/close-preview")
+    public BillingCashRegisterClosePreviewResponse closePreview(@PathVariable Long id) {
+        return cashRegisterService.closePreview(id);
+    }
+
     @PostMapping("/{id}/close")
-    public BillingCashRegisterResponse close(@PathVariable Long id) {
-        return cashRegisterService.close(id);
+    public BillingCashRegisterCloseResultResponse close(
+            @PathVariable Long id, @Valid @RequestBody CloseBillingCashRegisterRequest request) {
+        return cashRegisterService.close(id, request);
     }
 
     @GetMapping("/expenses")

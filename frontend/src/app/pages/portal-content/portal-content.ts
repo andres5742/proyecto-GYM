@@ -351,7 +351,9 @@ export class PortalContentPage implements OnInit {
     const action = id ? this.wallPostService.update(id, request) : this.wallPostService.create(request);
     action.subscribe({
       next: () => {
-        this.message.set(id ? 'Publicación actualizada' : 'Publicación creada');
+        this.message.set(
+          id ? 'Publicación actualizada en el muro' : 'Publicación publicada en el muro de inicio',
+        );
         this.saving.set(false);
         this.startPostCreate();
         this.loadPosts();

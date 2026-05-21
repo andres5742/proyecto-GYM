@@ -43,6 +43,10 @@ public class EmployeeCashShortfall {
     @JoinColumn(name = "shift_handover_id", unique = true)
     private ShiftHandover shiftHandover;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "billing_cash_register_id", unique = true)
+    private BillingCashRegister billingCashRegister;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "work_shift_id", nullable = false)
     private WorkShift workShift;
@@ -65,8 +69,17 @@ public class EmployeeCashShortfall {
     @Builder.Default
     private CashShortfallStatus status = CashShortfallStatus.PENDING;
 
-    @Column(length = 500)
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private CashShortfallKind kind = CashShortfallKind.CASH_HANDOVER;
+
+    @Column(columnDefinition = "TEXT")
     private String notes;
+
+    /** JSON con líneas de producto faltante (solo kind = INVENTORY). */
+    @Column(name = "inventory_missing_json", columnDefinition = "TEXT")
+    private String inventoryMissingJson;
 
     private Instant settledAt;
 

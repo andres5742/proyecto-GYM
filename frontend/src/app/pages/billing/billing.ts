@@ -21,6 +21,15 @@ import {
   isTiqueteraPlan,
   MembershipPlan,
 } from '../../core/models/plan.model';
+import {
+  BillingCashRegisterClosePreview,
+  ProductInventoryLine,
+} from '../../core/models/billing-close.model';
+import {
+  CASH_DENOMINATIONS,
+  emptyCashForm,
+  ShiftHandoverCashForm,
+} from '../../core/models/shift-handover.model';
 import { BILLING_PAYMENT_METHODS, PaymentMethod } from '../../core/models/sale.model';
 import { AuthService } from '../../core/services/auth.service';
 import { BillingContextService } from '../../core/services/billing-context.service';
@@ -141,6 +150,16 @@ export class BillingPage implements OnInit {
   protected readonly deletingPaymentId = signal<number | null>(null);
 
   protected readonly openCajaModal = signal(false);
+  protected readonly closeCajaModal = signal(false);
+  protected readonly closeCajaPreview = signal<BillingCashRegisterClosePreview | null>(null);
+  protected readonly closeCash = signal<ShiftHandoverCashForm>(emptyCashForm());
+  protected readonly closeInventoryCounts = signal<Record<number, number>>({});
+  protected readonly billDenominations = CASH_DENOMINATIONS.filter((d) => d.type === 'bill').sort(
+    (a, b) => b.value - a.value,
+  );
+  protected readonly coinDenominations = CASH_DENOMINATIONS.filter((d) => d.type === 'coin').sort(
+    (a, b) => b.value - a.value,
+  );
   /** true = reabrir caja cerrada hoy (solo super admin) */
   protected readonly reopeningCaja = signal(false);
   protected readonly expensesDayModalOpen = signal(false);
@@ -155,6 +174,12 @@ export class BillingPage implements OnInit {
     this.dayExpenses().reduce((sum, e) => sum + e.amount, 0),
   );
   protected readonly monthlyModalOpen = signal(false);
+  protected readonly incomeByConceptModalOpen = signal(false);
+  protected readonly summaryBreakdownModal = signal<{
+    title: string;
+    total: number;
+    map: Record<string, number>;
+  } | null>(null);
   protected readonly monthlyLoading = signal(false);
   protected readonly monthlySummary = signal<BillingMonthlySummary | null>(null);
   protected readonly selectedYear = signal(new Date().getFullYear());
@@ -322,73 +347,80 @@ export class BillingPage implements OnInit {
     },
   ];
 
-  protected readonly trackPaymentRow = (r: BillingPayment) => r.id;
+  protected readonly paymentsDayTotal = computed(() =>
+    this.payments().reduce((sum, p) => sum + p.amount, 0),
+  );
 
-  protected readonly paymentColumns: DataTableColumn<BillingPayment>[] = [
-    {
-      id: 'time',
-      header: 'Hora',
-      sortable: true,
-      sortValue: (r) => r.createdAt,
-      cell: (r) => formatPaymentTime(r.createdAt),
-      cellClass: () => 'col-time',
-    },
-    {
-      id: 'type',
-      header: 'Tipo',
-      sortable: true,
-      sortValue: (r) => r.paymentTypeLabel,
-      cell: (r) => r.paymentTypeLabel,
-      cellClass: () => 'col-type',
-      cellInnerClass: (r) => this.paymentTypeBadgeClass(r.paymentType),
-    },
-    {
-      id: 'member',
-      header: 'Afiliado',
-      sortable: true,
-      sortValue: (r) => r.memberName,
-      cell: (r) => r.memberName,
-      cellClass: () => 'col-member',
-    },
-    {
-      id: 'recordedBy',
-      header: 'Registró',
-      sortable: true,
-      sortValue: (r) => r.recordedByEmployeeName,
-      cell: (r) => r.recordedByEmployeeName,
-      cellClass: () => 'col-recorded-by',
-    },
-    {
-      id: 'method',
-      header: 'Medio',
-      sortable: true,
-      sortValue: (r) => r.paymentMethodLabel,
-      cell: (r) => r.paymentMethodLabel,
-      cellClass: () => 'col-method',
-    },
-    {
-      id: 'amount',
-      header: 'Monto',
-      sortable: true,
-      sortValue: (r) => r.amount,
-      cell: (r) => formatPaymentAmount(r.amount),
-      headerClass: 'col-amount',
-      cellClass: () => 'col-amount',
-    },
-  ];
+  protected readonly movementsPageSize = signal(10);
+  protected readonly movementsPage = signal(1);
+
+  protected readonly sortedDayPayments = computed(() =>
+    [...this.payments()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  );
+
+  protected readonly movementsTotalPages = computed(() =>
+    Math.max(1, Math.ceil(this.sortedDayPayments().length / this.movementsPageSize())),
+  );
+
+  protected readonly paginatedDayPayments = computed(() => {
+    const page = Math.min(this.movementsPage(), this.movementsTotalPages());
+    const start = (page - 1) * this.movementsPageSize();
+    return this.sortedDayPayments().slice(start, start + this.movementsPageSize());
+  });
+
+  protected readonly movementsPageStart = computed(() =>
+    this.sortedDayPayments().length === 0
+      ? 0
+      : (Math.min(this.movementsPage(), this.movementsTotalPages()) - 1) *
+          this.movementsPageSize() +
+        1,
+  );
+
+  protected readonly movementsPageEnd = computed(() =>
+    Math.min(this.movementsPageStart() + this.movementsPageSize() - 1, this.sortedDayPayments().length),
+  );
 
   protected readonly activeRegister = computed(
     () => this.openRegister() ?? this.closedRegisterToday(),
   );
+
+  protected readonly sessionCashBillingTotal = (reg: BillingCashRegister): number =>
+    (reg.sessionCashMembership ?? 0) +
+    (reg.sessionCashDayWorkout ?? 0) +
+    (reg.sessionCashSportsDance ?? 0);
+
+  protected readonly closeBillTotal = computed(() =>
+    this.billDenominations.reduce((sum, d) => sum + (this.closeCash()[d.key] || 0) * d.value, 0),
+  );
+  protected readonly closeCoinTotal = computed(() =>
+    this.coinDenominations.reduce((sum, d) => sum + (this.closeCash()[d.key] || 0) * d.value, 0),
+  );
+  protected readonly closeCashTotal = computed(() => this.closeBillTotal() + this.closeCoinTotal());
+  protected readonly closeExpectedCashRounded = computed(() =>
+    Math.round(this.closeCajaPreview()?.expectedCashTotal ?? 0),
+  );
+
+  protected readonly closeCashDiff = computed(() => {
+    return this.closeCashTotal() - this.closeExpectedCashRounded();
+  });
+
+  protected readonly closeCashMatches = computed(() => this.closeCashDiff() === 0);
+
+  protected closeRegisterCashExpenses(reg: BillingCashRegister): number {
+    return this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
+  }
 
   protected readonly efectivoEnCaja = computed(() => {
     const reg = this.activeRegister();
     if (!reg) {
       return null;
     }
-    const cashIn = this.methodTotal(reg.sessionIncomeByMethod, 'CASH');
+    if (reg.cashInDrawer != null && reg.cashInDrawer !== undefined) {
+      return reg.cashInDrawer;
+    }
+    const billingCash = this.methodTotal(reg.sessionIncomeByMethod, 'CASH');
     const cashOut = this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
-    return reg.openingCashAmount + cashIn - cashOut;
+    return reg.openingCashAmount + (reg.dayProductSalesCash ?? 0) + billingCash - cashOut;
   });
 
   protected readonly dayExpensesByMethod = computed(() => {
@@ -476,7 +508,10 @@ export class BillingPage implements OnInit {
       error: (err) => this.message.set(httpErrorMessage(err)),
     });
     this.billingService.listPayments().subscribe({
-      next: (p) => this.payments.set(p),
+      next: (p) => {
+        this.payments.set(p);
+        this.movementsPage.set(1);
+      },
       error: (err) => this.message.set(httpErrorMessage(err)),
     });
     this.loadDayExpenses();
@@ -579,28 +614,111 @@ export class BillingPage implements OnInit {
     if (!reg) {
       return;
     }
-    if (
-      !confirm(
-        `¿Cerrar la caja del día?\nSolo se cierra una vez al día. Después no podrá abrirla de nuevo hasta mañana.`,
-      )
-    ) {
-      return;
-    }
     this.closingCaja.set(true);
-    this.billingService.closeCashRegister(reg.id).subscribe({
-      next: (closed) => {
-        this.message.set('Caja del día cerrada');
+    this.billingService.closeCashRegisterPreview(reg.id).subscribe({
+      next: (preview) => {
+        this.closeCajaPreview.set(preview);
+        this.closeCash.set(emptyCashForm());
+        const counts: Record<number, number> = {};
+        for (const p of preview.products) {
+          counts[p.productId] = p.expectedQuantity;
+        }
+        this.closeInventoryCounts.set(counts);
+        this.closeCajaModal.set(true);
         this.closingCaja.set(false);
-        this.openRegister.set(null);
-        this.todayRegister.set(closed);
-        this.billingContext.setOpenCashRegister(null);
-        this.refreshCashRegister();
       },
       error: (err) => {
         this.message.set(httpErrorMessage(err));
         this.closingCaja.set(false);
       },
     });
+  }
+
+  closeCloseCajaModal(): void {
+    if (!this.closingCaja()) {
+      this.closeCajaModal.set(false);
+      this.closeCajaPreview.set(null);
+    }
+  }
+
+  protected updateCloseCash(key: keyof ShiftHandoverCashForm, value: string | number): void {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    this.closeCash.update((c) => ({ ...c, [key]: n }));
+  }
+
+  protected setCloseInventoryCount(productId: number, value: string | number): void {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    this.closeInventoryCounts.update((m) => ({ ...m, [productId]: n }));
+  }
+
+  protected closeInventoryMissingQty(line: ProductInventoryLine): number {
+    const counted = this.closeInventoryCounts()[line.productId] ?? 0;
+    return Math.max(0, line.expectedQuantity - counted);
+  }
+
+  protected fillCloseInventoryExpected(): void {
+    const preview = this.closeCajaPreview();
+    if (!preview) {
+      return;
+    }
+    const counts: Record<number, number> = {};
+    for (const p of preview.products) {
+      counts[p.productId] = p.expectedQuantity;
+    }
+    this.closeInventoryCounts.set(counts);
+  }
+
+  protected hasCloseInventoryMissing(): boolean {
+    const preview = this.closeCajaPreview();
+    if (!preview) {
+      return false;
+    }
+    return preview.products.some((p) => this.closeInventoryMissingQty(p) > 0);
+  }
+
+  confirmCloseCaja(): void {
+    const reg = this.openRegister();
+    const preview = this.closeCajaPreview();
+    if (!reg || !preview) {
+      return;
+    }
+    if (preview.products.length > 0 && preview.products.some((p) => this.closeInventoryCounts()[p.productId] == null)) {
+      this.message.set('Confirme el conteo de todos los productos');
+      return;
+    }
+    this.closingCaja.set(true);
+    const cash = this.closeCash();
+    this.billingService
+      .closeCashRegister(reg.id, {
+        cashCount: { ...cash },
+        inventoryCounts: preview.products.map((p) => ({
+          productId: p.productId,
+          countedQuantity: this.closeInventoryCounts()[p.productId] ?? 0,
+        })),
+      })
+      .subscribe({
+        next: (result) => {
+          let msg = 'Caja del día cerrada';
+          if (result.cashShortfall) {
+            msg += `. Descuadre de efectivo: ${result.cashShortfall.shortfallAmount}`;
+          }
+          if (result.inventoryShortfall) {
+            msg += `. Descuadre de inventario: ${result.inventoryShortfall.shortfallAmount}`;
+          }
+          this.message.set(msg);
+          this.closingCaja.set(false);
+          this.closeCajaModal.set(false);
+          this.closeCajaPreview.set(null);
+          this.openRegister.set(null);
+          this.todayRegister.set(result.register);
+          this.billingContext.setOpenCashRegister(null);
+          this.refreshCashRegister();
+        },
+        error: (err) => {
+          this.message.set(httpErrorMessage(err));
+          this.closingCaja.set(false);
+        },
+      });
   }
 
   setMembershipMonthsPaid(value: number | string): void {
@@ -820,6 +938,41 @@ export class BillingPage implements OnInit {
     return this.methodTotal(map, key) > 0;
   }
 
+  hasAnyMethodAmount(map: Record<string, number> | undefined): boolean {
+    return this.paymentMethods.some((pm) => this.hasMethodAmount(map, pm.value));
+  }
+
+  protected hasConceptActivity(total: number, count: number): boolean {
+    return total > 0 || count > 0;
+  }
+
+  protected movementCountLabel(count: number): string {
+    return count === 1 ? '1 movimiento' : `${count} movimientos`;
+  }
+
+  openIncomeByConceptModal(): void {
+    this.incomeByConceptModalOpen.set(true);
+  }
+
+  closeIncomeByConceptModal(): void {
+    this.incomeByConceptModalOpen.set(false);
+  }
+
+  openSummaryBreakdown(
+    title: string,
+    map: Record<string, number> | undefined,
+    total: number,
+  ): void {
+    if (!map || !this.hasAnyMethodAmount(map)) {
+      return;
+    }
+    this.summaryBreakdownModal.set({ title, total, map });
+  }
+
+  closeSummaryBreakdown(): void {
+    this.summaryBreakdownModal.set(null);
+  }
+
   methodChipClass(method: PaymentMethod): string {
     switch (method) {
       case 'CASH':
@@ -901,14 +1054,27 @@ export class BillingPage implements OnInit {
     return this.selectedYear() < this.currentCalendarYear;
   }
 
-  hasAnyMethodAmount(map: Record<string, number> | undefined): boolean {
-    return this.paymentMethods.some((pm) => this.methodTotal(map, pm.value) > 0);
-  }
-
   hasMonthlyBreakdownRows(ms: BillingMonthlySummary): boolean {
     return (
       this.hasAnyMethodAmount(ms.byMethod) || this.hasAnyMethodAmount(ms.expensesByMethod)
     );
+  }
+
+  protected onMovementsPageSizeChange(value: string): void {
+    this.movementsPageSize.set(Number(value));
+    this.movementsPage.set(1);
+  }
+
+  protected goToMovementsPage(next: number): void {
+    this.movementsPage.set(Math.max(1, Math.min(next, this.movementsTotalPages())));
+  }
+
+  protected formatPaymentTime(value: string): string {
+    return formatPaymentTime(value);
+  }
+
+  protected formatPaymentAmount(value: number): string {
+    return formatPaymentAmount(value);
   }
 
   protected paymentTypeBadgeClass(type: BillingPayment['paymentType']): string {

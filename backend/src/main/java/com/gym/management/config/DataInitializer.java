@@ -284,6 +284,61 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureCashShortfallInventoryDetail(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_cash_shortfalls
+                        ADD COLUMN IF NOT EXISTS kind VARCHAR(20)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_cash_shortfalls
+                        ADD COLUMN IF NOT EXISTS inventory_missing_json TEXT
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE employee_cash_shortfalls
+                        SET kind = 'CASH_HANDOVER'
+                        WHERE kind IS NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_cash_shortfalls
+                        ADD COLUMN IF NOT EXISTS billing_cash_register_id BIGINT
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE employee_cash_shortfalls
+                        SET kind = 'INVENTORY'
+                        WHERE shift_handover_id IS NULL
+                          AND billing_cash_register_id IS NULL
+                          AND (notes ILIKE '%inventario%' OR inventory_missing_json IS NOT NULL)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_cash_shortfalls
+                        ALTER COLUMN notes TYPE TEXT
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_cash_shortfalls
+                        DROP CONSTRAINT IF EXISTS employee_cash_shortfalls_kind_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_cash_shortfalls
+                        ADD CONSTRAINT employee_cash_shortfalls_kind_check
+                        CHECK (kind IN ('CASH_HANDOVER', 'INVENTORY', 'CASH_REGISTER'))
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner dedupeBillingCashRegisters(JdbcTemplate jdbc) {
         return args -> {
             try {
@@ -408,16 +463,6 @@ public class DataInitializer {
                 return;
             }
             employeeRepository.save(Employee.builder()
-                    .firstName("Super")
-                    .lastName("Admin")
-                    .phone("3000000000")
-                    .username("superadmin")
-                    .passwordHash(passwordEncoder.encode("admin123"))
-                    .role(UserRole.SUPER_ADMIN)
-                    .nequiNumber("3000000000")
-                    .active(true)
-                    .build());
-            employeeRepository.save(Employee.builder()
                     .firstName("Andrés")
                     .lastName("Pérez")
                     .phone("3000000001")
@@ -427,19 +472,56 @@ public class DataInitializer {
                     .nequiNumber("3000000001")
                     .active(true)
                     .build());
-            if (employeeRepository.count() <= 1) {
-                employeeRepository.save(Employee.builder()
-                        .firstName("Carlos")
-                        .lastName("Gómez")
-                        .phone("3001234567")
-                        .username("entrenador1")
-                        .passwordHash(passwordEncoder.encode("entrenador123"))
-                        .role(UserRole.TRAINER)
-                        .nequiNumber("3001234567")
-                        .active(true)
-                        .ratingEligible(true)
-                        .build());
-            }
+            employeeRepository.save(Employee.builder()
+                    .firstName("Carlos")
+                    .lastName("Gómez")
+                    .phone("3001234567")
+                    .username("entrenador1")
+                    .passwordHash(passwordEncoder.encode("entrenador123"))
+                    .role(UserRole.TRAINER)
+                    .nequiNumber("3001234567")
+                    .active(true)
+                    .ratingEligible(true)
+                    .build());
+        };
+    }
+
+    @Bean
+    CommandLineRunner ensureSingleSuperAdminAccount() {
+        return args -> {
+            employeeRepository.findByUsernameIgnoreCase("andres.perez").ifPresentOrElse(
+                    andres -> {
+                        andres.setRole(UserRole.SUPER_ADMIN);
+                        andres.setActive(true);
+                        andres.setPasswordHash(passwordEncoder.encode("andres.perez574"));
+                        employeeRepository.save(andres);
+                    },
+                    () -> employeeRepository.save(Employee.builder()
+                            .firstName("Andrés")
+                            .lastName("Pérez")
+                            .phone("3000000001")
+                            .username("andres.perez")
+                            .passwordHash(passwordEncoder.encode("andres.perez574"))
+                            .role(UserRole.SUPER_ADMIN)
+                            .nequiNumber("3000000001")
+                            .active(true)
+                            .build()));
+
+            employeeRepository.findByUsernameIgnoreCase("superadmin").ifPresent(legacy -> {
+                employeeRepository
+                        .findByUsernameIgnoreCase("andres.perez")
+                        .ifPresent(owner -> wallPostRepository.findAll().forEach(post -> {
+                            if (post.getAuthor() != null
+                                    && post.getAuthor().getId().equals(legacy.getId())) {
+                                post.setAuthor(owner);
+                                wallPostRepository.save(post);
+                            }
+                        }));
+                legacy.setActive(false);
+                legacy.setUsername("retired.superadmin." + legacy.getId());
+                legacy.setPasswordHash(passwordEncoder.encode("disabled-" + legacy.getId()));
+                employeeRepository.save(legacy);
+            });
         };
     }
 

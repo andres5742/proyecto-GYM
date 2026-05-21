@@ -58,7 +58,7 @@
             type="button"
             class="btn btn-chip"
             (click)="openShiftAction(preset)"
-            [disabled]="openingShift()"
+            [disabled]="openingShift() || loadingInventoryPreview()"
           >
             {{ preset }}
           </button>
@@ -74,9 +74,9 @@
           type="button"
           class="btn btn-primary btn-lg"
           (click)="openShiftAction()"
-          [disabled]="openingShift()"
+          [disabled]="openingShift() || loadingInventoryPreview()"
         >
-          {{ openingShift() ? 'Abriendo...' : 'Abrir turno' }}
+          {{ openingShift() || loadingInventoryPreview() ? 'Abriendo…' : 'Abrir turno' }}
         </button>
       </div>
     </div>
@@ -525,5 +525,120 @@
         </table>
       </div>
     }
+  </div>
+}
+
+@if (inventoryModalOpen() && inventoryPreview(); as preview) {
+  <div class="inventory-modal-backdrop" (click)="closeInventoryModal()">
+    <div
+      class="inventory-open-modal"
+      role="dialog"
+      aria-labelledby="inventory-open-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="inventory-open-modal__header">
+        <div class="inventory-open-modal__title-block">
+          <span class="inventory-open-modal__icon" aria-hidden="true">📦</span>
+          <div>
+            <h3 id="inventory-open-title">Conteo de inventario</h3>
+            @if (preview.previousEmployeeName) {
+              <p class="inventory-open-modal__meta">
+                Turno anterior: <strong>{{ preview.previousShiftName }}</strong> ·
+                {{ preview.previousEmployeeName }}
+              </p>
+            }
+          </div>
+        </div>
+        <button type="button" class="inventory-open-modal__close" aria-label="Cerrar" (click)="closeInventoryModal()">
+          ×
+        </button>
+      </header>
+
+      <p class="inventory-open-modal__lead">
+        Confirme la cantidad física de cada producto antes de abrir el turno. Si hay faltantes, se actualiza el
+        inventario y se registra un descuadre al responsable del turno anterior.
+      </p>
+
+      @if (preview.products.length === 0) {
+        <div class="inventory-open-modal__empty">
+          <p>No hay productos activos en inventario.</p>
+        </div>
+      } @else {
+        <div class="inventory-open-modal__table-section">
+          <div class="inventory-open-modal__table-toolbar">
+            <span class="inventory-open-modal__count">{{ preview.products.length }} productos</span>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="fillInventoryExpected()">
+              Usar cantidades del sistema
+            </button>
+          </div>
+          <div class="inventory-open-table-wrap">
+            <table class="inventory-open-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-product">Producto</th>
+                  <th scope="col" class="col-system">Sistema</th>
+                  <th scope="col" class="col-count">Conteo físico</th>
+                  <th scope="col" class="col-missing">Faltante</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of preview.products; track line.productId) {
+                  <tr [class.has-missing]="inventoryMissingQty(line.productId) > 0">
+                    <td class="col-product">
+                      <span class="inventory-open-table__name">{{ line.productName }}</span>
+                      @if (line.category) {
+                        <span class="inventory-open-table__cat">{{ line.category }}</span>
+                      }
+                    </td>
+                    <td class="col-system">
+                      <span class="inventory-open-table__qty">{{ line.expectedQuantity }}</span>
+                    </td>
+                    <td class="col-count">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="inventory-open-table__input"
+                        [attr.aria-label]="'Conteo de ' + line.productName"
+                        [value]="inventoryCounts()[line.productId] ?? 0"
+                        (input)="setInventoryCount(line.productId, $any($event.target).value)"
+                      />
+                    </td>
+                    <td class="col-missing">
+                      <span
+                        class="inventory-open-table__missing"
+                        [class.is-positive]="inventoryMissingQty(line.productId) > 0"
+                      >
+                        {{ inventoryMissingQty(line.productId) }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        @if (hasAnyInventoryMissing()) {
+          <p class="inventory-open-modal__warn" role="status">
+            Hay productos faltantes. Al confirmar se registrará el descuadre en
+            <strong>Descuadres de caja</strong>.
+          </p>
+        }
+      }
+
+      <footer class="inventory-open-modal__footer">
+        <button type="button" class="btn btn-secondary" (click)="closeInventoryModal()" [disabled]="openingShift()">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="confirmInventoryAndOpenShift()"
+          [disabled]="openingShift() || preview.products.length === 0"
+        >
+          {{ openingShift() ? 'Abriendo…' : 'Confirmar y abrir turno' }}
+        </button>
+      </footer>
+    </div>
   </div>
 }

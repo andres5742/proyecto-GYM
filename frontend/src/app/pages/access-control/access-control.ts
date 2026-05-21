@@ -88,7 +88,9 @@ export class AccessControlPage implements OnInit {
   );
 
   protected readonly staffFingerprintEnrollments = computed(() =>
-    this.enrollments().filter((e) => e.credentialType === 'FINGERPRINT' && isStaffPerson(e)),
+    this.enrollments()
+      .filter((e) => e.credentialType === 'FINGERPRINT' && isStaffPerson(e))
+      .filter((e) => this.isTrainerVisibleInDirectory(e)),
   );
 
   protected readonly memberFaceEnrollments = computed(() =>
@@ -96,7 +98,7 @@ export class AccessControlPage implements OnInit {
   );
 
   protected readonly staffFaceEnrollments = computed(() =>
-    this.faceEnrollments().filter((e) => isStaffPerson(e)),
+    this.faceEnrollments().filter((e) => isStaffPerson(e) && this.isTrainerVisibleInDirectory(e)),
   );
 
   /** @deprecated use memberFingerprintEnrollments */
@@ -282,7 +284,12 @@ export class AccessControlPage implements OnInit {
       next: (m) => this.members.set(m),
     });
     this.employeeService.findActive().subscribe({
-      next: (t) => this.trainers.set(t),
+      next: (t) => {
+        const visible = this.auth.hasRole('SUPER_ADMIN')
+          ? t
+          : t.filter((e) => e.role !== 'SUPER_ADMIN');
+        this.trainers.set(visible);
+      },
     });
     this.accessService.listEnrollments().subscribe({
       next: (e) => this.enrollments.set(e),
@@ -549,5 +556,21 @@ export class AccessControlPage implements OnInit {
         this.clearingLogs.set(false);
       },
     });
+  }
+
+  private isTrainerVisibleInDirectory(
+    entry: Pick<BiometricEnrollResponse | FaceWebcamEnrollResponse, 'personType' | 'employeeId'>,
+  ): boolean {
+    if (!isStaffPerson(entry)) {
+      return true;
+    }
+    if (this.auth.hasRole('SUPER_ADMIN')) {
+      return true;
+    }
+    const empId = entry.employeeId;
+    if (empId == null) {
+      return true;
+    }
+    return this.trainers().some((t) => t.id === empId);
   }
 }

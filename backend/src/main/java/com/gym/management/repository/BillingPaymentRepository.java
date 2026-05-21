@@ -67,6 +67,16 @@ public interface BillingPaymentRepository extends JpaRepository<BillingPayment, 
 
     @Query(
             """
+            SELECT p.paymentType, COALESCE(SUM(p.amount), 0)
+            FROM BillingPayment p
+            WHERE p.billingCashRegister.id = :registerId
+              AND p.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+            GROUP BY p.paymentType
+            """)
+    List<Object[]> sumCashByPaymentTypeByCashRegisterId(@Param("registerId") Long registerId);
+
+    @Query(
+            """
             SELECT p.paymentMethod, COALESCE(SUM(p.amount), 0), COUNT(p)
             FROM BillingPayment p
             WHERE p.paymentDate >= :start AND p.paymentDate <= :end

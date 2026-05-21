@@ -3,6 +3,7 @@ package com.gym.management.repository;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Sale;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -57,4 +58,29 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             ORDER BY s.product.name
             """)
     List<Object[]> aggregateByProductAndPayment(@Param("shiftId") Long shiftId);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.workShift.shiftDate = :date
+            """)
+    BigDecimal sumTotalAmountByShiftDate(@Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(s) FROM Sale s WHERE s.workShift.shiftDate = :date")
+    long countSalesByShiftDate(@Param("date") LocalDate date);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.quantity), 0) FROM Sale s
+            WHERE s.workShift.shiftDate = :date
+            """)
+    long sumQuantityByShiftDate(@Param("date") LocalDate date);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.workShift.shiftDate = :date
+              AND s.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+            """)
+    BigDecimal sumCashAmountByShiftDate(@Param("date") LocalDate date);
 }

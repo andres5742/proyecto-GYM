@@ -16,10 +16,40 @@ export interface WorkShift {
   createdAt: string;
 }
 
+export interface ProductInventoryCountItem {
+  productId: number;
+  countedQuantity: number;
+}
+
+export interface ProductInventoryLine {
+  productId: number;
+  productName: string;
+  category: string;
+  expectedQuantity: number;
+  unitPrice: number;
+}
+
+export interface ShiftOpenInventoryPreview {
+  inventoryCheckRequired: boolean;
+  previousShiftId: number | null;
+  previousShiftName: string | null;
+  previousEmployeeName: string | null;
+  products: ProductInventoryLine[];
+}
+
 export interface WorkShiftRequest {
   name: string;
   shiftDate?: string;
   employeeId?: number;
+  inventoryCounts?: ProductInventoryCountItem[];
+}
+
+export interface WorkShiftOpenResult {
+  shift: WorkShift;
+  inventoryAdjusted: boolean;
+  inventoryShortfallRegistered: boolean;
+  inventoryShortfallAmount: number;
+  inventoryShortfallNotes: string | null;
 }
 
 export interface PaymentMethodTotals {

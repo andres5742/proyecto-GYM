@@ -110,6 +110,16 @@ export interface BillingCashRegister {
   sessionExpensesTotal: number;
   sessionExpensesByMethod: Record<PaymentMethod, number>;
   expenseCount: number;
+  dayProductSalesTotal: number;
+  dayProductSalesCount: number;
+  dayProductSalesShiftCount: number;
+  dayProductUnitsSold: number;
+  dayProductSalesCash: number;
+  sessionCashMembership: number;
+  sessionCashDayWorkout: number;
+  sessionCashSportsDance: number;
+  /** Inicio + productos efectivo + facturación efectivo − gastos efectivo. */
+  cashInDrawer: number;
 }
 
 export interface BillingCashRegisterExpense {

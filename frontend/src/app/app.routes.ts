@@ -19,6 +19,7 @@ import { AccessKiosk } from './pages/access-kiosk/access-kiosk';
 import { FeedbackInboxPage } from './pages/feedback-inbox/feedback-inbox';
 import { TrainerRatingsAdminPage } from './pages/trainer-ratings-admin/trainer-ratings-admin';
 import { ModulesAdminPage } from './pages/modules-admin/modules-admin';
+import { DataCleanupPage } from './pages/data-cleanup/data-cleanup';
 import { PortalContentPage } from './pages/portal-content/portal-content';
 import { BillingPage } from './pages/billing/billing';
 import { Sales } from './pages/sales/sales';
@@ -157,6 +158,12 @@ export const routes: Routes = [
       {
         path: 'modulos',
         component: ModulesAdminPage,
+        canActivate: [roleGuard],
+        data: { roles: superAdminRoles },
+      },
+      {
+        path: 'limpieza-datos',
+        component: DataCleanupPage,
         canActivate: [roleGuard],
         data: { roles: superAdminRoles },
       },

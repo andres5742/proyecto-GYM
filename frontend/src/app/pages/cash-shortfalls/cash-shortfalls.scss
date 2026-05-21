@@ -48,8 +48,13 @@
   }
 }
 
+.table-wrap {
+  overflow-x: auto;
+}
+
 .data-table {
   width: 100%;
+  min-width: 52rem;
   border-collapse: collapse;
   font-size: 0.88rem;
 
@@ -58,6 +63,7 @@
     padding: 0.55rem 0.65rem;
     text-align: left;
     border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
   }
 
   th {
@@ -65,6 +71,115 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--color-text-muted);
+  }
+
+  &--detail {
+    min-width: 0;
+
+    .col-num {
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+  }
+}
+
+.kind-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+
+  &--inventory {
+    background: var(--color-warning-soft, #fffbeb);
+    border-color: var(--color-warning-border, #fde68a);
+    color: #92400e;
+  }
+}
+
+.col-detail {
+  max-width: 16rem;
+  font-size: 0.84rem;
+}
+
+.btn-link {
+  margin-top: 0.2rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover {
+    color: var(--color-primary-hover);
+  }
+}
+
+.detail-summary {
+  display: block;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.col-actions {
+  white-space: nowrap;
+}
+
+.inventory-lines-row > td {
+  padding: 0 0.65rem 0.75rem !important;
+  background: color-mix(in srgb, var(--color-warning-soft, #fffbeb) 55%, var(--color-surface));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inventory-lines-empty {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.84rem;
+}
+
+.inventory-lines-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  table-layout: fixed;
+
+  th,
+  td {
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  }
+
+  thead th {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    background: color-mix(in srgb, var(--color-surface-muted) 80%, transparent);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .col-num {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .col-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 }
 

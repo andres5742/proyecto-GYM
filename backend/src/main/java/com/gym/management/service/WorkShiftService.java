@@ -1,5 +1,7 @@
 package com.gym.management.service;
 
+import com.gym.management.dto.ShiftOpenInventoryPreviewResponse;
+import com.gym.management.dto.WorkShiftOpenResultResponse;
 import com.gym.management.dto.WorkShiftRequest;
 import com.gym.management.dto.WorkShiftResponse;
 import com.gym.management.exception.BusinessException;
@@ -29,6 +31,7 @@ public class WorkShiftService {
     private final WorkShiftRepository workShiftRepository;
     private final SaleRepository saleRepository;
     private final EmployeeService employeeService;
+    private final ShiftInventoryService shiftInventoryService;
 
     @Transactional(readOnly = true)
     public List<WorkShiftResponse> findAll() {
@@ -49,13 +52,20 @@ public class WorkShiftService {
         return toResponseWithTotals(getShift(id));
     }
 
+    @Transactional(readOnly = true)
+    public ShiftOpenInventoryPreviewResponse openInventoryPreview(LocalDate shiftDate) {
+        return shiftInventoryService.preview(shiftDate);
+    }
+
     @Transactional
-    public WorkShiftResponse open(WorkShiftRequest request) {
+    public WorkShiftOpenResultResponse open(WorkShiftRequest request) {
         if (workShiftRepository.existsByStatus(ShiftStatus.OPEN)) {
             throw new BusinessException("Ya hay un turno abierto. Ciérrelo antes de abrir otro.");
         }
         Employee seller = resolveSellerForOpen(request.employeeId());
         LocalDate shiftDate = request.shiftDate() != null ? request.shiftDate() : LocalDate.now();
+        ShiftInventoryService.InventoryOpenResult inventoryResult =
+                shiftInventoryService.processBeforeOpen(shiftDate, request.inventoryCounts());
         WorkShift shift = WorkShift.builder()
                 .shiftDate(shiftDate)
                 .name(request.name())
@@ -63,7 +73,15 @@ public class WorkShiftService {
                 .openedAt(LocalDateTime.now())
                 .status(ShiftStatus.OPEN)
                 .build();
-        return WorkShiftMapper.toResponse(workShiftRepository.save(shift), BigDecimal.ZERO, 0L);
+        WorkShiftResponse response =
+                WorkShiftMapper.toResponse(workShiftRepository.save(shift), BigDecimal.ZERO, 0L);
+        var shortfall = inventoryResult.shortfall();
+        return new WorkShiftOpenResultResponse(
+                response,
+                inventoryResult.adjusted(),
+                shortfall != null,
+                inventoryResult.shortfallAmount(),
+                shortfall != null ? shortfall.notes() : null);
     }
 
     @Transactional

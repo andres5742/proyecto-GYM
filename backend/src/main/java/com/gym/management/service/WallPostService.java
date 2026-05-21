@@ -27,10 +27,12 @@ public class WallPostService {
     private final WallPostRepository wallPostRepository;
     private final EmployeeService employeeService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<WallPostResponse> findActive() {
-        return wallPostRepository.findActivePosts(Instant.now()).stream()
-                .map(WallPostMapper::toResponse)
+        Instant now = Instant.now();
+        wallPostRepository.deleteExpired(now);
+        return wallPostRepository.findActivePosts(now).stream()
+                .map(WallPostMapper::toPublicResponse)
                 .toList();
     }
 

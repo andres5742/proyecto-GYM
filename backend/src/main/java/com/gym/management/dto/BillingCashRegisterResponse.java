@@ -21,4 +21,14 @@ public record BillingCashRegisterResponse(
         long paymentCount,
         BigDecimal sessionExpensesTotal,
         Map<PaymentMethod, BigDecimal> sessionExpensesByMethod,
-        long expenseCount) {}
+        long expenseCount,
+        BigDecimal dayProductSalesTotal,
+        long dayProductSalesCount,
+        long dayProductSalesShiftCount,
+        long dayProductUnitsSold,
+        BigDecimal dayProductSalesCash,
+        BigDecimal sessionCashMembership,
+        BigDecimal sessionCashDayWorkout,
+        BigDecimal sessionCashSportsDance,
+        /** Inicio + ventas productos en efectivo + cobros facturación en efectivo − gastos en efectivo. */
+        BigDecimal cashInDrawer) {}

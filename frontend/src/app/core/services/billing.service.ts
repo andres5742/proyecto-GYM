@@ -4,6 +4,11 @@ import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
+  BillingCashRegisterClosePreview,
+  BillingCashRegisterCloseResult,
+  CloseBillingCashRegisterRequest,
+} from '../models/billing-close.model';
+import {
   BillingCashRegister,
   BillingCashRegisterExpense,
   BillingCashRegisterExpenseRequest,
@@ -101,8 +106,20 @@ export class BillingService {
     return this.http.post<BillingCashRegister>(`${this.baseUrl}/cash-registers/open`, request);
   }
 
-  closeCashRegister(id: number): Observable<BillingCashRegister> {
-    return this.http.post<BillingCashRegister>(`${this.baseUrl}/cash-registers/${id}/close`, {});
+  closeCashRegisterPreview(id: number): Observable<BillingCashRegisterClosePreview> {
+    return this.http.get<BillingCashRegisterClosePreview>(
+      `${this.baseUrl}/cash-registers/${id}/close-preview`,
+    );
+  }
+
+  closeCashRegister(
+    id: number,
+    request: CloseBillingCashRegisterRequest,
+  ): Observable<BillingCashRegisterCloseResult> {
+    return this.http.post<BillingCashRegisterCloseResult>(
+      `${this.baseUrl}/cash-registers/${id}/close`,
+      request,
+    );
   }
 
   listCashRegisterExpenses(date?: string): Observable<BillingCashRegisterExpense[]> {

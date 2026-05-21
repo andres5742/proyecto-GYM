@@ -15,8 +15,14 @@ public interface EmployeeCashShortfallRepository extends JpaRepository<EmployeeC
 
     boolean existsByShiftHandoverId(Long shiftHandoverId);
 
+    boolean existsByBillingCashRegisterId(Long billingCashRegisterId);
+
     @EntityGraph(attributePaths = {"employee", "workShift", "shiftHandover", "settledBy"})
     Optional<EmployeeCashShortfall> findByShiftHandoverId(Long shiftHandoverId);
+
+    @EntityGraph(attributePaths = {"employee", "workShift", "shiftHandover", "settledBy"})
+    Optional<EmployeeCashShortfall> findByBillingCashRegisterIdAndKind(
+            Long billingCashRegisterId, com.gym.management.model.CashShortfallKind kind);
 
     Optional<EmployeeCashShortfall> findByWorkShiftId(Long workShiftId);
 

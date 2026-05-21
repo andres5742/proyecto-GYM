@@ -163,6 +163,7 @@ public class AccessControlService {
                 .map(this::toMemberEnrollResponse)
                 .forEach(all::add);
         employeeCredentialRepository.findAllWithActiveEmployee().stream()
+                .filter(c -> EmployeeVisibility.visibleInTeamDirectory(c.getEmployee()))
                 .map(this::toStaffEnrollResponse)
                 .forEach(all::add);
         return all;

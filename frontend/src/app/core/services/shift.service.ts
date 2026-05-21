@@ -3,7 +3,13 @@ import { Injectable, inject } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SalesSummary } from '../models/sale.model';
-import { ShiftDetail, WorkShift, WorkShiftRequest } from '../models/shift.model';
+import {
+  ShiftDetail,
+  ShiftOpenInventoryPreview,
+  WorkShift,
+  WorkShiftOpenResult,
+  WorkShiftRequest,
+} from '../models/shift.model';
 
 @Injectable({ providedIn: 'root' })
 export class ShiftService {
@@ -20,8 +26,15 @@ export class ShiftService {
       .pipe(map((res) => (res.status === 204 ? null : res.body ?? null)));
   }
 
-  open(request: WorkShiftRequest): Observable<WorkShift> {
-    return this.http.post<WorkShift>(`${this.baseUrl}/open`, request);
+  openInventoryPreview(shiftDate?: string): Observable<ShiftOpenInventoryPreview> {
+    const params = shiftDate ? { shiftDate } : undefined;
+    return this.http.get<ShiftOpenInventoryPreview>(`${this.baseUrl}/open-inventory-preview`, {
+      params,
+    });
+  }
+
+  open(request: WorkShiftRequest): Observable<WorkShiftOpenResult> {
+    return this.http.post<WorkShiftOpenResult>(`${this.baseUrl}/open`, request);
   }
 
   close(id: number): Observable<WorkShift> {

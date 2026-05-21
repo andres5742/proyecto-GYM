@@ -1,8 +1,8 @@
 <section class="page-header">
   <h2>Descuadres de caja</h2>
   <p>
-    Faltantes de efectivo detectados al entregar turno. Use este listado para cobrar al empleado o
-    entrenador al cierre del mes.
+    Faltantes de caja al entregar turno o por inventario faltante entre turnos. Use este listado para
+    cobrar al empleado o entrenador al cierre del mes.
   </p>
 </section>
 
@@ -72,53 +72,120 @@
     @if (records().length === 0) {
       <p class="muted empty">No hay descuadres registrados en este mes.</p>
     } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Empleado</th>
-            <th>Turno</th>
-            <th>Esperado</th>
-            <th>Contado</th>
-            <th>Faltante</th>
-            <th>Estado</th>
-            @if (isAdmin()) {
-              <th></th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (r of records(); track r.id) {
-            <tr [class.row-pending]="r.status === 'PENDING'">
-              <td>{{ r.recordDate | date: 'dd/MM/yyyy' }}</td>
-              <td>{{ r.employeeName }}</td>
-              <td>{{ r.workShiftName }}</td>
-              <td class="col-amount">{{ r.expectedAmount | cop }}</td>
-              <td class="col-amount">{{ r.declaredAmount | cop }}</td>
-              <td class="col-amount warn">{{ r.shortfallAmount | cop }}</td>
-              <td>
-                <span class="status-badge" [class.status-badge--pending]="r.status === 'PENDING'">
-                  {{ r.statusLabel }}
-                </span>
-              </td>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Empleado</th>
+              <th>Turno</th>
+              <th>Detalle</th>
+              <th>Faltante</th>
+              <th>Estado</th>
               @if (isAdmin()) {
-                <td>
-                  @if (r.status === 'PENDING') {
-                    <button
-                      type="button"
-                      class="btn btn-secondary btn-sm"
-                      [disabled]="saving()"
-                      (click)="settle(r)"
-                    >
-                      Marcar cobrado
-                    </button>
-                  }
-                </td>
+                <th></th>
               }
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (r of records(); track r.id) {
+              <tr [class.row-pending]="r.status === 'PENDING'">
+                <td>{{ r.recordDate | date: 'dd/MM/yyyy' }}</td>
+                <td>
+                  <span class="kind-badge" [class.kind-badge--inventory]="isInventoryShortfall(r)">
+                    {{ r.kindLabel || (isInventoryShortfall(r) ? 'Inventario' : 'Caja') }}
+                  </span>
+                </td>
+                <td>{{ r.employeeName }}</td>
+                <td>{{ r.workShiftName }}</td>
+                <td class="col-detail">
+                  @if (isInventoryShortfall(r)) {
+                    <span class="detail-summary">{{ inventorySummary(r) }}</span>
+                    @if ((r.inventoryMissingLines?.length ?? 0) > 0) {
+                      <button
+                        type="button"
+                        class="btn-link"
+                        (click)="toggleInventoryDetail(r)"
+                      >
+                        {{ isDetailExpanded(r.id) ? 'Ocultar' : 'Ver' }}
+                      </button>
+                    }
+                  } @else if (r.kind === 'CASH_REGISTER') {
+                    <span class="detail-summary">
+                      Falta de dinero en caja al cerrar: se esperaban {{ r.expectedAmount | cop }} · contaron
+                      {{ r.declaredAmount | cop }}
+                    </span>
+                  } @else {
+                    <span class="detail-summary">
+                      Efectivo esperado {{ r.expectedAmount | cop }} · contado {{ r.declaredAmount | cop }}
+                    </span>
+                  }
+                </td>
+                <td class="col-amount warn">{{ r.shortfallAmount | cop }}</td>
+                <td>
+                  <span class="status-badge" [class.status-badge--pending]="r.status === 'PENDING'">
+                    {{ r.statusLabel }}
+                  </span>
+                </td>
+                @if (isAdmin()) {
+                  <td class="col-actions">
+                    @if (r.status === 'PENDING') {
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        [disabled]="saving()"
+                        (click)="settle(r)"
+                      >
+                        Marcar cobrado
+                      </button>
+                    }
+                  </td>
+                }
+              </tr>
+              @if (isInventoryShortfall(r) && isDetailExpanded(r.id)) {
+                <tr class="inventory-lines-row">
+                  <td [attr.colspan]="isAdmin() ? 8 : 7">
+                    @if (canShowInventoryProducts(r)) {
+                    <table class="inventory-lines-table">
+                      <thead>
+                        <tr>
+                          <th>Producto</th>
+                          <th>Categoría</th>
+                          <th>Sistema</th>
+                          <th>Contó</th>
+                          <th>Faltan</th>
+                          <th>P. unit.</th>
+                          <th>Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (line of r.inventoryMissingLines; track line.productName) {
+                          <tr>
+                            <td><strong>{{ line.productName }}</strong></td>
+                            <td>{{ line.category || '—' }}</td>
+                            <td class="col-num">{{ line.expectedQuantity }}</td>
+                            <td class="col-num">{{ line.countedQuantity }}</td>
+                            <td class="col-num warn">{{ line.missingQuantity }}</td>
+                            <td class="col-amount">{{ line.unitPrice | cop }}</td>
+                            <td class="col-amount warn">{{ line.lineAmount | cop }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                    } @else {
+                      <p class="inventory-lines-empty muted">
+                        No hay detalle de productos guardado para este registro. Valor del faltante:
+                        <strong>{{ r.shortfallAmount | cop }}</strong>
+                      </p>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
     }
   </section>
 }

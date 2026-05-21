@@ -101,6 +101,7 @@ public class FaceWebcamService {
                 .map(e -> toMemberResponse(e.getMember(), e.getEnrolledAt()))
                 .forEach(all::add);
         employeeEmbeddingRepository.findAllWithActiveEmployee().stream()
+                .filter(e -> EmployeeVisibility.visibleInTeamDirectory(e.getEmployee()))
                 .map(e -> toStaffResponse(e.getEmployee(), e.getEnrolledAt()))
                 .forEach(all::add);
         return all;

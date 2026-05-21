@@ -26,6 +26,7 @@ export class CashShortfallsPage implements OnInit {
 
   protected readonly selectedYear = signal(new Date().getFullYear());
   protected readonly selectedMonth = signal(new Date().getMonth() + 1);
+  protected readonly expandedRecordIds = signal<ReadonlySet<number>>(new Set());
   protected readonly isAdmin = computed(() => this.auth.isAdmin());
 
   protected readonly monthOptions = [
@@ -57,6 +58,7 @@ export class CashShortfallsPage implements OnInit {
     this.loading.set(true);
     this.shortfallService.findForMonth(this.selectedYear(), this.selectedMonth()).subscribe({
       next: (list) => {
+        this.expandedRecordIds.set(new Set());
         this.records.set(list);
         if (this.isAdmin()) {
           this.shortfallService
@@ -79,6 +81,50 @@ export class CashShortfallsPage implements OnInit {
 
   onPeriodChange(): void {
     this.load();
+  }
+
+  protected isInventoryShortfall(record: CashShortfall): boolean {
+    if (record.kind === 'CASH_REGISTER') {
+      return false;
+    }
+    if (record.kind === 'INVENTORY') {
+      return true;
+    }
+    if ((record.inventoryMissingLines?.length ?? 0) > 0) {
+      return true;
+    }
+    const notes = record.notes?.toLowerCase() ?? '';
+    return notes.includes('inventario');
+  }
+
+  protected inventorySummary(record: CashShortfall): string {
+    const lines = record.inventoryMissingLines ?? [];
+    if (lines.length > 0) {
+      const units = lines.reduce((s, l) => s + l.missingQuantity, 0);
+      return `${lines.length} producto(s), ${units} unidad(es) faltantes`;
+    }
+    return record.notes ?? 'Faltante de inventario';
+  }
+
+  protected isDetailExpanded(recordId: number): boolean {
+    return this.expandedRecordIds().has(recordId);
+  }
+
+  protected toggleInventoryDetail(record: CashShortfall): void {
+    if (!this.isInventoryShortfall(record)) {
+      return;
+    }
+    const next = new Set(this.expandedRecordIds());
+    if (next.has(record.id)) {
+      next.delete(record.id);
+    } else {
+      next.add(record.id);
+    }
+    this.expandedRecordIds.set(next);
+  }
+
+  protected canShowInventoryProducts(record: CashShortfall): boolean {
+    return (record.inventoryMissingLines?.length ?? 0) > 0;
   }
 
   settle(record: CashShortfall): void {

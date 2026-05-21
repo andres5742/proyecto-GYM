@@ -1,14 +1,21 @@
 package com.gym.management.service;
 
+import com.gym.management.dto.BillingCashRegisterClosePreviewResponse;
+import com.gym.management.dto.BillingCashRegisterCloseResultResponse;
 import com.gym.management.dto.BillingCashRegisterExpenseRequest;
 import com.gym.management.dto.BillingCashRegisterExpenseResponse;
 import com.gym.management.dto.BillingCashRegisterResponse;
+import com.gym.management.dto.CashShortfallResponse;
+import com.gym.management.dto.CloseBillingCashRegisterRequest;
 import com.gym.management.dto.OpenBillingCashRegisterRequest;
+import com.gym.management.model.WorkShift;
+import com.gym.management.repository.ProductCreditPaymentRepository;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.BillingCashRegisterExpenseMapper;
 import com.gym.management.mapper.BillingCashRegisterMapper;
 import com.gym.management.model.BillingCashRegister;
+import com.gym.management.model.BillingPaymentType;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.BillingCashRegisterExpense;
 import com.gym.management.model.Employee;
@@ -16,13 +23,17 @@ import com.gym.management.model.ShiftStatus;
 import com.gym.management.repository.BillingCashRegisterExpenseRepository;
 import com.gym.management.repository.BillingCashRegisterRepository;
 import com.gym.management.repository.BillingPaymentRepository;
+import com.gym.management.repository.SaleRepository;
+import com.gym.management.repository.WorkShiftRepository;
 import com.gym.management.security.SecurityUtils;
+import com.gym.management.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,8 +46,13 @@ public class BillingCashRegisterService {
 
     private final BillingCashRegisterRepository cashRegisterRepository;
     private final BillingPaymentRepository billingPaymentRepository;
+    private final SaleRepository saleRepository;
+    private final WorkShiftRepository workShiftRepository;
     private final BillingCashRegisterExpenseRepository expenseRepository;
+    private final ProductCreditPaymentRepository productCreditPaymentRepository;
     private final EmployeeService employeeService;
+    private final CashShortfallService cashShortfallService;
+    private final ShiftInventoryService shiftInventoryService;
 
     @Transactional(readOnly = true)
     public BillingCashRegisterResponse findOpen() {
@@ -89,7 +105,16 @@ public class BillingCashRegisterService {
                 0L,
                 BigDecimal.ZERO,
                 BillingPaymentMethodTotals.emptyBillableMap(),
-                0L);
+                0L,
+                BigDecimal.ZERO,
+                0L,
+                0L,
+                0L,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                request.openingCashAmount());
     }
 
     @Transactional(readOnly = true)
@@ -116,8 +141,23 @@ public class BillingCashRegisterService {
         return BillingCashRegisterExpenseMapper.toResponse(expenseRepository.save(expense));
     }
 
+    @Transactional(readOnly = true)
+    public BillingCashRegisterClosePreviewResponse closePreview(Long id) {
+        BillingCashRegister register = getRegister(id);
+        if (register.getStatus() == ShiftStatus.CLOSED) {
+            throw new BusinessException("La caja ya está cerrada");
+        }
+        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register));
+        BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
+        return new BillingCashRegisterClosePreviewResponse(
+                cashInDrawer,
+                fiadoCash,
+                cashInDrawer.add(fiadoCash),
+                shiftInventoryService.listActiveProductLines());
+    }
+
     @Transactional
-    public BillingCashRegisterResponse close(Long id) {
+    public BillingCashRegisterCloseResultResponse close(Long id, CloseBillingCashRegisterRequest request) {
         BillingCashRegister register = getRegister(id);
         if (!register.getRegisterDate().equals(today())) {
             throw new BusinessException("Solo se puede cerrar la caja del día actual");
@@ -125,9 +165,32 @@ public class BillingCashRegisterService {
         if (register.getStatus() == ShiftStatus.CLOSED) {
             throw new BusinessException("La caja ya está cerrada");
         }
+        Employee closer = resolveCurrentEmployee();
+        WorkShift referenceShift = resolveReferenceShift(register.getRegisterDate());
+
+        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register));
+        BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
+        BigDecimal expectedCash = cashInDrawer.add(fiadoCash);
+        BigDecimal declaredCash = MoneyUtil.roundPesos(request.cashCount().totalCash());
+
+        ShiftInventoryService.InventoryCloseAtRegisterResult inventoryResult =
+                shiftInventoryService.processAtCashRegisterClose(
+                        register.getRegisterDate(), request.inventoryCounts(), closer, referenceShift);
+
+        Optional<CashShortfallResponse> cashShortfall = cashShortfallService.registerFromCashRegisterClose(
+                register, closer, referenceShift, expectedCash, declaredCash);
+
         register.setStatus(ShiftStatus.CLOSED);
         register.setClosedAt(LocalDateTime.now(GYM_ZONE));
-        return toResponseWithTotals(cashRegisterRepository.save(register));
+        BillingCashRegister saved = cashRegisterRepository.save(register);
+
+        return new BillingCashRegisterCloseResultResponse(
+                toResponseWithTotals(saved),
+                declaredCash,
+                expectedCash,
+                cashShortfall.orElse(null),
+                inventoryResult.shortfall(),
+                inventoryResult.missingLines());
     }
 
     public BillingCashRegister getOpenRegisterRequired() {
@@ -168,7 +231,8 @@ public class BillingCashRegisterService {
     }
 
     /**
-     * Facturación del día (membresías e ingresos): efectivo en caja = inicio + cobros efectivo − gastos efectivo.
+     * Efectivo en caja del día: inicio + ventas de productos en efectivo (todos los turnos) + cobros
+     * de facturación en efectivo − gastos en efectivo.
      */
     @Transactional(readOnly = true)
     public BigDecimal cashInDrawerForToday() {
@@ -186,9 +250,17 @@ public class BillingCashRegisterService {
         Map<PaymentMethod, BigDecimal> expensesByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
                         expenseRepository.sumByPaymentMethodByCashRegisterId(id));
-        BigDecimal cashIn = incomeByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        BigDecimal billingCashIn = incomeByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal cashOut = expensesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
-        return register.getOpeningCashAmount().add(cashIn).subtract(cashOut);
+        BigDecimal productCash = saleRepository.sumCashAmountByShiftDate(register.getRegisterDate());
+        if (productCash == null) {
+            productCash = BigDecimal.ZERO;
+        }
+        return MoneyUtil.roundPesos(
+                register.getOpeningCashAmount()
+                        .add(productCash)
+                        .add(billingCashIn)
+                        .subtract(cashOut));
     }
 
     private BillingCashRegisterResponse toResponseWithTotals(BillingCashRegister register) {
@@ -202,7 +274,65 @@ public class BillingCashRegisterService {
                 BillingPaymentMethodTotals.fromAmountRows(expenseRepository.sumByPaymentMethodByCashRegisterId(id));
         BigDecimal expenses = BillingPaymentMethodTotals.sum(expensesByMethod);
         long expenseCount = expenseRepository.countByCashRegisterId(id);
+        ProductDayTotals productTotals = loadProductTotalsForDate(register.getRegisterDate());
+        long shiftsWithSales = workShiftRepository.countShiftsWithSalesByShiftDate(register.getRegisterDate());
+        Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
+        BigDecimal cashInDrawer = computeCashInDrawer(register);
         return BillingCashRegisterMapper.toResponse(
-                register, total, incomeByMethod, count, expenses, expensesByMethod, expenseCount);
+                register,
+                total,
+                incomeByMethod,
+                count,
+                expenses,
+                expensesByMethod,
+                expenseCount,
+                productTotals.total(),
+                productTotals.saleCount(),
+                shiftsWithSales,
+                productTotals.units(),
+                productTotals.cashTotal(),
+                cashByType.getOrDefault(BillingPaymentType.MEMBERSHIP, BigDecimal.ZERO),
+                cashByType.getOrDefault(BillingPaymentType.DAY_WORKOUT, BigDecimal.ZERO),
+                cashByType.getOrDefault(BillingPaymentType.SPORTS_DANCE, BigDecimal.ZERO),
+                cashInDrawer);
     }
+
+    private ProductDayTotals loadProductTotalsForDate(LocalDate date) {
+        BigDecimal total = saleRepository.sumTotalAmountByShiftDate(date);
+        long saleCount = saleRepository.countSalesByShiftDate(date);
+        long units = saleRepository.sumQuantityByShiftDate(date);
+        BigDecimal cash = saleRepository.sumCashAmountByShiftDate(date);
+        return new ProductDayTotals(
+                total != null ? total : BigDecimal.ZERO,
+                saleCount,
+                units,
+                cash != null ? cash : BigDecimal.ZERO);
+    }
+
+    private Map<BillingPaymentType, BigDecimal> loadCashByBillingType(Long registerId) {
+        Map<BillingPaymentType, BigDecimal> map = new java.util.EnumMap<>(BillingPaymentType.class);
+        for (Object[] row : billingPaymentRepository.sumCashByPaymentTypeByCashRegisterId(registerId)) {
+            if (row[0] instanceof BillingPaymentType type && row[1] != null) {
+                map.put(type, (BigDecimal) row[1]);
+            }
+        }
+        return map;
+    }
+
+    private BigDecimal sumFiadoCashCollected(LocalDate date) {
+        BigDecimal sum =
+                productCreditPaymentRepository.sumAmountByShiftDateAndMethod(date, PaymentMethod.CASH);
+        return sum != null ? sum : BigDecimal.ZERO;
+    }
+
+    private WorkShift resolveReferenceShift(LocalDate date) {
+        return workShiftRepository
+                .findFirstByShiftDateAndStatusOrderByOpenedAtDesc(date, ShiftStatus.OPEN)
+                .or(() -> workShiftRepository.findFirstByShiftDateAndStatusOrderByClosedAtDesc(
+                        date, ShiftStatus.CLOSED))
+                .orElseThrow(() -> new BusinessException(
+                        "No hay turno del día para registrar el cierre. Abra y cierre al menos un turno en Ventas."));
+    }
+
+    private record ProductDayTotals(BigDecimal total, long saleCount, long units, BigDecimal cashTotal) {}
 }

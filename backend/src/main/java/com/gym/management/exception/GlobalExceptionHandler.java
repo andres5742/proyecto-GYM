@@ -41,6 +41,11 @@ public class GlobalExceptionHandler {
                     "No se puede eliminar la entrega: tiene un descuadre de caja vinculado. "
                             + "Reinicie el backend con la versión actual o elimine primero el descuadre.");
         }
+        if (raw != null && raw.contains("employee_cash_shortfalls_kind_check")) {
+            return buildResponse(
+                    HttpStatus.BAD_REQUEST,
+                    "Tipo de descuadre no permitido en la base de datos. Reinicie el backend para aplicar migraciones.");
+        }
         return buildResponse(HttpStatus.BAD_REQUEST, "No se pudo guardar el registro por restricción de datos.");
     }
 

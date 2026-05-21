@@ -11,7 +11,14 @@ import {
   PaymentMethod,
   SalesSummary,
 } from '../../core/models/sale.model';
-import { ProductSalesRow, ShiftDetail, WorkShift } from '../../core/models/shift.model';
+import {
+  ProductInventoryCountItem,
+  ProductInventoryLine,
+  ProductSalesRow,
+  ShiftDetail,
+  ShiftOpenInventoryPreview,
+  WorkShift,
+} from '../../core/models/shift.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MemberService } from '../../core/services/member.service';
 import { ProductService } from '../../core/services/product.service';
@@ -58,6 +65,11 @@ export class Sales implements OnInit {
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly openingShift = signal(false);
+  protected readonly inventoryModalOpen = signal(false);
+  protected readonly inventoryPreview = signal<ShiftOpenInventoryPreview | null>(null);
+  protected readonly inventoryCounts = signal<Record<number, number>>({});
+  protected readonly pendingShiftName = signal('Mañana');
+  protected readonly loadingInventoryPreview = signal(false);
   protected readonly loadingHistory = signal(false);
   protected readonly deletingShiftId = signal<number | null>(null);
   protected readonly message = signal<string | null>(null);
@@ -352,19 +364,129 @@ export class Sales implements OnInit {
     if (!user) {
       return;
     }
+    this.pendingShiftName.set(shiftName);
+    this.loadingInventoryPreview.set(true);
+    this.shiftService.openInventoryPreview().subscribe({
+      next: (preview) => {
+        this.loadingInventoryPreview.set(false);
+        if (!preview.inventoryCheckRequired) {
+          this.submitOpenShift(shiftName, user.employeeId ?? undefined);
+          return;
+        }
+        const counts: Record<number, number> = {};
+        for (const line of preview.products) {
+          counts[line.productId] = line.expectedQuantity;
+        }
+        this.inventoryCounts.set(counts);
+        this.inventoryPreview.set(preview);
+        this.inventoryModalOpen.set(true);
+      },
+      error: (err) => {
+        this.loadingInventoryPreview.set(false);
+        this.message.set(err?.error?.message ?? 'No se pudo validar el inventario');
+      },
+    });
+  }
+
+  protected inventoryLine(productId: number): ProductInventoryLine | undefined {
+    return this.inventoryPreview()?.products.find((p) => p.productId === productId);
+  }
+
+  protected inventoryMissingQty(productId: number): number {
+    const line = this.inventoryLine(productId);
+    if (!line) {
+      return 0;
+    }
+    const counted = this.inventoryCounts()[productId] ?? 0;
+    return Math.max(0, line.expectedQuantity - counted);
+  }
+
+  protected hasAnyInventoryMissing(): boolean {
+    const preview = this.inventoryPreview();
+    if (!preview) {
+      return false;
+    }
+    return preview.products.some((p) => this.inventoryMissingQty(p.productId) > 0);
+  }
+
+  protected setInventoryCount(productId: number, value: string): void {
+    const qty = Math.max(0, Math.floor(Number(value) || 0));
+    this.inventoryCounts.update((m) => ({ ...m, [productId]: qty }));
+  }
+
+  protected fillInventoryExpected(): void {
+    const preview = this.inventoryPreview();
+    if (!preview) {
+      return;
+    }
+    const counts: Record<number, number> = {};
+    for (const line of preview.products) {
+      counts[line.productId] = line.expectedQuantity;
+    }
+    this.inventoryCounts.set(counts);
+  }
+
+  closeInventoryModal(): void {
+    this.inventoryModalOpen.set(false);
+    this.inventoryPreview.set(null);
+  }
+
+  confirmInventoryAndOpenShift(): void {
+    const preview = this.inventoryPreview();
+    const user = this.auth.currentUser();
+    if (!preview || !user) {
+      return;
+    }
+    const inventoryCounts: ProductInventoryCountItem[] = preview.products.map((p) => ({
+      productId: p.productId,
+      countedQuantity: this.inventoryCounts()[p.productId] ?? 0,
+    }));
+    this.submitOpenShift(this.pendingShiftName(), user.employeeId ?? undefined, inventoryCounts);
+  }
+
+  private submitOpenShift(
+    shiftName: string,
+    employeeId?: number,
+    inventoryCounts?: ProductInventoryCountItem[],
+  ): void {
+    const user = this.auth.currentUser();
+    if (!user) {
+      return;
+    }
     this.openingShift.set(true);
     this.shiftService
       .open({
         name: shiftName,
-        employeeId: user.employeeId ?? undefined,
+        employeeId,
+        inventoryCounts,
       })
       .subscribe({
-        next: (shift) => {
-          this.message.set(`Turno "${shift.name}" abierto · Vendedor: ${shift.employeeName ?? user.fullName}`);
+        next: (result) => {
+          const shift = result.shift;
+          let msg = `Turno "${shift.name}" abierto · Vendedor: ${shift.employeeName ?? user.fullName}`;
+          if (result.inventoryShortfallRegistered) {
+            const prev = this.inventoryPreview()?.previousEmployeeName ?? 'turno anterior';
+            const amount =
+              typeof result.inventoryShortfallAmount === 'number'
+                ? new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    maximumFractionDigits: 0,
+                  }).format(result.inventoryShortfallAmount)
+                : '';
+            msg += `. Se registró descuadre por inventario faltante (${amount}) a cargo de ${prev}.`;
+          } else if (result.inventoryAdjusted) {
+            msg += '. Inventario actualizado con el conteo.';
+          }
+          this.message.set(msg);
           this.openingShift.set(false);
+          this.closeInventoryModal();
           this.cartProductIds.set([]);
           this.qtyMatrix.set({});
           this.pickerProductId.set(null);
+          this.productService.findAll().subscribe({
+            next: (products) => this.products.set(products.filter((p) => p.active)),
+          });
           this.refreshShift();
         },
         error: (err) => {

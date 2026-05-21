@@ -29,6 +29,7 @@ public class EmployeeService {
             return List.of(EmployeeMapper.toResponse(getEmployee(requireCurrentEmployeeId())));
         }
         return employeeRepository.findAll().stream()
+                .filter(EmployeeVisibility::visibleInTeamDirectory)
                 .map(EmployeeMapper::toResponse)
                 .toList();
     }
@@ -36,6 +37,7 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     public List<EmployeeResponse> findActive() {
         return employeeRepository.findByActiveTrueOrderByFirstNameAsc().stream()
+                .filter(EmployeeVisibility::visibleInTeamDirectory)
                 .map(EmployeeMapper::toResponse)
                 .toList();
     }
@@ -98,6 +100,9 @@ public class EmployeeService {
         UserRole role = request.role();
 
         if (username != null) {
+            if (username.equalsIgnoreCase("superadmin")) {
+                throw new BusinessException("El usuario «superadmin» no está permitido. Use otro nombre.");
+            }
             boolean usernameTaken = employeeId == null
                     ? employeeRepository.existsByUsernameIgnoreCase(username)
                     : employeeRepository.existsByUsernameIgnoreCaseAndIdNot(username, employeeId);
@@ -172,10 +177,19 @@ public class EmployeeService {
     @Transactional
     public void delete(Long id) {
         ensureCanManageTeam();
-        if (!employeeRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Entrenador no encontrado: " + id);
+        Employee employee = employeeRepository
+                .findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado: " + id));
+        if (employee.getRole() == UserRole.SUPER_ADMIN) {
+            if (!SecurityUtils.isSuperAdmin()) {
+                throw new BusinessException("No tienes permiso para eliminar un super administrador");
+            }
+            if (employee.getUsername() != null
+                    && employee.getUsername().equalsIgnoreCase("andres.perez")) {
+                throw new BusinessException("No se puede eliminar la cuenta principal de super administrador");
+            }
         }
-        employeeRepository.deleteById(id);
+        employeeRepository.delete(employee);
     }
 
     public Employee getEmployee(Long id) {

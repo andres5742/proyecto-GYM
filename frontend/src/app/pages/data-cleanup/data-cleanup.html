@@ -1,0 +1,81 @@
+<div class="page-head">
+  <h1>Limpieza de datos</h1>
+  <p class="hint">
+    Solo super administrador. Borra datos operativos por módulo. No elimina empleados, planes,
+    inventario, permisos ni configuración del sitio.
+  </p>
+</div>
+
+@if (error()) {
+  <p class="banner-error" role="alert">{{ error() }}</p>
+}
+@if (message()) {
+  <p class="banner-info" role="status">{{ message() }}</p>
+}
+
+@if (loading()) {
+  <p class="muted">Cargando ámbitos…</p>
+} @else {
+  <section class="panel scopes-panel">
+    <h2>Ámbito a limpiar</h2>
+    <ul class="scope-list">
+      @for (s of scopes(); track s.code) {
+        <li>
+          <button
+            type="button"
+            class="scope-card"
+            [class.selected]="selectedScope() === s.code"
+            (click)="selectScope(s.code)"
+          >
+            <strong>{{ s.label }}</strong>
+            <span class="code">{{ s.code }}</span>
+            <p>{{ s.description }}</p>
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+
+  @if (selectedScope(); as scopeCode) {
+    <section class="panel confirm-panel">
+      <h2>Confirmar</h2>
+      <p class="warning">
+        Los registros se borran de forma permanente. Escribe
+        <strong>{{ requiredPhrase }}</strong> para habilitar el botón.
+      </p>
+      <label class="confirm-field">
+        Confirmación
+        <input
+          type="text"
+          [ngModel]="confirmInput()"
+          (ngModelChange)="confirmInput.set($event)"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="{{ requiredPhrase }}"
+        />
+      </label>
+      <button
+        type="button"
+        class="btn btn-danger"
+        [disabled]="!canRun()"
+        (click)="runCleanup()"
+      >
+        {{ running() ? 'Limpiando…' : 'Ejecutar limpieza' }}
+      </button>
+    </section>
+  }
+
+  @if (lastResult(); as result) {
+    <section class="panel result-panel">
+      <h2>Último resultado</h2>
+      <p>Total eliminado: <strong>{{ result.total }}</strong></p>
+      @if (detailRows(result.details).length) {
+        <ul class="detail-list">
+          @for (row of detailRows(result.details); track row.key) {
+            <li><span>{{ row.key }}</span> <strong>{{ row.value }}</strong></li>
+          }
+        </ul>
+      }
+    </section>
+  }
+}

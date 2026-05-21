@@ -60,7 +60,10 @@ export class Employees implements OnInit {
     this.loading.set(true);
     this.employeeService.findAll().subscribe({
       next: (employees) => {
-        this.employees.set(employees);
+        const visible = this.auth.hasRole('SUPER_ADMIN')
+          ? employees
+          : employees.filter((e) => e.role !== 'SUPER_ADMIN');
+        this.employees.set(visible);
         if (this.isTrainerSelfOnly() && employees.length === 1) {
           this.startEdit(employees[0]);
         }
