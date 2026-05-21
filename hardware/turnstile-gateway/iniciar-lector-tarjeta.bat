@@ -40,7 +40,7 @@ set GYM_ACCESS_API=https://sportgymr10.com/api/access/zkt/event
 set SERIAL_PORT=COM3
 set SERIAL_BAUD=9600
 set SERIAL_PIN_FORMAT=hex
-set SERIAL_DEBUG=1
+set SERIAL_DEBUG=0
 
 echo Puerto: %SERIAL_PORT%  Velocidad: %SERIAL_BAUD%
 echo API: %GYM_ACCESS_API%

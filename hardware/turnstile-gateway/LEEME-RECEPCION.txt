@@ -25,5 +25,23 @@ Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2):
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
 
+INICIO AUTOMATICO (lector + pantalla /acceso al encender Windows):
+  -> instalar-inicio-automatico.bat (una vez)
+  -> O cada dia: iniciar-puesto-acceso.bat
+
+La pagina /acceso NO puede ejecutar el script (el navegador no permite .bat).
+El lector debe estar en el MISMO PC que tiene COM3, o siempre encendido con iniciar-lector-tarjeta.bat.
+
+PUERTA FISICA (torniquete):
+  En el VPS, deploy/.env:
+    TURNSTILE_WEBHOOK=http://IP_DEL_RELE:PUERTO/ruta
+  Cuando la tarjeta es GRANTED, el servidor llama esa URL y el rele abre.
+  Sin webhook: ingreso registrado + bienvenida en /acceso, pero puerta no se mueve sola.
+  El relé debe ser alcanzable desde el servidor (red local, VPN o túnel).
+
+Flujo completo:
+  Tarjeta -> script (PC recepcion) -> API -> GRANTED -> TURNSTILE_WEBHOOK -> puerta
+                              \-> /acceso muestra bienvenida (polling)
+
 Para liberar COM3 (ZKAccess u otra app):
   -> detener-lector-tarjeta.bat
