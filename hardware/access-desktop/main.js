@@ -127,8 +127,7 @@ function createWindow() {
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.insertCSS(`
-      .kiosk-brand, .kiosk-hero, .kiosk-hero__logo-wrap,
-      .access-card, .kiosk-motto__icon { display: none !important; }
+      .kiosk-hero__logo-wrap, .access-card, .kiosk-motto__icon { display: none !important; }
     `);
   });
 

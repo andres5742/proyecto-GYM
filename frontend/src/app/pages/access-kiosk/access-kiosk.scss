@@ -21,7 +21,6 @@
   --kiosk-accent: #e8a85c;
   --kiosk-accent-soft: rgb(232 168 92 / 22%);
   --kiosk-text-soft: rgb(255 255 255 / 78%);
-  --kiosk-footer-h: clamp(5.5rem, 14vh, 7rem);
   --kiosk-pad-x: clamp(0.85rem, 4vw, 1.5rem);
   --kiosk-green: #5cff8a;
 
@@ -64,12 +63,61 @@
   word-wrap: break-word;
 }
 
+/* Barra superior: logo + cerrar */
+.kiosk-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: clamp(0.45rem, 2vw, 0.65rem) var(--kiosk-pad-x);
+  padding-bottom: 0;
+}
+
+.kiosk-header__logo {
+  display: block;
+  height: clamp(2.25rem, 8vw, 3.25rem);
+  width: auto;
+  max-width: min(55vw, 14rem);
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 35%));
+}
+
+.kiosk-header__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border: 2px solid var(--kiosk-accent);
+  border-radius: 0.35rem;
+  background: rgb(0 0 0 / 35%);
+  color: var(--kiosk-accent);
+  font-size: clamp(0.78rem, 2.8vw, 0.95rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+
+  span {
+    font-size: 1.15em;
+    line-height: 1;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--kiosk-accent);
+    color: #1a1d22;
+    outline: none;
+  }
+}
+
 .kiosk-shell {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: clamp(0.65rem, 2vw, 1rem) var(--kiosk-pad-x);
+  padding: clamp(0.5rem, 2vw, 0.85rem) var(--kiosk-pad-x);
   padding-bottom: 0;
 }
 
@@ -184,53 +232,11 @@
   text-align: right;
 }
 
-.kiosk-footer__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-}
-
 .kiosk-footer__hint {
-  flex: 1 1 auto;
-  min-width: 0;
+  margin: 0.35rem 0 0;
   font-size: clamp(0.65rem, 2.2vw, 0.78rem);
   color: rgb(255 255 255 / 55%);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.kiosk-footer__close {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.85rem;
-  border: 2px solid var(--kiosk-accent);
-  border-radius: 0.35rem;
-  background: rgb(0 0 0 / 35%);
-  color: var(--kiosk-accent);
-  font-size: clamp(0.78rem, 2.8vw, 0.95rem);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-
-  &:hover,
-  &:focus-visible {
-    background: var(--kiosk-accent);
-    color: #1a1d22;
-    outline: none;
-  }
-}
-
-.kiosk-footer__close-x {
-  font-size: 1.15em;
-  line-height: 1;
+  text-align: center;
 }
 
 .result-banner {

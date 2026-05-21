@@ -58,9 +58,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly audioSupported = isWelcomeAudioSupported();
   protected readonly motivationalPhrase = signal(KIOSK_MOTIVATIONAL_PHRASES[0]);
   protected readonly configError = signal<string | null>(null);
-  protected readonly isDesktopApp =
-    typeof window !== 'undefined' && Boolean(window.sportGymDesktop?.isDesktopApp);
-
   protected footerDateLabel(): string {
     return this.clock()
       .toLocaleDateString('es-CO', {
@@ -84,7 +81,18 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   protected closeApp(): void {
-    window.sportGymDesktop?.requestClose?.();
+    if (window.sportGymDesktop?.requestClose) {
+      window.sportGymDesktop.requestClose();
+      return;
+    }
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    if (ua.includes('Electron')) {
+      window.close();
+      return;
+    }
+    if (confirm('¿Cerrar la pantalla de acceso?')) {
+      window.close();
+    }
   }
 
   ngOnInit(): void {

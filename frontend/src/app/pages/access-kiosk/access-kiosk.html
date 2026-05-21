@@ -4,6 +4,13 @@
   [class.denied]="lastResult()?.result === 'DENIED'"
   [class.waiting]="kioskReady() && !lastResult()"
 >
+  <header class="kiosk-header" aria-label="Sport Gym acceso">
+    <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="kiosk-header__logo" />
+    <button type="button" class="kiosk-header__close" (click)="closeApp()" aria-label="Cerrar aplicación">
+      CERRAR <span aria-hidden="true">✕</span>
+    </button>
+  </header>
+
   <div class="kiosk-shell">
     <main class="kiosk-main">
       @if (configError(); as err) {
@@ -52,18 +59,11 @@
     </main>
   </div>
 
-  <footer class="kiosk-footer" aria-label="Información y cerrar">
+  <footer class="kiosk-footer" aria-label="Fecha y hora">
     <div class="kiosk-footer__datetime">
       <time class="kiosk-footer__date">{{ footerDateLabel() }}</time>
       <time class="kiosk-footer__time">{{ footerTimeLabel() }}</time>
     </div>
-    <div class="kiosk-footer__bar">
-      <span class="kiosk-footer__hint">F2 entreno · F3 bailes · Tarjeta o huella</span>
-      @if (isDesktopApp) {
-        <button type="button" class="kiosk-footer__close" (click)="closeApp()">
-          CERRAR <span class="kiosk-footer__close-x" aria-hidden="true">✕</span>
-        </button>
-      }
-    </div>
+    <p class="kiosk-footer__hint">F2 entreno · F3 bailes · Tarjeta o huella</p>
   </footer>
 </div>
