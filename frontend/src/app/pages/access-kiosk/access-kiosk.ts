@@ -62,6 +62,12 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly configError = signal<string | null>(null);
 
   ngOnInit(): void {
+    if (!document.querySelector('link[rel="manifest"][href*="manifest-acceso"]')) {
+      const manifest = document.createElement('link');
+      manifest.rel = 'manifest';
+      manifest.href = '/manifest-acceso.webmanifest';
+      document.head.appendChild(manifest);
+    }
     const dayIndex = new Date().getDate() % KIOSK_MOTIVATIONAL_PHRASES.length;
     this.motivationalPhrase.set(KIOSK_MOTIVATIONAL_PHRASES[dayIndex]);
     this.clockTimer = setInterval(() => this.clock.set(new Date()), 1000);

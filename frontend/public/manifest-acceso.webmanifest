@@ -1,0 +1,26 @@
+{
+  "name": "Sport Gym — Acceso",
+  "short_name": "Acceso",
+  "description": "Pantalla de ingreso al gym (tarjeta y bienvenida)",
+  "start_url": "/acceso",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#ebe2d6",
+  "theme_color": "#1a1a1a",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "logo-sport-gym.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo-sport-gym.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

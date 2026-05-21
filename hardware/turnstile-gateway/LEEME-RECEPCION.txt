@@ -25,11 +25,16 @@ Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2):
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
 
-INICIO AUTOMATICO (lector + pantalla /acceso al encender Windows):
-  -> instalar-inicio-automatico.bat (una vez)
+APP EJECUTABLE (sin instalar Electron):
+  -> SportGym-Acceso-App.bat     ventana tipo app + lector
+  -> SportGym-Acceso-Kiosk.bat   pantalla completa + lector
+  En Edge/Chrome: menu ... -> "Instalar Sport Gym — Acceso" (PWA)
+
+INICIO AUTOMATICO (al encender Windows):
+  -> instalar-inicio-automatico.bat (usa SportGym-Acceso-App.bat)
   -> O cada dia: iniciar-puesto-acceso.bat
 
-La pagina /acceso NO puede ejecutar el script (el navegador no permite .bat).
+La pagina web sola NO ejecuta el .bat del lector; los .bat de esta carpeta si.
 El lector debe estar en el MISMO PC que tiene COM3, o siempre encendido con iniciar-lector-tarjeta.bat.
 
 PUERTA FISICA (torniquete):

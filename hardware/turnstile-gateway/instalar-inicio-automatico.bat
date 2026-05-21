@@ -9,7 +9,7 @@ echo Copiando inicio automatico a:
 echo %STARTUP%
 echo.
 
-copy /Y "%~dp0iniciar-puesto-acceso.bat" "%LINK%" >nul
+copy /Y "%~dp0SportGym-Acceso-App.bat" "%LINK%" >nul
 if errorlevel 1 (
   echo ERROR: no se pudo copiar. Ejecute como usuario normal con permisos en Startup.
   pause
@@ -18,7 +18,7 @@ if errorlevel 1 (
 
 echo OK. Al iniciar sesion en Windows se abrira:
 echo   1. Lector de tarjeta (COM3)
-echo   2. Navegador en https://sportgymr10.com/acceso
+echo   2. App Acceso (ventana propia) en https://sportgymr10.com/acceso
 echo.
 echo Para quitar: ejecute quitar-inicio-automatico.bat
 echo.
