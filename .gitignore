@@ -10,6 +10,7 @@ frontend/.angular/
 # Access desktop (Electron)
 hardware/access-desktop/node_modules/
 hardware/access-desktop/dist/
+hardware/access-desktop/config.json
 
 # IDE / OS
 .idea/

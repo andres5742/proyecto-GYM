@@ -21,8 +21,9 @@
     },
     "win": {
       "target": ["portable"],
-      "artifactName": "SportGym-Acceso-${version}.exe"
+      "artifactName": "SportGym-Acceso-${version}.exe",
+      "signAndEditExecutable": false
     },
-    "files": ["main.js", "config.json", "package.json"]
+    "files": ["main.js", "preload.js", "config.json", "config.example.json", "package.json"]
   }
 }
