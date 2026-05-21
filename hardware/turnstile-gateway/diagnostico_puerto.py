@@ -43,13 +43,15 @@ def main() -> None:
             with serial.Serial(PORT, baud, timeout=0.1) as ser:
                 ser.reset_input_buffer()
                 deadline = time.monotonic() + SECONDS
+                got = False
                 while time.monotonic() < deadline:
                     if ser.in_waiting:
                         data = ser.read(ser.in_waiting)
                         print(f"  RECIBIDO: {data!r}  (hex: {data.hex()})")
+                        got = True
                         any_data = True
                     time.sleep(0.05)
-                if not any_data:
+                if not got:
                     print("  (sin datos en este intervalo)")
         except serial.SerialException as ex:
             print(f"  ERROR al abrir: {ex}")
