@@ -6,6 +6,7 @@ import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.dto.KioskAccessEventResponse;
+import com.gym.management.dto.KioskOpenGateRequest;
 import com.gym.management.dto.LastDeviceReadResponse;
 import com.gym.management.dto.ZktAccessEventRequest;
 import com.gym.management.exception.BusinessException;
@@ -82,6 +83,15 @@ public class AccessControlController {
         return accessControlService
                 .lastDeviceReadSince(sinceInstant)
                 .orElse(null);
+    }
+
+    /** F2 / F3 en pantalla /acceso o app de escritorio: pulso de torniquete (entreno / bailes). */
+    @PostMapping("/kiosk/open-gate")
+    public AccessVerifyResponse kioskOpenGate(
+            @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,
+            @Valid @RequestBody KioskOpenGateRequest request) {
+        validateDeviceKey(deviceKey);
+        return accessControlService.kioskOpenGate(request.reason());
     }
 
     @GetMapping("/kiosk/events")

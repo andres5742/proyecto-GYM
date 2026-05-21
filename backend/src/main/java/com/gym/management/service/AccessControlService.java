@@ -276,6 +276,37 @@ public class AccessControlService {
         accessLogRepository.deleteAllInBatch();
     }
 
+    /**
+     * Pantalla /acceso o app de escritorio: F2 entreno del día, F3 bailes deportivos.
+     * Abre el torniquete vía {@code TURNSTILE_WEBHOOK} sin afiliado (pase invitado en entrada).
+     */
+    @Transactional
+    public AccessVerifyResponse kioskOpenGate(String reason) {
+        boolean sports = "sports-dance".equalsIgnoreCase(reason);
+        String deviceUserId = sports ? "F3-BAILES" : "F2-ENTRENO";
+        String label = sports ? "Bailes deportivos (F3)" : "Entreno del día (F2)";
+        String message =
+                sports ? "Torniquete: bailes deportivos (F3)" : "Torniquete: entreno del día (F2)";
+        boolean opened = turnstileGatewayService.openGate(label, null);
+        Long logId =
+                saveMemberLog(deviceUserId, BiometricCredentialType.CARD, null, AccessResult.GRANTED, message, opened);
+        String resultMessage =
+                opened ? "Puerta abierta — " + label : "No se pudo abrir el torniquete. Revise TURNSTILE_WEBHOOK.";
+        return new AccessVerifyResponse(
+                opened ? AccessResult.GRANTED : AccessResult.DENIED,
+                opened,
+                resultMessage,
+                null,
+                null,
+                AccessPersonType.MEMBER,
+                label,
+                deviceUserId,
+                BiometricCredentialType.CARD,
+                null,
+                null,
+                logId);
+    }
+
     @Transactional
     public AccessVerifyResponse manualOpen(Long memberId) {
         Member member = memberRepository

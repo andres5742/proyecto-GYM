@@ -59,6 +59,12 @@
             <span class="scan-methods__item">👆 Huella</span>
           </div>
 
+          <p class="kiosk-shortcuts" aria-label="Atajos de torniquete">
+            <kbd>F2</kbd> Entreno del día
+            <span class="kiosk-shortcuts__sep">·</span>
+            <kbd>F3</kbd> Bailes deportivos
+          </p>
+
           @if (lastResult(); as r) {
             <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">
               <span class="result-icon" aria-hidden="true">{{ r.result === 'GRANTED' ? '✅' : '⛔' }}</span>

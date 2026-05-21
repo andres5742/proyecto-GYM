@@ -25,7 +25,11 @@ Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2):
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
 
-APP EJECUTABLE (sin instalar Electron):
+APP .EXE (Electron, con F2/F3 torniquete):
+  -> hardware/access-desktop/compilar-acceso-electron.bat
+  -> dist/SportGym-Acceso-1.0.0.exe
+
+APP EJECUTABLE (sin compilar Electron):
   -> SportGym-Acceso-App.bat     ventana tipo app + lector
   -> SportGym-Acceso-Kiosk.bat   pantalla completa + lector
   En Edge/Chrome: menu ... -> "Instalar Sport Gym — Acceso" (PWA)

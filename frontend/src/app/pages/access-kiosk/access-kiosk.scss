@@ -361,6 +361,27 @@
   }
 }
 
+.kiosk-shortcuts {
+  margin: 0.5rem 0 0;
+  font-size: clamp(0.72rem, 2.8vw, 0.85rem);
+  color: var(--kiosk-text-soft);
+  text-align: center;
+
+  kbd {
+    padding: 0.15rem 0.4rem;
+    font-family: inherit;
+    font-size: 0.9em;
+    background: rgb(0 0 0 / 25%);
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 4px;
+  }
+
+  &__sep {
+    margin: 0 0.35rem;
+    opacity: 0.6;
+  }
+}
+
 .scan-methods {
   display: flex;
   flex-wrap: wrap;

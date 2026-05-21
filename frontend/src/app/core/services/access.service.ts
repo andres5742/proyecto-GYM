@@ -60,6 +60,18 @@ export class AccessService {
   }
 
   /** Eventos de acceso desde el lector ZKTeco (pantalla /acceso). */
+  /** F2 entreno / F3 bailes: abre torniquete (misma función que atajos en Facturación). */
+  kioskOpenGate(reason: 'workout' | 'sports-dance'): Observable<AccessVerifyResponse> {
+    const headers = new HttpHeaders({
+      'X-Device-Key': environment.accessDeviceKey ?? '',
+    });
+    return this.http.post<AccessVerifyResponse>(
+      `${this.baseUrl}/kiosk/open-gate`,
+      { reason },
+      { headers },
+    );
+  }
+
   kioskEventsSince(sinceIso: string, afterLogId = 0): Observable<KioskAccessEvent[]> {
     const headers = new HttpHeaders({
       'X-Device-Key': environment.accessDeviceKey ?? '',

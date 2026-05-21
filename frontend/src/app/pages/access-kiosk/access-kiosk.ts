@@ -96,6 +96,30 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   /** Primer toque en pantalla: desbloquea voz del navegador (sin botón Activar). */
+  @HostListener('document:keydown', ['$event'])
+  onDocumentKeydown(event: KeyboardEvent): void {
+    if (!this.kioskReady() || this.configError()) {
+      return;
+    }
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement
+    ) {
+      return;
+    }
+    if (event.key === 'F2') {
+      event.preventDefault();
+      this.triggerShortcutGate('workout');
+      return;
+    }
+    if (event.key === 'F3') {
+      event.preventDefault();
+      this.triggerShortcutGate('sports-dance');
+    }
+  }
+
   @HostListener('pointerdown')
   onKioskPointerDown(): void {
     if (this.audioUnlockAttempted || !this.audioSupported) {
@@ -144,6 +168,29 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
   protected cedulaDigitCount(value: string): number {
     return value.replace(/\D/g, '').length;
+  }
+
+  private triggerShortcutGate(reason: 'workout' | 'sports-dance'): void {
+    const label = reason === 'sports-dance' ? 'F3 Bailes' : 'F2 Entreno';
+    this.statusLine.set(`Abriendo torniquete (${label})…`);
+    this.accessService.kioskOpenGate(reason).subscribe({
+      next: (res) => this.applyVerifyResponse(res),
+      error: (err: HttpErrorResponse) => {
+        const msg =
+          typeof err.error === 'object' && err.error?.message
+            ? String(err.error.message)
+            : 'No se pudo abrir el torniquete.';
+        this.statusLine.set(msg);
+        this.lastResult.set({
+          result: 'DENIED',
+          gateOpened: false,
+          message: msg,
+          deviceUserId: reason === 'sports-dance' ? 'F3' : 'F2',
+          credentialType: 'CARD',
+        });
+        this.scheduleRelease(DENIED_DISPLAY_MS);
+      },
+    });
   }
 
   simulateScan(): void {

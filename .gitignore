@@ -7,6 +7,10 @@ frontend/node_modules/
 frontend/dist/
 frontend/.angular/
 
+# Access desktop (Electron)
+hardware/access-desktop/node_modules/
+hardware/access-desktop/dist/
+
 # IDE / OS
 .idea/
 .vscode/

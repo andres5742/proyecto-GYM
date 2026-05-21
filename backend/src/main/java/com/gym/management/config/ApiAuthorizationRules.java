@@ -34,6 +34,8 @@ public final class ApiAuthorizationRules {
                 .permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/access/kiosk/events")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/access/kiosk/open-gate")
+                .permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/access/webcam/verify")
                 .permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/access/logs")
