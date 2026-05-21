@@ -46,7 +46,10 @@ public class GlobalExceptionHandler {
                     HttpStatus.BAD_REQUEST,
                     "Tipo de descuadre no permitido en la base de datos. Reinicie el backend para aplicar migraciones.");
         }
-        if (raw != null && raw.contains("access_logs_credential_type_check")) {
+        if (raw != null
+                && (raw.contains("access_logs_credential_type_check")
+                        || raw.contains("member_biometric_credentials_credential_type_check")
+                        || raw.contains("employee_biometric_credentials_credential_type_check"))) {
             return buildResponse(
                     HttpStatus.BAD_REQUEST,
                     "Tipo de acceso (tarjeta/huella) no permitido en la base de datos. Reinicie el backend para aplicar migraciones.");

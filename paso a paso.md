@@ -254,6 +254,39 @@ python3 zkt_card_event.py 10042
 
 Configura ZKT para **ejecutar ese script** en cada evento, pasando el Pin (ej. `zkt_card_event.py %PIN%` en Windows).
 
+#### Lector USB-SERIAL (CH340 en COM3) — sin panel ZKT
+
+Si en Windows el lector aparece como **USB-SERIAL CH340 (COM3)** (cable USB al PC, no al panel ZKT), el flujo es otro:
+
+```text
+Tarjeta → lector USB → COM3 en el PC → script serial_card_reader.py → API del gym
+```
+
+1. Conecta el lector por USB (aparece en *Bluetooth y otros dispositivos* o *Administrador de dispositivos → Puertos COM*).
+2. Anota el puerto: **COM3** (puede ser COM4, etc.).
+3. En el **PC de recepción** (dejar el script abierto todo el día):
+
+```bat
+pip install pyserial
+cd hardware\turnstile-gateway
+set ACCESS_DEVICE_KEY=clave-torniquete-produccion-2026
+set GYM_ACCESS_API=https://sportgymr10.com/api/access/zkt/event
+set SERIAL_PORT=COM3
+set SERIAL_BAUD=9600
+python serial_card_reader.py
+```
+
+4. Pasa una tarjeta: en la consola debe salir el número y la respuesta del API.
+5. En el gym → **Ingresos** verás el código en **Código tarjeta / ID** → **Vincular**.
+
+Si no sale número en consola, prueba `SERIAL_BAUD=115200` o el software del fabricante del lector para ver en qué formato envía datos.
+
+**No hace falta ZKAccess** para este tipo de lector; solo el script en el PC.
+
+**Liberar COM3** (si ZKAccess u otra app no puede usar el lector): doble clic en `detener-lector-tarjeta.bat`, o cerrar la ventana del lector / Ctrl+C. No desinstala nada; solo suelta el puerto.
+
+Atajos en `hardware/turnstile-gateway/`: `iniciar-lector-tarjeta.bat` (arrancar), `detener-lector-tarjeta.bat` (revertir / liberar puerto).
+
 ---
 
 ### E.6 Pantalla `/acceso`

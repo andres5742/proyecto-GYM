@@ -339,7 +339,7 @@ public class DataInitializer {
     }
 
     @Bean
-    CommandLineRunner ensureAccessLogsCredentialTypeCard(JdbcTemplate jdbc) {
+    CommandLineRunner ensureBiometricCredentialTypeCard(JdbcTemplate jdbc) {
         return args -> {
             try {
                 jdbc.execute(
@@ -351,6 +351,28 @@ public class DataInitializer {
                         """
                         ALTER TABLE access_logs
                         ADD CONSTRAINT access_logs_credential_type_check
+                        CHECK (credential_type IN ('FINGERPRINT', 'FACE', 'CARD'))
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE member_biometric_credentials
+                        DROP CONSTRAINT IF EXISTS member_biometric_credentials_credential_type_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE member_biometric_credentials
+                        ADD CONSTRAINT member_biometric_credentials_credential_type_check
+                        CHECK (credential_type IN ('FINGERPRINT', 'FACE', 'CARD'))
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_biometric_credentials
+                        DROP CONSTRAINT IF EXISTS employee_biometric_credentials_credential_type_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE employee_biometric_credentials
+                        ADD CONSTRAINT employee_biometric_credentials_credential_type_check
                         CHECK (credential_type IN ('FINGERPRINT', 'FACE', 'CARD'))
                         """);
             } catch (Exception ignored) {

@@ -81,6 +81,23 @@ El descriptor lo genera el frontend con face-api; no envíes fotos al servidor.
 
 `TURNSTILE_WEBHOOK` → URL local que active el relé cuando `"gateOpened": true`.
 
+## Lector USB-SERIAL (CH340, COM3 en Windows)
+
+Si el lector va **directo al PC** por USB (no al panel ZKTeco):
+
+```bash
+pip install -r requirements-serial.txt
+export ACCESS_DEVICE_KEY=TU_CLAVE
+export GYM_ACCESS_API=https://TU-DOMINIO/api/access/zkt/event
+export SERIAL_PORT=COM3
+export SERIAL_BAUD=9600
+python3 serial_card_reader.py
+```
+
+Deja el script corriendo en recepción. Cada tarjeta se envía al API; el código aparece en **Acceso → Ingresos**.
+
+**Windows (recepción):** doble clic en `iniciar-lector-tarjeta.bat`. Para **liberar el puerto COM** y que otras apps (ZKAccess, etc.) vuelvan a usar el lector: `detener-lector-tarjeta.bat` o cerrar la ventana del lector / Ctrl+C. No desinstala nada ni modifica otros programas del PC.
+
 ## Pruebas locales
 
 ```bash
@@ -92,6 +109,9 @@ python3 zkt_card_event.py 12345
 
 # Tarjeta (formulario Pin= como ADMS)
 python3 zkt_card_event.py 12345 --form
+
+# Lector USB COM (Windows: set SERIAL_PORT=COM3)
+python3 serial_card_reader.py
 ```
 
 Rostro: usar la UI en `http://localhost:4201/acceso`.
