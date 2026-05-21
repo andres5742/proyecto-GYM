@@ -21,7 +21,8 @@ Ventana dedicada con [https://sportgymr10.com/acceso](https://sportgymr10.com/ac
 compilar-acceso-electron.bat
 ```
 
-Salida: `dist/SportGym-Acceso-1.0.0.exe`
+Salida por defecto (PC **32 bits**): `dist/SportGym-Acceso-1.0.0-win32.exe`  
+PC **64 bits**: `npm run dist:x64`
 
 ## Uso diario
 

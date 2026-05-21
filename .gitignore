@@ -11,6 +11,8 @@ frontend/.angular/
 hardware/access-desktop/node_modules/
 hardware/access-desktop/dist/
 hardware/access-desktop/config.json
+hardware/SportGym-Acceso-Windows.zip
+hardware/SportGym-Acceso-Windows-32bit.zip
 
 # IDE / OS
 .idea/

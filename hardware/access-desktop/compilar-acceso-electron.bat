@@ -30,7 +30,9 @@ if errorlevel 1 (
 )
 
 echo.
-echo Listo. Ejecutable en: dist\SportGym-Acceso-1.0.0.exe
+echo Listo. Ejecutable 32 bits (Windows x86):
+echo   dist\SportGym-Acceso-1.0.0-win32.exe
+echo Para PC de 64 bits: npm run dist:x64
 echo Copie config.json junto al .exe si lo mueve a otra carpeta.
 echo.
 pause

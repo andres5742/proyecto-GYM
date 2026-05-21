@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win portable --ia32",
+    "dist:x64": "electron-builder --win portable --x64"
   },
   "author": "Sport Gym",
   "license": "UNLICENSED",
@@ -21,7 +22,7 @@
     },
     "win": {
       "target": ["portable"],
-      "artifactName": "SportGym-Acceso-${version}.exe",
+      "artifactName": "SportGym-Acceso-${version}-win32.exe",
       "signAndEditExecutable": false
     },
     "files": ["main.js", "preload.js", "config.json", "config.example.json", "package.json"]
