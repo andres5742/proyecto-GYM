@@ -38,6 +38,8 @@ function formatAccessDateTime(value: string | null | undefined): string {
 }
 
 const CAPTURE_POLL_MS = 1000;
+/** Tu PC (panel web) ve al instante lo que pasa en el .exe de entrada. */
+const LOGS_POLL_MS = 2000;
 
 @Component({
   selector: 'app-access-control',
@@ -74,8 +76,11 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly captureWaiting = signal(false);
 
   private capturePollTimer: ReturnType<typeof setInterval> | null = null;
+  private logsPollTimer: ReturnType<typeof setInterval> | null = null;
   private captureSinceIso = new Date().toISOString();
   private lastCaptureLogId = 0;
+  private lastSeenLogId = 0;
+  private logsPollInitialized = false;
   protected readonly faceStatus = signal('Busca un afiliado por nombre o cédula y mira la cámara del lector biométrico.');
   protected readonly staffFaceStatus = signal('Selecciona un entrenador y mira la cámara del lector biométrico.');
   protected readonly section = signal<'register' | 'registered' | 'logs'>('register');
@@ -339,7 +344,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
       header: 'Afiliado',
       sortable: true,
       sortValue: (r) => r.memberName ?? '',
-      cell: (r) => r.memberName ?? '—',
+      cell: (r) => this.logPersonLabel(r),
     },
     {
       id: 'message',
@@ -369,10 +374,12 @@ export class AccessControlPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadAll();
     this.syncCapturePolling();
+    this.syncLogsPolling();
   }
 
   ngOnDestroy(): void {
     this.stopCapturePolling();
+    this.stopLogsPolling();
   }
 
   loadAll(): void {
@@ -401,6 +408,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
   setSection(next: 'register' | 'registered' | 'logs'): void {
     this.section.set(next);
     this.syncCapturePolling();
+    this.syncLogsPolling();
   }
 
   setRegisterAudience(audience: 'members' | 'staff'): void {
@@ -430,7 +438,28 @@ export class AccessControlPage implements OnInit, OnDestroy {
 
   protected logDeviceCode(row: AccessLogEntry): string {
     const code = row.deviceUserId ?? row.fingerprintUserId ?? '';
-    return code.trim() || '—';
+    const t = code.trim();
+    if (t === 'F2-ENTRENO') {
+      return 'F2 · Entreno del día';
+    }
+    if (t === 'F3-BAILES') {
+      return 'F3 · Bailes deportivos';
+    }
+    return t || '—';
+  }
+
+  protected logPersonLabel(row: AccessLogEntry): string {
+    if (row.memberName?.trim()) {
+      return row.memberName;
+    }
+    const code = (row.deviceUserId ?? '').trim();
+    if (code === 'F2-ENTRENO') {
+      return 'Pase entreno (PC entrada)';
+    }
+    if (code === 'F3-BAILES') {
+      return 'Pase bailes (PC entrada)';
+    }
+    return '—';
   }
 
   protected logRowClass(row: AccessLogEntry): string {
@@ -472,6 +501,43 @@ export class AccessControlPage implements OnInit, OnDestroy {
     } else {
       this.stopCapturePolling();
     }
+  }
+
+  private syncLogsPolling(): void {
+    if (this.section() === 'logs') {
+      this.startLogsPolling();
+    } else {
+      this.stopLogsPolling();
+    }
+  }
+
+  private startLogsPolling(): void {
+    this.stopLogsPolling();
+    void this.refreshLogs(false);
+    this.logsPollTimer = setInterval(() => void this.refreshLogs(true), LOGS_POLL_MS);
+  }
+
+  private stopLogsPolling(): void {
+    if (this.logsPollTimer) {
+      clearInterval(this.logsPollTimer);
+      this.logsPollTimer = null;
+    }
+  }
+
+  private refreshLogs(notifyOnNew: boolean): void {
+    this.accessService.logs().subscribe({
+      next: (list) => {
+        const maxId = list.reduce((m, row) => Math.max(m, row.id ?? 0), 0);
+        if (notifyOnNew && this.logsPollInitialized && maxId > this.lastSeenLogId) {
+          const latest = list.find((r) => r.id === maxId);
+          const who = latest ? this.logPersonLabel(latest) : 'Entrada';
+          this.message.set(`Nuevo ingreso en la puerta: ${who}`);
+        }
+        this.lastSeenLogId = maxId;
+        this.logsPollInitialized = true;
+        this.logs.set(list);
+      },
+    });
   }
 
   private startCapturePolling(): void {

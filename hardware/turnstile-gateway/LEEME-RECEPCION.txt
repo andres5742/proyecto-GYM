@@ -48,9 +48,15 @@ PUERTA FISICA (torniquete):
   Sin webhook: ingreso registrado + bienvenida en /acceso, pero puerta no se mueve sola.
   El relé debe ser alcanzable desde el servidor (red local, VPN o túnel).
 
+Flujo dos PC (recepcion + entrada):
+  PC entrada: .exe o iniciar-lector-tarjeta.bat + SportGym-Acceso
+  PC recepcion: sportgymr10.com -> Acceso -> INGRESOS (abierto todo el dia)
+  Cliente "quiero entreno" -> en entrada pulsa F2 (o tarjeta) -> usted ve la fila en Ingresos
+  Ver FLUJO-DOS-PC.txt en access-desktop/
+
 Flujo completo:
-  Tarjeta -> script (PC recepcion) -> API -> GRANTED -> TURNSTILE_WEBHOOK -> puerta
-                              \-> /acceso muestra bienvenida (polling)
+  Tarjeta -> script (PC entrada) -> API -> GRANTED -> TURNSTILE_WEBHOOK -> puerta
+                              \-> /acceso bienvenida + Ingresos en recepcion (polling)
 
 Para liberar COM3 (ZKAccess u otra app):
   -> detener-lector-tarjeta.bat

@@ -1,0 +1,22 @@
+SPORT GYM — DOS COMPUTADORES
+============================
+
+PC 1 — RECEPCIÓN (usted, panel web)
+  https://sportgymr10.com
+  Acceso / torniquete → pestaña INGRESOS (dejarla abierta)
+  Facturación → F2/F3 cobran el pase (caja abierta)
+
+PC 2 — ENTRADA (cliente / torniquete)
+  SportGym-Acceso.exe (o iniciar-lector-tarjeta.bat + /acceso)
+  Tarjeta vinculada → ingreso + puerta
+  F2 → entreno del día → abre puerta (aparece en Ingresos de recepción)
+  F3 → bailes deportivos → abre puerta (aparece en Ingresos de recepción)
+
+FLUJO TÍPICO "QUIERO ENTRENO"
+  1. En recepción: cobre/registre con F2 en Facturación (si aplica).
+  2. Diga al cliente: "Vaya al PC de la entrada y pulse F2" (o pase tarjeta si es afiliado).
+  3. En su PC, pestaña Ingresos: verá la fila nueva (F2 · Entreno o el nombre).
+
+PUERTA FÍSICA
+  deploy/.env → TURNSTILE_WEBHOOK=http://IP_RELE:PUERTO/ruta
+  (misma URL para tarjeta, F2 y F3)
