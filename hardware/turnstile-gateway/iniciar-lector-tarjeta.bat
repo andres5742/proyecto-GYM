@@ -12,19 +12,17 @@ echo Carpeta: %CD%
 echo.
 
 if not exist "serial_card_reader.py" (
-  echo ERROR: Falta serial_card_reader.py en esta carpeta.
+  echo Falta serial_card_reader.py. Descargando desde GitHub...
   echo.
-  echo Copie TODA la carpeta turnstile-gateway, no solo el .bat:
-  echo   serial_card_reader.py
-  echo   iniciar-lector-tarjeta.bat
-  echo   detener-lector-tarjeta.bat
-  echo   requirements-serial.txt
-  echo.
-  echo Debe quedar junto al .bat, por ejemplo:
-  echo   C:\SportGym\turnstile-gateway\serial_card_reader.py
-  echo.
-  pause
-  exit /b 1
+  call "%~dp0descargar-lector-recepcion.bat"
+  if not exist "serial_card_reader.py" (
+    echo.
+    echo ERROR: No se pudo obtener serial_card_reader.py
+    echo Copie TODA la carpeta turnstile-gateway a este PC
+    echo o ejecute descargar-lector-recepcion.bat con internet.
+    pause
+    exit /b 1
+  )
 )
 
 where python >nul 2>&1
