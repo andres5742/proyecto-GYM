@@ -5,10 +5,13 @@ import com.gym.management.dto.AccessVerifyRequest;
 import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
+import com.gym.management.dto.KioskAccessEventResponse;
+import com.gym.management.dto.ZktAccessEventRequest;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.model.BiometricCredentialType;
 import com.gym.management.service.AccessControlService;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,13 +38,48 @@ public class AccessControlController {
     @Value("${app.access.device-api-key:gym-turnstile-dev-key}")
     private String deviceApiKey;
 
-    /** Llamado por lector de huella, facial o torniquete al identificar al afiliado. */
+    /** Llamado por lector de huella, tarjeta o torniquete al identificar al afiliado. */
     @PostMapping("/verify")
     public AccessVerifyResponse verify(
             @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,
             @Valid @RequestBody AccessVerifyRequest request) {
         validateDeviceKey(deviceKey);
         return accessControlService.verifyAndOpen(request);
+    }
+
+    /**
+     * Evento desde terminal ZKTeco (tarjeta, PIN o huella). Acepta JSON {@code {"pin":"..."}} o
+     * parámetro de formulario {@code Pin=} como envía ADMS/Push. Si el Pin es la cédula del afiliado
+     * activo, permite ingreso sin credencial vinculada en el panel.
+     */
+    @PostMapping("/zkt/event")
+    public AccessVerifyResponse zktEvent(
+            @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,
+            @RequestParam(value = "Pin", required = false) String pinUpper,
+            @RequestParam(value = "pin", required = false) String pinLower,
+            @RequestBody(required = false) ZktAccessEventRequest body) {
+        validateDeviceKey(deviceKey);
+        String pin = body != null && body.pin() != null && !body.pin().isBlank()
+                ? body.pin().trim()
+                : pinUpper != null && !pinUpper.isBlank()
+                        ? pinUpper.trim()
+                        : pinLower != null ? pinLower.trim() : "";
+        if (pin.isEmpty()) {
+            throw new BusinessException("Falta Pin (número de tarjeta o usuario en el ZKTeco)");
+        }
+        return accessControlService.verifyZktEvent(pin);
+    }
+
+    /** Pantalla /acceso: consulta ingresos recientes (tarjeta/huella vía ZKTeco). */
+    @GetMapping("/kiosk/events")
+    public List<KioskAccessEventResponse> kioskEvents(
+            @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,
+            @RequestParam(required = false) String since,
+            @RequestParam(required = false) Long afterId) {
+        validateDeviceKey(deviceKey);
+        Instant sinceInstant =
+                since != null && !since.isBlank() ? Instant.parse(since) : Instant.now().minusSeconds(2);
+        return accessControlService.kioskEventsSince(sinceInstant, afterId);
     }
 
     @GetMapping("/enrollments")

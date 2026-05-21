@@ -2,44 +2,39 @@
   class="kiosk"
   [class.granted]="lastResult()?.result === 'GRANTED'"
   [class.denied]="lastResult()?.result === 'DENIED'"
-  [class.waiting]="!lastResult() && !facePresent()"
+  [class.waiting]="kioskReady() && !lastResult()"
 >
   <div class="kiosk-shell">
-    <header class="kiosk-brand" aria-label="Sport Gym R.10">
-      <div class="kiosk-brand__card">
-        <div class="kiosk-brand__logo-wrap">
-          <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="gym-logo kiosk-brand__logo" />
-        </div>
-        <time class="kiosk-brand__clock">{{ clock() | date: 'HH:mm:ss' }}</time>
+    <header class="kiosk-hero" aria-label="Sport Gym R.10">
+      <div class="kiosk-hero__logo-wrap">
+        <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="gym-logo kiosk-hero__logo" />
       </div>
+      <time class="kiosk-hero__clock">{{ clock() | date: 'HH:mm:ss' }}</time>
     </header>
 
-    <main class="kiosk-main">
-      @if (!kioskReady()) {
-        <section class="scan-panel scan-panel--start">
-          <p class="scan-panel__lead">Bienvenido al gimnasio</p>
-          <p class="scan-panel__text">
-            Pulsa para iniciar la cámara y el mensaje de bienvenida con voz.
-            @if (!audioSupported) {
-              <span class="scan-panel__warn">Tu navegador no soporta voz; solo verás el mensaje en pantalla.</span>
-            }
-          </p>
-          <button type="button" class="btn btn-primary scan-panel__cta" (click)="startKiosk()">
-            Iniciar control de acceso
-          </button>
-        </section>
-      } @else {
-        <section class="scan-panel">
-          <p class="scan-panel__lead">Identifícate para entrar</p>
+    <section class="kiosk-motto" aria-live="polite">
+      <span class="kiosk-motto__icon" aria-hidden="true">✦</span>
+      <div class="kiosk-motto__body">
+        <span class="kiosk-motto__label">Motivación del día</span>
+        <p class="kiosk-motto__quote">{{ motivationalPhrase() }}</p>
+      </div>
+    </section>
 
+    <main class="kiosk-main">
+      @if (configError(); as err) {
+        <section class="scan-panel">
+          <p class="scan-panel__lead">Pantalla no disponible</p>
+          <p class="scan-panel__warn">{{ err }}</p>
+        </section>
+      } @else if (kioskReady()) {
+        <section class="scan-panel">
           @if (lastResult()?.result === 'GRANTED' && welcomeTitle(); as headline) {
             <p class="welcome-headline" aria-live="assertive">{{ headline }}</p>
+          } @else {
+            <p class="scan-panel__lead">Pase su tarjeta o huella</p>
           }
 
-          <p
-            class="scan-panel__status"
-            [class.scan-panel__status--waiting]="!lastResult() && !facePresent() && !scanning()"
-          >
+          <p class="scan-panel__status" [class.scan-panel__status--waiting]="!lastResult()">
             {{ statusLine() }}
           </p>
 
@@ -53,17 +48,15 @@
             </button>
           }
 
-          <div class="scan-camera" [class.scan-camera--active]="facePresent()">
-            <app-face-webcam-capture
-              [compact]="true"
-              (statusChange)="onFaceStatus($event)"
-              (faceDetected)="onFaceDetected($event)"
-            />
+          <div class="access-card" [class.access-card--pulse]="!lastResult()" aria-hidden="true">
+            <div class="access-card__surface">
+              <img src="/logo-sport-gym.png" alt="" class="access-card__logo" />
+            </div>
           </div>
 
           <div class="scan-methods">
-            <span class="scan-methods__item">👆 Huella en el lector</span>
-            <span class="scan-methods__item">🙂 Rostro en la cámara</span>
+            <span class="scan-methods__item">💳 Tarjeta</span>
+            <span class="scan-methods__item">👆 Huella</span>
           </div>
 
           @if (lastResult(); as r) {
@@ -73,6 +66,9 @@
                 @if (r.memberName) {
                   <strong>{{ r.memberName }}</strong>
                 }
+                @if (displayCedula(r); as cedula) {
+                  <span class="result-cedula">Cédula {{ cedula }}</span>
+                }
                 <p>{{ r.message }}</p>
                 @if (r.gateOpened) {
                   <span class="gate-open">Torniquete liberado</span>
@@ -80,35 +76,37 @@
               </div>
             </div>
           }
-        </section>
 
-        <details class="dev-sim">
-          <summary>Modo prueba (huella)</summary>
-          <p class="dev-label">Solo para pruebas; el lector envía el ID automáticamente.</p>
-          <div class="dev-row">
-            <input
-              type="text"
-              [value]="deviceUserId()"
-              (input)="deviceUserId.set($any($event.target).value)"
-              placeholder="ID de huella en el lector"
-              (keyup.enter)="simulateScan()"
-            />
-            <button type="button" class="btn btn-primary" [disabled]="scanning()" (click)="simulateScan()">
-              {{ scanning() ? 'Verificando…' : 'Simular huella' }}
-            </button>
-          </div>
-        </details>
+          <section class="cedula-test" aria-label="Prueba con cédula">
+            <div class="cedula-test__row">
+              <label class="cedula-test__label" for="kiosk-cedula-input">Cédula</label>
+              <input
+                id="kiosk-cedula-input"
+                class="cedula-test__input"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                spellcheck="false"
+                [value]="deviceUserId()"
+                (input)="onCedulaInput($any($event.target).value)"
+                placeholder="Número"
+                (keyup.enter)="simulateScan()"
+              />
+              <button type="button" class="btn btn-primary cedula-test__btn" (click)="simulateScan()">
+                OK
+              </button>
+            </div>
+            @if (deviceUserId(); as typed) {
+              <p class="cedula-test__meta" aria-live="polite">{{ cedulaDigitCount(typed) }} dígitos</p>
+            }
+          </section>
+        </section>
+      } @else {
+        <section class="scan-panel scan-panel--boot">
+          <p class="scan-panel__lead">Bienvenido al gimnasio</p>
+          <p class="scan-panel__status scan-panel__status--waiting">{{ statusLine() }}</p>
+        </section>
       }
     </main>
-
-    <footer class="kiosk-footer">
-      <div class="kiosk-motto-card" aria-live="polite">
-        <span class="kiosk-motto-card__icon" aria-hidden="true">✦</span>
-        <div class="kiosk-motto-card__content">
-          <span class="kiosk-motto-card__label">Motivación del día</span>
-          <p class="kiosk-motto-card__quote">{{ motivationalPhrase() }}</p>
-        </div>
-      </div>
-    </footer>
   </div>
 </div>

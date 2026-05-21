@@ -339,6 +339,27 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureAccessLogsCredentialTypeCard(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE access_logs
+                        DROP CONSTRAINT IF EXISTS access_logs_credential_type_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE access_logs
+                        ADD CONSTRAINT access_logs_credential_type_check
+                        CHECK (credential_type IN ('FINGERPRINT', 'FACE', 'CARD'))
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner dedupeBillingCashRegisters(JdbcTemplate jdbc) {
         return args -> {
             try {

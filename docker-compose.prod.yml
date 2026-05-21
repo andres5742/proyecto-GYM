@@ -40,6 +40,8 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ORIGINS: ${CORS_ORIGINS}
       ACCESS_DEVICE_KEY: ${ACCESS_DEVICE_KEY:-gym-turnstile-dev-key}
+      TURNSTILE_WEBHOOK: ${TURNSTILE_WEBHOOK:-}
+      FACE_MATCH_MAX_DISTANCE: ${FACE_MATCH_MAX_DISTANCE:-0.55}
       UPLOAD_DIR: /app/uploads
     volumes:
       - gym_uploads:/app/uploads

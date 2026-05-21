@@ -16,7 +16,25 @@ public record AccessVerifyResponse(
         String memberName,
         String deviceUserId,
         BiometricCredentialType credentialType,
-        Gender gender) {
+        Gender gender,
+        /** Cédula del afiliado cuando aplica (ingreso por documento o afiliado identificado). */
+        String documentId,
+        /** ID del registro en access_logs (pantalla /acceso). */
+        Long accessLogId) {
+
+    public AccessVerifyResponse(
+            AccessResult result,
+            boolean gateOpened,
+            String message,
+            Long memberId,
+            Long employeeId,
+            AccessPersonType personType,
+            String memberName,
+            String deviceUserId,
+            BiometricCredentialType credentialType,
+            Gender gender) {
+        this(result, gateOpened, message, memberId, employeeId, personType, memberName, deviceUserId, credentialType, gender, null, null);
+    }
 
     public AccessVerifyResponse {
         if (personType == null) {

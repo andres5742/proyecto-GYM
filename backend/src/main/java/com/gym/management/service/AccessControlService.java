@@ -5,6 +5,7 @@ import com.gym.management.dto.AccessVerifyRequest;
 import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
+import com.gym.management.dto.KioskAccessEventResponse;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.model.AccessLog;
@@ -28,6 +29,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,17 +52,80 @@ public class AccessControlService {
         BiometricCredentialType type = request.credentialType();
         String deviceUserId = request.deviceUserId().trim();
 
-        var memberCred = credentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId);
-        if (memberCred.isPresent()) {
-            return evaluateMember(memberCred.get(), deviceUserId, type, false);
+        if (type == BiometricCredentialType.FACE) {
+            return deny(deviceUserId, type, null, null, notRegisteredMessage(type));
         }
 
-        var staffCred = employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId);
-        if (staffCred.isPresent()) {
-            return evaluateStaff(staffCred.get(), deviceUserId, type, false);
+        for (BiometricCredentialType candidate : lookupOrder(type)) {
+            Optional<AccessVerifyResponse> match = lookupAndVerify(deviceUserId, candidate);
+            if (match.isPresent()) {
+                return match.get();
+            }
+        }
+
+        Optional<AccessVerifyResponse> byDocument = lookupByDocumentAndVerify(deviceUserId, type);
+        if (byDocument.isPresent()) {
+            return byDocument.get();
         }
 
         return deny(deviceUserId, type, null, null, notRegisteredMessage(type));
+    }
+
+    /**
+     * Llamado por terminal ZKTeco al leer tarjeta, huella o PIN (mismo campo Pin). Si el Pin es la cédula
+     * del afiliado y está activo, permite ingreso aunque no tenga credencial biométrica vinculada en el panel.
+     */
+    @Transactional
+    public AccessVerifyResponse verifyZktEvent(String pin) {
+        return verifyAndOpen(new AccessVerifyRequest(pin.trim(), BiometricCredentialType.CARD));
+    }
+
+    private Optional<AccessVerifyResponse> lookupAndVerify(String deviceUserId, BiometricCredentialType type) {
+        var memberCred = credentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId);
+        if (memberCred.isPresent()) {
+            return Optional.of(evaluateMember(memberCred.get(), deviceUserId, type, false));
+        }
+        var staffCred = employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId);
+        if (staffCred.isPresent()) {
+            return Optional.of(evaluateStaff(staffCred.get(), deviceUserId, type, false));
+        }
+        return Optional.empty();
+    }
+
+    /** Huella/tarjeta en ZKT con ID = cédula: busca afiliado por documento si está activo. */
+    private Optional<AccessVerifyResponse> lookupByDocumentAndVerify(
+            String pin, BiometricCredentialType type) {
+        String key = pin.trim();
+        if (key.isBlank()) {
+            return Optional.empty();
+        }
+
+        Optional<Member> member = memberRepository.findByDocumentId(key);
+        if (member.isEmpty()) {
+            String digits = digitsOnly(key);
+            if (digits.length() >= 5) {
+                member = memberRepository.findByDocumentId(digits);
+                if (member.isEmpty()) {
+                    member = memberRepository.findByDocumentDigitsOnly(digits);
+                }
+            }
+        }
+
+        return member.map(m -> evaluateMember(null, key, type, m, false));
+    }
+
+    private static String digitsOnly(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\D", "");
+    }
+
+    private static List<BiometricCredentialType> lookupOrder(BiometricCredentialType requested) {
+        if (requested == BiometricCredentialType.CARD) {
+            return List.of(BiometricCredentialType.CARD, BiometricCredentialType.FINGERPRINT);
+        }
+        return List.of(BiometricCredentialType.FINGERPRINT, BiometricCredentialType.CARD);
     }
 
     @Transactional
@@ -73,15 +138,15 @@ public class AccessControlService {
         String deviceUserId = request.deviceUserId().trim();
 
         if (request.employeeId() != null) {
-            return enrollStaffFingerprint(request.employeeId(), deviceUserId, request.deviceLabel());
+            return enrollStaffDeviceCredential(request.employeeId(), deviceUserId, type, request.deviceLabel());
         }
         if (request.memberId() == null) {
             throw new BusinessException("Indica el afiliado o el entrenador a registrar.");
         }
-        return enrollMemberFingerprint(request.memberId(), deviceUserId, type, request.deviceLabel());
+        return enrollMemberDeviceCredential(request.memberId(), deviceUserId, type, request.deviceLabel());
     }
 
-    private BiometricEnrollResponse enrollMemberFingerprint(
+    private BiometricEnrollResponse enrollMemberDeviceCredential(
             Long memberId, String deviceUserId, BiometricCredentialType type, String deviceLabel) {
         Member member = memberRepository
                 .findById(memberId)
@@ -93,7 +158,7 @@ public class AccessControlService {
             }
         });
         employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
-            throw new BusinessException("Ese ID de huella ya está asignado a un entrenador.");
+            throw new BusinessException(staffAlreadyAssignedMessage(type));
         });
 
         MemberBiometricCredential credential = credentialRepository
@@ -109,29 +174,26 @@ public class AccessControlService {
         return toMemberEnrollResponse(credential);
     }
 
-    private BiometricEnrollResponse enrollStaffFingerprint(Long employeeId, String deviceUserId, String deviceLabel) {
+    private BiometricEnrollResponse enrollStaffDeviceCredential(
+            Long employeeId, String deviceUserId, BiometricCredentialType type, String deviceLabel) {
         Employee employee = employeeRepository
                 .findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado: " + employeeId));
 
-        employeeCredentialRepository
-                .findByCredentialTypeAndDeviceUserId(BiometricCredentialType.FINGERPRINT, deviceUserId)
-                .ifPresent(existing -> {
-                    if (!existing.getEmployee().getId().equals(employee.getId())) {
-                        throw new BusinessException("Ese ID de huella ya está asignado a otro entrenador.");
-                    }
-                });
-        credentialRepository
-                .findByCredentialTypeAndDeviceUserId(BiometricCredentialType.FINGERPRINT, deviceUserId)
-                .ifPresent(existing -> {
-                    throw new BusinessException("Ese ID de huella ya está asignado a un afiliado.");
-                });
+        employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
+            if (!existing.getEmployee().getId().equals(employee.getId())) {
+                throw new BusinessException(staffAlreadyAssignedMessage(type));
+            }
+        });
+        credentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
+            throw new BusinessException(memberAlreadyAssignedMessage(type));
+        });
 
         EmployeeBiometricCredential credential = employeeCredentialRepository
-                .findByEmployeeIdAndCredentialType(employee.getId(), BiometricCredentialType.FINGERPRINT)
+                .findByEmployeeIdAndCredentialType(employee.getId(), type)
                 .orElse(EmployeeBiometricCredential.builder()
                         .employee(employee)
-                        .credentialType(BiometricCredentialType.FINGERPRINT)
+                        .credentialType(type)
                         .build());
 
         credential.setDeviceUserId(deviceUserId);
@@ -172,6 +234,16 @@ public class AccessControlService {
     @Transactional(readOnly = true)
     public List<AccessLogResponse> recentLogs() {
         return accessLogRepository.findRecentGranted().stream().map(this::toLogResponse).toList();
+    }
+
+    /** Eventos nuevos para la pantalla /acceso (tras lectura en ZKTeco). */
+    @Transactional(readOnly = true)
+    public List<KioskAccessEventResponse> kioskEventsSince(Instant since, Long afterId) {
+        if (afterId != null && afterId > 0) {
+            return accessLogRepository.findAfterId(afterId).stream().map(this::toKioskEvent).toList();
+        }
+        Instant from = since != null ? since : Instant.now().minusSeconds(2);
+        return accessLogRepository.findSince(from).stream().map(this::toKioskEvent).toList();
     }
 
     @Transactional
@@ -344,10 +416,11 @@ public class AccessControlService {
             Member member,
             Employee employee) {
         boolean opened = turnstileGatewayService.openGate(fullName, gatePersonId);
+        Long logId;
         if (employee != null) {
-            saveStaffLog(deviceUserId, type, employee, AccessResult.GRANTED, message, opened);
+            logId = saveStaffLog(deviceUserId, type, employee, AccessResult.GRANTED, message, opened);
         } else {
-            saveMemberLog(deviceUserId, type, member, AccessResult.GRANTED, message, opened);
+            logId = saveMemberLog(deviceUserId, type, member, AccessResult.GRANTED, message, opened);
         }
         return new AccessVerifyResponse(
                 AccessResult.GRANTED,
@@ -359,7 +432,9 @@ public class AccessControlService {
                 fullName,
                 deviceUserId,
                 type,
-                member != null ? member.getGender() : null);
+                member != null ? member.getGender() : null,
+                memberDocumentId(member),
+                logId);
     }
 
     private AccessVerifyResponse deny(
@@ -368,10 +443,11 @@ public class AccessControlService {
             Member member,
             Employee employee,
             String message) {
+        Long logId;
         if (employee != null) {
-            saveStaffLog(deviceUserId, type, employee, AccessResult.DENIED, message, false);
+            logId = saveStaffLog(deviceUserId, type, employee, AccessResult.DENIED, message, false);
         } else {
-            saveMemberLog(deviceUserId, type, member, AccessResult.DENIED, message, false);
+            logId = saveMemberLog(deviceUserId, type, member, AccessResult.DENIED, message, false);
         }
         String displayName = member != null
                 ? member.getFirstName() + " " + member.getLastName()
@@ -386,17 +462,19 @@ public class AccessControlService {
                 displayName,
                 deviceUserId,
                 type,
-                member != null ? member.getGender() : null);
+                member != null ? member.getGender() : null,
+                memberDocumentId(member),
+                logId);
     }
 
-    private void saveMemberLog(
+    private Long saveMemberLog(
             String deviceUserId,
             BiometricCredentialType type,
             Member member,
             AccessResult result,
             String message,
             boolean gateOpened) {
-        accessLogRepository.save(AccessLog.builder()
+        AccessLog log = accessLogRepository.save(AccessLog.builder()
                 .fingerprintUserId(deviceUserId)
                 .credentialType(type)
                 .member(member)
@@ -404,16 +482,17 @@ public class AccessControlService {
                 .message(message)
                 .gateOpened(gateOpened)
                 .build());
+        return log.getId();
     }
 
-    private void saveStaffLog(
+    private Long saveStaffLog(
             String deviceUserId,
             BiometricCredentialType type,
             Employee employee,
             AccessResult result,
             String message,
             boolean gateOpened) {
-        accessLogRepository.save(AccessLog.builder()
+        AccessLog log = accessLogRepository.save(AccessLog.builder()
                 .fingerprintUserId(deviceUserId)
                 .credentialType(type)
                 .employee(employee)
@@ -421,6 +500,7 @@ public class AccessControlService {
                 .message(message)
                 .gateOpened(gateOpened)
                 .build());
+        return log.getId();
     }
 
     private BiometricEnrollResponse toMemberEnrollResponse(MemberBiometricCredential credential) {
@@ -451,6 +531,36 @@ public class AccessControlService {
                 credential.getEnrolledAt());
     }
 
+    private KioskAccessEventResponse toKioskEvent(AccessLog log) {
+        String personName = null;
+        com.gym.management.model.Gender gender = null;
+        Long memberId = null;
+        if (log.getMember() != null) {
+            personName = log.getMember().getFirstName() + " " + log.getMember().getLastName();
+            gender = log.getMember().getGender();
+            memberId = log.getMember().getId();
+        } else if (log.getEmployee() != null) {
+            personName = log.getEmployee().getFirstName() + " " + log.getEmployee().getLastName();
+        }
+        BiometricCredentialType type = log.getCredentialType() != null
+                ? log.getCredentialType()
+                : BiometricCredentialType.FINGERPRINT;
+        String documentId = log.getMember() != null ? log.getMember().getDocumentId() : null;
+        return new KioskAccessEventResponse(
+                log.getId(),
+                log.getFingerprintUserId(),
+                type,
+                type.displayLabel(),
+                memberId,
+                personName,
+                log.getResult(),
+                log.getMessage(),
+                log.isGateOpened(),
+                log.getCreatedAt(),
+                gender,
+                documentId);
+    }
+
     private AccessLogResponse toLogResponse(AccessLog log) {
         String personName = null;
         if (log.getMember() != null) {
@@ -477,7 +587,8 @@ public class AccessControlService {
 
     private static String notRegisteredMessage(BiometricCredentialType type) {
         return switch (type) {
-            case FINGERPRINT -> "Huella no registrada en el sistema";
+            case FINGERPRINT -> "Huella o cédula no reconocida en el sistema";
+            case CARD -> "Tarjeta o cédula no reconocida en el sistema";
             case FACE -> "Rostro no registrado en el sistema";
         };
     }
@@ -486,19 +597,34 @@ public class AccessControlService {
         if (staff) {
             return switch (type) {
                 case FINGERPRINT -> "Este entrenador no tiene huella registrada";
+                case CARD -> "Este entrenador no tiene tarjeta registrada";
                 case FACE -> "Este entrenador no tiene rostro registrado";
             };
         }
         return switch (type) {
             case FINGERPRINT -> "Este afiliado no tiene huella registrada";
+            case CARD -> "Este afiliado no tiene tarjeta registrada";
             case FACE -> "Este afiliado no tiene rostro registrado";
         };
     }
 
     private static String alreadyAssignedMessage(BiometricCredentialType type) {
+        return memberAlreadyAssignedMessage(type);
+    }
+
+    private static String memberAlreadyAssignedMessage(BiometricCredentialType type) {
         return switch (type) {
             case FINGERPRINT -> "Ese ID de huella ya está asignado a otro afiliado";
+            case CARD -> "Ese número de tarjeta ya está asignado a otro afiliado";
             case FACE -> "Ese ID de rostro ya está asignado a otro afiliado";
+        };
+    }
+
+    private static String staffAlreadyAssignedMessage(BiometricCredentialType type) {
+        return switch (type) {
+            case FINGERPRINT -> "Ese ID de huella ya está asignado a otro entrenador";
+            case CARD -> "Ese número de tarjeta ya está asignado a otro entrenador";
+            case FACE -> "Ese ID de rostro ya está asignado a otro entrenador";
         };
     }
 
@@ -515,5 +641,12 @@ public class AccessControlService {
             return null;
         }
         return value.trim();
+    }
+
+    private static String memberDocumentId(Member member) {
+        if (member == null || member.getDocumentId() == null || member.getDocumentId().isBlank()) {
+            return null;
+        }
+        return member.getDocumentId().trim();
     }
 }

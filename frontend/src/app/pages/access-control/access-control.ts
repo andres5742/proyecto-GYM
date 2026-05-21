@@ -72,14 +72,16 @@ export class AccessControlPage implements OnInit {
   protected readonly staffFaceStatus = signal('Selecciona un entrenador y mira la cámara del lector biométrico.');
   protected readonly section = signal<'register' | 'registered' | 'logs'>('register');
   protected readonly registerAudience = signal<'members' | 'staff'>('members');
-  protected readonly registerMethod = signal<'fingerprint' | 'face'>('fingerprint');
+  protected readonly registerMethod = signal<'fingerprint' | 'card' | 'face'>('fingerprint');
 
   private readonly faceCapture = viewChild('memberFaceCapture', { read: FaceWebcamCaptureComponent });
   private readonly staffFaceCapture = viewChild('staffFaceCapture', { read: FaceWebcamCaptureComponent });
 
   protected readonly fingerprintCount = computed(() => this.memberFingerprintEnrollments().length);
+  protected readonly cardCount = computed(() => this.memberCardEnrollments().length);
   protected readonly faceCount = computed(() => this.memberFaceEnrollments().length);
   protected readonly staffFingerprintCount = computed(() => this.staffFingerprintEnrollments().length);
+  protected readonly staffCardCount = computed(() => this.staffCardEnrollments().length);
   protected readonly staffFaceCount = computed(() => this.staffFaceEnrollments().length);
   protected readonly logsCount = computed(() => this.logs().length);
 
@@ -87,9 +89,19 @@ export class AccessControlPage implements OnInit {
     this.enrollments().filter((e) => e.credentialType === 'FINGERPRINT' && isMemberPerson(e)),
   );
 
+  protected readonly memberCardEnrollments = computed(() =>
+    this.enrollments().filter((e) => e.credentialType === 'CARD' && isMemberPerson(e)),
+  );
+
   protected readonly staffFingerprintEnrollments = computed(() =>
     this.enrollments()
       .filter((e) => e.credentialType === 'FINGERPRINT' && isStaffPerson(e))
+      .filter((e) => this.isTrainerVisibleInDirectory(e)),
+  );
+
+  protected readonly staffCardEnrollments = computed(() =>
+    this.enrollments()
+      .filter((e) => e.credentialType === 'CARD' && isStaffPerson(e))
       .filter((e) => this.isTrainerVisibleInDirectory(e)),
   );
 
@@ -123,6 +135,64 @@ export class AccessControlPage implements OnInit {
   protected readonly accessByMemberId = computed(() =>
     buildMemberAccessMap(this.enrollments(), this.faceEnrollments()),
   );
+
+  protected readonly cardColumns: DataTableColumn<BiometricEnrollResponse>[] = [
+    {
+      id: 'name',
+      header: 'Afiliado',
+      sortable: true,
+      sortValue: (r) => r.memberName,
+      cell: (r) => r.memberName,
+    },
+    {
+      id: 'device',
+      header: 'Nº tarjeta / Pin ZKT',
+      sortable: true,
+      sortValue: (r) => r.deviceUserId,
+      cell: (r) => r.deviceUserId,
+    },
+    {
+      id: 'label',
+      header: 'Nota',
+      cell: (r) => r.deviceLabel ?? '—',
+    },
+    {
+      id: 'date',
+      header: 'Vinculado',
+      sortable: true,
+      sortValue: (r) => r.enrolledAt,
+      cell: (r) => formatAccessDateTime(r.enrolledAt),
+    },
+  ];
+
+  protected readonly staffCardColumns: DataTableColumn<BiometricEnrollResponse>[] = [
+    {
+      id: 'name',
+      header: 'Entrenador',
+      sortable: true,
+      sortValue: (r) => r.memberName,
+      cell: (r) => r.memberName,
+    },
+    {
+      id: 'device',
+      header: 'Nº tarjeta / Pin ZKT',
+      sortable: true,
+      sortValue: (r) => r.deviceUserId,
+      cell: (r) => r.deviceUserId,
+    },
+    {
+      id: 'label',
+      header: 'Nota',
+      cell: (r) => r.deviceLabel ?? '—',
+    },
+    {
+      id: 'date',
+      header: 'Vinculado',
+      sortable: true,
+      sortValue: (r) => r.enrolledAt,
+      cell: (r) => formatAccessDateTime(r.enrolledAt),
+    },
+  ];
 
   protected readonly fingerprintColumns: DataTableColumn<BiometricEnrollResponse>[] = [
     {
@@ -312,8 +382,13 @@ export class AccessControlPage implements OnInit {
     this.registerAudience.set(audience);
   }
 
-  setRegisterMethod(method: 'fingerprint' | 'face'): void {
+  setRegisterMethod(method: 'fingerprint' | 'card' | 'face'): void {
     this.registerMethod.set(method);
+    if (method === 'card') {
+      this.enrollForm.patchValue({ credentialType: 'CARD' });
+    } else if (method === 'fingerprint') {
+      this.enrollForm.patchValue({ credentialType: 'FINGERPRINT' });
+    }
   }
 
   async enrollFace(): Promise<void> {
@@ -432,16 +507,18 @@ export class AccessControlPage implements OnInit {
       return;
     }
     this.saving.set(true);
+    const credType: BiometricCredentialType =
+      this.registerMethod() === 'card' ? 'CARD' : 'FINGERPRINT';
     this.accessService
       .enrollStaff({
         employeeId: raw.employeeId,
         deviceUserId: raw.deviceUserId,
-        credentialType: 'FINGERPRINT',
+        credentialType: credType,
         deviceLabel: raw.deviceLabel || undefined,
       })
       .subscribe({
         next: () => {
-          this.message.set('Huella vinculada al entrenador correctamente');
+          this.message.set(`${this.typeLabels[credType]} vinculada al entrenador correctamente`);
           this.saving.set(false);
           this.staffEnrollForm.patchValue({ deviceUserId: '', deviceLabel: '' });
           this.loadAll();

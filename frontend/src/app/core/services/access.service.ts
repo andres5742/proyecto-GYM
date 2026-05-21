@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AccessLogEntry,
+  KioskAccessEvent,
   AccessVerifyResponse,
   BiometricCredentialType,
   BiometricEnrollRequest,
@@ -33,6 +34,34 @@ export class AccessService {
   /** @deprecated Use verify(id, 'FINGERPRINT') */
   verifyFingerprint(fingerprintUserId: string): Observable<AccessVerifyResponse> {
     return this.verify(fingerprintUserId, 'FINGERPRINT');
+  }
+
+  verifyCard(cardOrPin: string): Observable<AccessVerifyResponse> {
+    return this.verify(cardOrPin, 'CARD');
+  }
+
+  /** Igual que el lector ZKTeco en producción (tarjeta/huella/cédula en Pin). */
+  zktEvent(pin: string): Observable<AccessVerifyResponse> {
+    const headers = new HttpHeaders({
+      'X-Device-Key': environment.accessDeviceKey ?? '',
+    });
+    return this.http.post<AccessVerifyResponse>(
+      `${this.baseUrl}/zkt/event`,
+      { pin: pin.trim() },
+      { headers },
+    );
+  }
+
+  /** Eventos de acceso desde el lector ZKTeco (pantalla /acceso). */
+  kioskEventsSince(sinceIso: string, afterLogId = 0): Observable<KioskAccessEvent[]> {
+    const headers = new HttpHeaders({
+      'X-Device-Key': environment.accessDeviceKey ?? '',
+    });
+    let params = new HttpParams().set('since', sinceIso);
+    if (afterLogId > 0) {
+      params = params.set('afterId', String(afterLogId));
+    }
+    return this.http.get<KioskAccessEvent[]>(`${this.baseUrl}/kiosk/events`, { headers, params });
   }
 
   verifyFace(deviceUserId: string): Observable<AccessVerifyResponse> {

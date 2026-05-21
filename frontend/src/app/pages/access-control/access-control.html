@@ -2,7 +2,7 @@
   <div class="access-header__main">
     <h2>Acceso biométrico y torniquete</h2>
     <p class="muted">
-      Registra afiliados y entrenadores (huella o rostro). Un ingreso por día. Tiquetera: cupo de entrenos del plan (ej. 16); al agotarlos no puede ingresar más hasta renovar.
+      Registra afiliados y entrenadores (huella, tarjeta ZKTeco o rostro). Un ingreso por día. Tiquetera: cupo de entrenos del plan (ej. 16); al agotarlos no puede ingresar más hasta renovar.
     </p>
     <a routerLink="/acceso" target="_blank" class="kiosk-link">Abrir pantalla del torniquete ↗</a>
   </div>
@@ -10,6 +10,10 @@
     <li class="access-stats__item">
       <span class="access-stats__value">{{ fingerprintCount() }}</span>
       <span class="access-stats__label">Huellas afiliados</span>
+    </li>
+    <li class="access-stats__item">
+      <span class="access-stats__value">{{ cardCount() }}</span>
+      <span class="access-stats__label">Tarjetas afiliados</span>
     </li>
     <li class="access-stats__item">
       <span class="access-stats__value">{{ faceCount() }}</span>
@@ -46,7 +50,7 @@
     (click)="setSection('registered')"
   >
     Afiliados registrados
-    <span class="access-nav__badge">{{ fingerprintCount() + faceCount() }}</span>
+    <span class="access-nav__badge">{{ fingerprintCount() + cardCount() + faceCount() }}</span>
   </button>
   <button
     type="button"
@@ -105,6 +109,16 @@
             type="button"
             class="segmented__btn"
             role="tab"
+            [attr.aria-selected]="registerMethod() === 'card'"
+            [class.is-active]="registerMethod() === 'card'"
+            (click)="setRegisterMethod('card')"
+          >
+            Tarjeta ZKTeco
+          </button>
+          <button
+            type="button"
+            class="segmented__btn"
+            role="tab"
             [attr.aria-selected]="registerMethod() === 'face'"
             [class.is-active]="registerMethod() === 'face'"
             (click)="setRegisterMethod('face')"
@@ -114,7 +128,7 @@
         </div>
       </div>
       <p class="register-sidebar__legend muted small">
-        En afiliados, <span class="legend-chip on">Huella</span> / <span class="legend-chip on">Rostro</span> en verde = ya registrado.
+        En afiliados, <span class="legend-chip on">Huella</span> / <span class="legend-chip on">Tarjeta</span> / <span class="legend-chip on">Rostro</span> en verde = ya registrado.
       </p>
     </aside>
 
@@ -143,6 +157,37 @@
           <footer class="register-form__actions">
             <button type="submit" class="btn btn-primary" [disabled]="saving()">
               {{ saving() ? 'Guardando…' : 'Vincular huella' }}
+            </button>
+          </footer>
+        </form>
+      }
+
+      @if (registerAudience() === 'members' && registerMethod() === 'card') {
+        <header class="register-workspace__head">
+          <h3>Afiliado · tarjeta ZKTeco</h3>
+          <p class="muted small">
+            Vincula el número que muestra el lector al pasar la tarjeta (campo Pin / Card en el ZKTeco).
+          </p>
+        </header>
+        <form class="register-form" [formGroup]="enrollForm" (ngSubmit)="enroll()">
+          <div class="register-form__fields">
+            <app-member-search-select
+              [members]="members()"
+              [accessByMemberId]="accessByMemberId()"
+              formControlName="memberId"
+            />
+            <label>
+              Nº tarjeta / Pin en ZKTeco
+              <input formControlName="deviceUserId" placeholder="Ej: 10042 o número de tarjeta" />
+            </label>
+            <label>
+              Nota (opcional)
+              <input formControlName="deviceLabel" placeholder="Ej: Lector entrada ZKT" />
+            </label>
+          </div>
+          <footer class="register-form__actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">
+              {{ saving() ? 'Guardando…' : 'Vincular tarjeta' }}
             </button>
           </footer>
         </form>
@@ -211,6 +256,39 @@
           <footer class="register-form__actions">
             <button type="submit" class="btn btn-primary" [disabled]="saving()">
               {{ saving() ? 'Guardando…' : 'Vincular huella' }}
+            </button>
+          </footer>
+        </form>
+      }
+
+      @if (registerAudience() === 'staff' && registerMethod() === 'card') {
+        <header class="register-workspace__head">
+          <h3>Entrenador · tarjeta ZKTeco</h3>
+          <p class="muted small">Mismo lector de tarjetas en la entrada.</p>
+        </header>
+        <form class="register-form" [formGroup]="staffEnrollForm" (ngSubmit)="enrollStaff()">
+          <div class="register-form__fields">
+            <label>
+              Entrenador
+              <select formControlName="employeeId">
+                <option [ngValue]="null">Selecciona entrenador…</option>
+                @for (t of trainers(); track t.id) {
+                  <option [ngValue]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Nº tarjeta / Pin en ZKTeco
+              <input formControlName="deviceUserId" placeholder="Ej: 20001" />
+            </label>
+            <label>
+              Nota (opcional)
+              <input formControlName="deviceLabel" placeholder="Ej: Tarjeta personal" />
+            </label>
+          </div>
+          <footer class="register-form__actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">
+              {{ saving() ? 'Guardando…' : 'Vincular tarjeta' }}
             </button>
           </footer>
         </form>
@@ -292,6 +370,28 @@
 
         <article class="access-card">
           <header class="access-card__head">
+            <h4>Tarjetas ZKTeco</h4>
+            <span class="access-card__count">{{ cardCount() }}</span>
+          </header>
+          <app-data-table
+            [rows]="memberCardEnrollments()"
+            [columns]="cardColumns"
+            searchPlaceholder="Buscar…"
+            emptyMessage="Sin tarjetas registradas."
+            [showActions]="true"
+            [pageSizeDefault]="10"
+          >
+            <ng-template #actions let-row>
+              <button type="button" class="btn btn-success btn-sm" (click)="manualOpen(row.memberId)">Abrir</button>
+              <button type="button" class="btn btn-delete btn-sm" (click)="removeEnrollment(row.memberId, 'CARD')">
+                Quitar
+              </button>
+            </ng-template>
+          </app-data-table>
+        </article>
+
+        <article class="access-card">
+          <header class="access-card__head">
             <h4>Rostros</h4>
             <span class="access-card__count">{{ faceCount() }}</span>
           </header>
@@ -314,7 +414,7 @@
       </div>
     </section>
 
-    @if (staffFingerprintCount() > 0 || staffFaceCount() > 0) {
+    @if (staffFingerprintCount() > 0 || staffCardCount() > 0 || staffFaceCount() > 0) {
       <section class="registered-block panel">
         <h3 class="registered-block__title">Entrenadores registrados</h3>
         <div class="registered-block__grid">
@@ -337,6 +437,33 @@
                     type="button"
                     class="btn btn-delete btn-sm"
                     (click)="removeStaffEnrollment(row.employeeId!, 'FINGERPRINT')"
+                  >
+                    Quitar
+                  </button>
+                </ng-template>
+              </app-data-table>
+            </article>
+          }
+
+          @if (staffCardEnrollments().length > 0) {
+            <article class="access-card">
+              <header class="access-card__head">
+                <h4>Tarjetas ZKTeco</h4>
+                <span class="access-card__count">{{ staffCardCount() }}</span>
+              </header>
+              <app-data-table
+                [rows]="staffCardEnrollments()"
+                [columns]="staffCardColumns"
+                searchPlaceholder="Buscar…"
+                emptyMessage="Sin tarjetas de entrenadores."
+                [showActions]="true"
+                [pageSizeDefault]="10"
+              >
+                <ng-template #actions let-row>
+                  <button
+                    type="button"
+                    class="btn btn-delete btn-sm"
+                    (click)="removeStaffEnrollment(row.employeeId!, 'CARD')"
                   >
                     Quitar
                   </button>

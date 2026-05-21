@@ -31,6 +31,26 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
 
     @Query(
             """
+            SELECT a FROM AccessLog a
+            LEFT JOIN FETCH a.member
+            LEFT JOIN FETCH a.employee
+            WHERE a.createdAt > :since
+            ORDER BY a.createdAt ASC, a.id ASC
+            """)
+    List<AccessLog> findSince(@Param("since") Instant since);
+
+    @Query(
+            """
+            SELECT a FROM AccessLog a
+            LEFT JOIN FETCH a.member
+            LEFT JOIN FETCH a.employee
+            WHERE a.id > :afterId
+            ORDER BY a.id ASC
+            """)
+    List<AccessLog> findAfterId(@Param("afterId") long afterId);
+
+    @Query(
+            """
             SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
             FROM AccessLog a
             WHERE a.member.id = :memberId

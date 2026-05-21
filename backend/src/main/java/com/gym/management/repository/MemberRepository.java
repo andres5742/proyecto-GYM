@@ -17,6 +17,18 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     Optional<Member> findByDocumentId(String documentId);
 
+    /** Coincide cédula aunque en BD tenga puntos, guiones o espacios (PostgreSQL). */
+    @Query(
+            value =
+                    """
+            SELECT * FROM members m
+            WHERE m.document_id IS NOT NULL
+            AND REGEXP_REPLACE(TRIM(m.document_id), '[^0-9]', '', 'g') = :digitsOnly
+            LIMIT 1
+            """,
+            nativeQuery = true)
+    Optional<Member> findByDocumentDigitsOnly(@Param("digitsOnly") String digitsOnly);
+
     List<Member> findByStatusAndMembershipEndBefore(MembershipStatus status, LocalDate date);
 
     @Modifying

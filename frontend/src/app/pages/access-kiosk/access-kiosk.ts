@@ -1,8 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { FaceWebcamCaptureComponent } from '../../components/face-webcam-capture/face-webcam-capture';
-import { AccessVerifyResponse } from '../../core/models/access.model';
+import { AccessVerifyResponse, KioskAccessEvent } from '../../core/models/access.model';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AccessService } from '../../core/services/access.service';
 import {
   firstNameFromFullName,
@@ -13,7 +13,6 @@ import {
   unlockWelcomeAudio,
   welcomeHeadline,
 } from '../../core/utils/access-welcome-audio';
-import { httpErrorMessage } from '../../core/utils/http-error-message';
 
 const KIOSK_MOTIVATIONAL_PHRASES = [
   'Cada día es una nueva oportunidad para ser más fuerte.',
@@ -26,40 +25,41 @@ const KIOSK_MOTIVATIONAL_PHRASES = [
   'En Sport Gym R.10 crecemos juntos.',
 ];
 
+const POLL_MS = 700;
+const GRANTED_DISPLAY_MS = 8000;
+const DENIED_DISPLAY_MS = 5000;
+/** Arranque automático al abrir la página (sin botón Activar). */
+const AUTO_START_MS = 400;
+
 @Component({
   selector: 'app-access-kiosk',
-  imports: [DatePipe, FaceWebcamCaptureComponent],
+  imports: [DatePipe],
   templateUrl: './access-kiosk.html',
   styleUrl: './access-kiosk.scss',
 })
 export class AccessKiosk implements OnInit, OnDestroy {
   private readonly accessService = inject(AccessService);
-  private readonly faceCapture = viewChild(FaceWebcamCaptureComponent);
 
   private clockTimer: ReturnType<typeof setInterval> | null = null;
-  private scanRafId: number | null = null;
-  private lastDetectAt = 0;
-  private consecutiveFaces = 0;
-  private verifyInFlight = false;
-  private cooldownUntil = 0;
-
-  private readonly detectIntervalMs = 100;
-  private readonly stableFramesRequired = 2;
-  private readonly grantedCooldownMs = 5000;
-  private readonly deniedCooldownMs = 3000;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private releaseTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastProcessedLogId = 0;
+  private pollSinceIso = new Date().toISOString();
+  private polling = false;
+  private autoStartTimer: ReturnType<typeof setTimeout> | null = null;
+  private audioUnlockAttempted = false;
 
   protected readonly deviceUserId = signal('');
-  protected readonly scanning = signal(false);
-  protected readonly facePresent = signal(false);
   protected readonly lastResult = signal<AccessVerifyResponse | null>(null);
   protected readonly clock = signal(new Date());
-  protected readonly statusLine = signal('Iniciando lectores…');
+  protected readonly statusLine = signal('Iniciando pantalla de acceso…');
   protected readonly welcomeTitle = signal<string | null>(null);
   protected readonly audioUnlocked = signal(false);
   protected readonly kioskReady = signal(false);
   protected readonly showWelcomeAudioBtn = signal(false);
   protected readonly audioSupported = isWelcomeAudioSupported();
   protected readonly motivationalPhrase = signal(KIOSK_MOTIVATIONAL_PHRASES[0]);
+  protected readonly configError = signal<string | null>(null);
 
   ngOnInit(): void {
     const dayIndex = new Date().getDate() % KIOSK_MOTIVATIONAL_PHRASES.length;
@@ -68,35 +68,53 @@ export class AccessKiosk implements OnInit, OnDestroy {
     prepareWelcomeSpeech();
     if (!environment.accessDeviceKey?.trim() || environment.accessDeviceKey === '__ACCESS_DEVICE_KEY__') {
       const msg =
-        'Clave del torniquete no configurada. En el servidor: define ACCESS_DEVICE_KEY en deploy/.env y reconstruye el frontend (docker compose --build).';
+        'Clave del torniquete no configurada. Define ACCESS_DEVICE_KEY y reconstruye el frontend.';
+      this.configError.set(msg);
       this.statusLine.set(msg);
-      this.lastResult.set({
-        result: 'DENIED',
-        gateOpened: false,
-        message: msg,
-        deviceUserId: 'CONFIG',
-        credentialType: 'FACE',
-      });
       return;
     }
+    this.autoStartTimer = setTimeout(() => this.startKiosk(), AUTO_START_MS);
   }
 
   ngOnDestroy(): void {
     if (this.clockTimer) {
       clearInterval(this.clockTimer);
     }
-    this.stopAccessLoop();
+    if (this.autoStartTimer) {
+      clearTimeout(this.autoStartTimer);
+    }
+    this.stopPolling();
+    if (this.releaseTimer) {
+      clearTimeout(this.releaseTimer);
+    }
   }
 
-  startKiosk(): void {
+  /** Primer toque en pantalla: desbloquea voz del navegador (sin botón Activar). */
+  @HostListener('pointerdown')
+  onKioskPointerDown(): void {
+    if (this.audioUnlockAttempted || !this.audioSupported) {
+      return;
+    }
+    this.audioUnlockAttempted = true;
+    const ok = unlockWelcomeAudio();
+    this.audioUnlocked.set(ok);
+  }
+
+  private startKiosk(): void {
+    if (this.configError()) {
+      return;
+    }
     if (this.audioSupported) {
       const ok = unlockWelcomeAudio();
       this.audioUnlocked.set(ok);
-    } else {
-      this.audioUnlocked.set(false);
     }
     this.kioskReady.set(true);
-    requestAnimationFrame(() => this.startAccessLoop());
+    this.pollSinceIso = new Date().toISOString();
+    this.lastProcessedLogId = 0;
+    this.lastResult.set(null);
+    this.welcomeTitle.set(null);
+    this.statusLine.set('Pase su tarjeta o coloque su huella en el lector…');
+    this.startPolling();
   }
 
   playWelcomeNow(): void {
@@ -114,151 +132,102 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.showWelcomeAudioBtn.set(false);
   }
 
-  onFaceStatus(message: string): void {
-    if (!this.verifyInFlight && !this.lastResult() && !this.facePresent()) {
-      this.statusLine.set(message);
-    }
+  onCedulaInput(value: string): void {
+    this.deviceUserId.set(value);
   }
 
-  onFaceDetected(detected: boolean): void {
-    this.facePresent.set(detected);
-    if (detected) {
-      if (!this.verifyInFlight && !this.lastResult()) {
-        this.statusLine.set('Rostro detectado, mantén la mirada a la cámara…');
-      }
-      return;
-    }
-    this.consecutiveFaces = 0;
-    this.tryReleaseForNextPerson();
-  }
-
-  private tryReleaseForNextPerson(): void {
-    if (this.canAcceptNextPerson()) {
-      this.clearResultAndWait();
-    } else if (this.lastResult()) {
-      this.statusLine.set('Retírate de la cámara cuando hayas pasado…');
-    } else if (!this.verifyInFlight) {
-      this.statusLine.set('Esperando… Coloca huella o mira la cámara.');
-    }
+  protected cedulaDigitCount(value: string): number {
+    return value.replace(/\D/g, '').length;
   }
 
   simulateScan(): void {
     const id = this.deviceUserId().trim();
-    if (!id || this.verifyInFlight || !this.canAcceptNextPerson()) {
+    if (!id || !this.kioskReady()) {
       return;
     }
-    this.verifyFingerprint(id);
-  }
-
-  /** Llamable desde integración con lector de huella físico. */
-  verifyFingerprint(deviceUserId: string): void {
-    const id = deviceUserId.trim();
-    if (!id || this.verifyInFlight) {
-      return;
-    }
-    this.verifyInFlight = true;
-    this.scanning.set(true);
-    this.statusLine.set('Verificando huella…');
-    this.stopAccessLoop();
-
-    this.accessService.verify(id, 'FINGERPRINT').subscribe({
+    this.accessService.zktEvent(id).subscribe({
       next: (res) => {
-        this.verifyInFlight = false;
-        this.scanning.set(false);
-        this.deviceUserId.set('');
-        this.handleVerifyResult(res);
-        this.resumeAccessLoop();
+        this.applyVerifyResponse(res);
       },
-      error: (err) => {
-        this.verifyInFlight = false;
-        this.scanning.set(false);
-        this.handleVerifyError(err, id, 'FINGERPRINT');
-        this.resumeAccessLoop();
+      error: (err: HttpErrorResponse) => {
+        const msg =
+          typeof err.error === 'object' && err.error?.message
+            ? String(err.error.message)
+            : 'No se pudo validar el acceso. Revise la cédula o la conexión.';
+        this.statusLine.set(msg);
+        this.lastResult.set({
+          result: 'DENIED',
+          gateOpened: false,
+          message: msg,
+          deviceUserId: id,
+          credentialType: 'CARD',
+        });
+        this.welcomeTitle.set(null);
+        this.scheduleRelease(DENIED_DISPLAY_MS);
       },
     });
   }
 
-  private startAccessLoop(): void {
-    this.stopAccessLoop();
-    const loop = (now: number) => {
-      this.scanRafId = requestAnimationFrame(loop);
-      if (now - this.lastDetectAt < this.detectIntervalMs) {
-        return;
-      }
-      if (this.verifyInFlight || !this.canAcceptNextPerson()) {
-        return;
-      }
-      void this.tickFaceScan(now);
-    };
-    this.scanRafId = requestAnimationFrame(loop);
+  private startPolling(): void {
+    this.stopPolling();
+    void this.pollEvents();
+    this.pollTimer = setInterval(() => void this.pollEvents(), POLL_MS);
   }
 
-  private stopAccessLoop(): void {
-    if (this.scanRafId !== null) {
-      cancelAnimationFrame(this.scanRafId);
-      this.scanRafId = null;
+  private stopPolling(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
     }
   }
 
-  private resumeAccessLoop(): void {
-    requestAnimationFrame(() => this.startAccessLoop());
-  }
-
-  private canAcceptNextPerson(): boolean {
-    return Date.now() >= this.cooldownUntil;
-  }
-
-  private async tickFaceScan(now: number): Promise<void> {
-    this.lastDetectAt = now;
-    const capture = this.faceCapture();
-    if (!capture) {
+  private async pollEvents(): Promise<void> {
+    if (this.polling || !this.kioskReady() || this.configError()) {
       return;
     }
-
-    const descriptor = await capture.detectForAccess();
-    if (!descriptor) {
-      this.consecutiveFaces = 0;
-      if (!this.facePresent() && this.canAcceptNextPerson() && this.lastResult()) {
-        this.clearResultAndWait();
-      } else if (!this.facePresent() && !this.lastResult() && !this.verifyInFlight) {
-        this.statusLine.set('Esperando…');
-      }
-      return;
-    }
-
-    this.facePresent.set(true);
-    this.consecutiveFaces++;
-    if (this.consecutiveFaces < this.stableFramesRequired) {
-      this.statusLine.set('Rostro detectado, verificando…');
-      return;
-    }
-
-    this.consecutiveFaces = 0;
-    this.verifyInFlight = true;
-    this.scanning.set(true);
-    this.statusLine.set('Verificando rostro…');
-    this.stopAccessLoop();
-
-    this.accessService.verifyWebcam(descriptor).subscribe({
-      next: (res) => {
-        this.verifyInFlight = false;
-        this.scanning.set(false);
-        this.handleVerifyResult(res);
-        this.resumeAccessLoop();
+    this.polling = true;
+    this.accessService.kioskEventsSince(this.pollSinceIso, this.lastProcessedLogId).subscribe({
+      next: (events) => {
+        this.polling = false;
+        for (const event of events) {
+          if (event.id <= this.lastProcessedLogId) {
+            continue;
+          }
+          this.lastProcessedLogId = Math.max(this.lastProcessedLogId, event.id);
+          this.applyKioskEvent(event);
+          break;
+        }
       },
-      error: (err) => {
-        this.verifyInFlight = false;
-        this.scanning.set(false);
-        this.handleVerifyError(err, 'BIO', 'FACE');
-        this.resumeAccessLoop();
+      error: () => {
+        this.polling = false;
       },
     });
   }
 
-  private handleVerifyResult(res: AccessVerifyResponse): void {
+  private applyKioskEvent(event: KioskAccessEvent): void {
+    this.applyVerifyResponse({
+      result: event.result,
+      gateOpened: event.gateOpened,
+      message: event.message,
+      memberId: event.memberId,
+      memberName: event.memberName,
+      deviceUserId: event.deviceUserId,
+      credentialType: event.credentialType,
+      gender: event.gender ?? null,
+      documentId: event.documentId ?? null,
+    });
+  }
+
+  private applyVerifyResponse(res: AccessVerifyResponse): void {
+    if (this.releaseTimer) {
+      clearTimeout(this.releaseTimer);
+      this.releaseTimer = null;
+    }
+
     this.lastResult.set(res);
-    const cooldown = res.result === 'GRANTED' ? this.grantedCooldownMs : this.deniedCooldownMs;
-    this.cooldownUntil = Date.now() + cooldown;
+    if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {
+      this.lastProcessedLogId = res.accessLogId;
+    }
 
     if (res.result === 'GRANTED') {
       const firstName = firstNameFromFullName(res.memberName);
@@ -271,40 +240,46 @@ export class AccessKiosk implements OnInit, OnDestroy {
       } else {
         this.showWelcomeAudioBtn.set(this.audioSupported);
       }
+      const cedula = this.displayCedula(res);
       this.statusLine.set(
         firstName
-          ? `${welcomeHeadline(firstName, gender)} Pasa al torniquete.`
-          : '¡Ingreso autorizado! Pasa al torniquete.',
+          ? `${welcomeHeadline(firstName, gender)}${cedula ? ` · Cédula ${cedula}` : ''} Pasa al torniquete.`
+          : cedula
+            ? `¡Ingreso autorizado! Cédula ${cedula}. Pasa al torniquete.`
+            : '¡Ingreso autorizado! Pasa al torniquete.',
       );
+      this.scheduleRelease(GRANTED_DISPLAY_MS);
     } else {
-      this.showWelcomeAudioBtn.set(false);
       this.welcomeTitle.set(null);
-      this.statusLine.set(res.message);
+      this.showWelcomeAudioBtn.set(false);
+      const cedula = this.displayCedula(res);
+      this.statusLine.set(cedula ? `${res.message} (Cédula ${cedula})` : res.message);
+      this.scheduleRelease(DENIED_DISPLAY_MS);
     }
   }
 
-  private handleVerifyError(
-    err: unknown,
-    id: string,
-    credentialType: 'FINGERPRINT' | 'FACE',
-  ): void {
-    const message = httpErrorMessage(err);
-    this.lastResult.set({
-      result: 'DENIED',
-      gateOpened: false,
-      message,
-      deviceUserId: id,
-      credentialType,
-    });
-    this.cooldownUntil = Date.now() + this.deniedCooldownMs;
-    this.statusLine.set(message);
+  protected displayCedula(res: AccessVerifyResponse | null): string | null {
+    if (!res) {
+      return null;
+    }
+    const doc = res.documentId?.trim();
+    if (doc) {
+      return doc;
+    }
+    const pin = res.deviceUserId?.trim();
+    if (pin && /^\d{5,}$/.test(pin.replace(/\D/g, ''))) {
+      return pin;
+    }
+    return null;
   }
 
-  private clearResultAndWait(): void {
-    this.lastResult.set(null);
-    this.welcomeTitle.set(null);
-    this.showWelcomeAudioBtn.set(false);
-    this.consecutiveFaces = 0;
-      this.statusLine.set('Esperando… Coloca huella o mira la cámara.');
+  private scheduleRelease(ms: number): void {
+    this.releaseTimer = setTimeout(() => {
+      this.releaseTimer = null;
+      this.lastResult.set(null);
+      this.welcomeTitle.set(null);
+      this.showWelcomeAudioBtn.set(false);
+      this.statusLine.set('Pase su tarjeta o coloque su huella en el lector…');
+    }, ms);
   }
 }
