@@ -37,6 +37,7 @@ API = os.environ.get("GYM_ACCESS_API", "http://localhost:8081/api/access/zkt/eve
 KEY = os.environ.get("ACCESS_DEVICE_KEY", "gym-turnstile-dev-key")
 PORT = os.environ.get("SERIAL_PORT", "COM3")
 BAUD = int(os.environ.get("SERIAL_BAUD", "9600"))
+DEBUG = os.environ.get("SERIAL_DEBUG", "").lower() in ("1", "true", "yes", "si", "sí")
 PID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".lector-tarjeta.pid")
 
 
@@ -73,6 +74,34 @@ def normalize_card(raw: bytes) -> str | None:
     return text if len(text) >= 4 else None
 
 
+def emit_pin(raw: bytes, buffer: bytearray) -> None:
+    if DEBUG:
+        print(f"[RAW] {raw!r}")
+    pin = normalize_card(raw)
+    if pin:
+        post_pin(pin)
+    buffer.clear()
+
+
+def drain_buffer(ser: serial.Serial, buffer: bytearray) -> None:
+    """Muchos lectores no envían salto de línea; acumula bytes hasta pausa."""
+    while ser.in_waiting:
+        buffer.extend(ser.read(ser.in_waiting))
+    if len(buffer) < 4:
+        return
+    for sep in (b"\r", b"\n"):
+        if sep in buffer:
+            parts = buffer.split(sep)
+            buffer.clear()
+            if parts:
+                buffer.extend(parts[-1])
+            for part in parts[:-1]:
+                if part:
+                    emit_pin(bytes(part), bytearray())
+            return
+    emit_pin(bytes(buffer), buffer)
+
+
 def post_pin(pin: str) -> None:
     body = json.dumps({"pin": pin}).encode()
     req = urllib.request.Request(
@@ -99,17 +128,31 @@ def main() -> None:
         signal.signal(signal.SIGTERM, stop_handler)
     claim_port()
     print(f"Escuchando {PORT} @ {BAUD} baud → {API}")
+    if DEBUG:
+        print("Modo DEBUG: muestra todo lo que llega por COM (SERIAL_DEBUG=1).")
     print("Pase una tarjeta. Ctrl+C o detener-lector-tarjeta.bat para liberar COM.")
+    print("Si no sale nada: pruebe SERIAL_BAUD=115200 o ejecute iniciar-lector-debug.bat")
     try:
-        with serial.Serial(PORT, BAUD, timeout=0.5) as ser:
+        with serial.Serial(PORT, BAUD, timeout=0.2) as ser:
             ser.reset_input_buffer()
+            buffer = bytearray()
+            last_rx: float | None = None
             while True:
-                chunk = ser.readline()
-                if not chunk:
+                if ser.in_waiting:
+                    buffer.extend(ser.read(ser.in_waiting))
+                    last_rx = time.monotonic()
+                elif buffer and last_rx and (time.monotonic() - last_rx) > 0.25:
+                    drain_buffer(ser, buffer)
+                    last_rx = None
                     continue
-                pin = normalize_card(chunk)
-                if pin:
-                    post_pin(pin)
+                chunk = ser.readline()
+                if chunk:
+                    if buffer:
+                        buffer.extend(chunk)
+                        drain_buffer(ser, buffer)
+                    else:
+                        emit_pin(chunk, bytearray())
+                    last_rx = time.monotonic()
     except serial.SerialException as ex:
         release_port()
         print(f"No se pudo abrir {PORT}: {ex}", file=sys.stderr)

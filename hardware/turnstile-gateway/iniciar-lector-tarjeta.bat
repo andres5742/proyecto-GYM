@@ -44,6 +44,7 @@ echo Puerto: %SERIAL_PORT%  Velocidad: %SERIAL_BAUD%
 echo API: %GYM_ACCESS_API%
 echo.
 echo Pase una tarjeta en el lector...
+echo Si no aparece numero: iniciar-lector-debug.bat o iniciar-lector-115200.bat
 echo.
 
 python serial_card_reader.py
