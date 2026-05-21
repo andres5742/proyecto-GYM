@@ -55,6 +55,10 @@ def main() -> None:
                     print("  (sin datos en este intervalo)")
         except serial.SerialException as ex:
             print(f"  ERROR al abrir: {ex}")
+            err = str(ex).lower()
+            if "acceso denegado" in err or "permission" in err or "access is denied" in err:
+                print("  >> COM3 OCUPADO por otra app (casi siempre ZKAccess / ZKBio).")
+                print("  >> Cierre ese programa y ejecute detener-lector-tarjeta.bat")
         print()
 
     print("=" * 50)
@@ -65,11 +69,13 @@ def main() -> None:
         print("Si el numero sale en RECIBIDO, el lector funciona con el script.")
     else:
         print("PROBLEMA: No llego NINGUN byte en ninguna prueba.")
-        print("\nPosibles causas:")
+        print("\nSi vio 'Acceso denegado' arriba:")
+        print("  -> ZKAccess (u otro) tiene COM3. Cierrelo y repita el diagnostico.")
+        print("  -> Con KR+panel ZKT use Push/ADMS al gym (paso a paso.md E.5), no COM3.")
+        print("\nOtras causas:")
         print("  1. Puerto incorrecto (no es COM3) -> mire la lista arriba")
-        print("  2. El lector NO envia por USB-serial (solo ZKAccess / otro programa)")
-        print("  3. Otra app tiene el puerto (cierre ZKAccess, ejecute detener-lector-tarjeta.bat)")
-        print("  4. Cable USB solo alimenta; la lectura va por otro cable al panel ZKT")
+        print("  2. El lector NO envia texto por USB (solo el software ZKT del panel)")
+        print("  3. Cable USB del panel solo para ZKAccess, no para numeros en consola")
     print("=" * 50)
 
 

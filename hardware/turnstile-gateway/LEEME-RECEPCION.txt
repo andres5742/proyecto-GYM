@@ -18,6 +18,10 @@ Si sale "No such file or directory":
   -> Ejecute descargar-lector-recepcion.bat (con internet)
   -> O copie de nuevo toda la carpeta con serial_card_reader.py
 
+Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2):
+  -> Cierre ZKAccess, use iniciar-lector-tarjeta.bat (SERIAL_PIN_FORMAT=hex o decimal)
+  -> Vincule en el gym el mismo codigo que muestra ZKAccess (hex o numero)
+
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
 

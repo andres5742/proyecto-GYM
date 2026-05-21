@@ -38,6 +38,8 @@ KEY = os.environ.get("ACCESS_DEVICE_KEY", "gym-turnstile-dev-key")
 PORT = os.environ.get("SERIAL_PORT", "COM3")
 BAUD = int(os.environ.get("SERIAL_BAUD", "9600"))
 DEBUG = os.environ.get("SERIAL_DEBUG", "").lower() in ("1", "true", "yes", "si", "sí")
+# Tarjetas ZKT por COM suelen ser binario: hex=218AE2, decimal=2198114
+PIN_FORMAT = os.environ.get("SERIAL_PIN_FORMAT", "hex").lower()
 PID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".lector-tarjeta.pid")
 
 
@@ -62,14 +64,11 @@ def stop_handler(signum=None, frame=None) -> None:
 def normalize_card(raw: bytes) -> str | None:
     if not raw:
         return None
-    # Algunos lectores envían 4 bytes binarios (UID)
-    if len(raw) <= 8 and not any(32 <= b < 127 for b in raw):
-        if len(raw) >= 3:
-            for order in ("big", "little"):
-                try:
-                    return str(int.from_bytes(raw, order))
-                except OverflowError:
-                    pass
+    # Panel ZKT por COM: p. ej. b'!\x8a\xe2' → hex 218AE2 o decimal 2198114
+    if 3 <= len(raw) <= 8 and not any(32 <= b < 127 for b in raw):
+        if PIN_FORMAT == "decimal":
+            return str(int.from_bytes(raw, "big"))
+        return raw.hex().upper()
     text = raw.decode("utf-8", errors="ignore").strip()
     if not text:
         return None
@@ -151,6 +150,10 @@ def main() -> None:
                 if ser.in_waiting:
                     buffer.extend(ser.read(ser.in_waiting))
                     last_rx = time.monotonic()
+                    if len(buffer) >= 3 and not any(32 <= b < 127 for b in buffer):
+                        drain_buffer(ser, buffer)
+                        last_rx = None
+                        continue
                 elif buffer and last_rx and (time.monotonic() - last_rx) > 0.25:
                     drain_buffer(ser, buffer)
                     last_rx = None
