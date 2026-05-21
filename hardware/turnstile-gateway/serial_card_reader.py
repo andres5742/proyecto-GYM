@@ -60,6 +60,16 @@ def stop_handler(signum=None, frame=None) -> None:
 
 
 def normalize_card(raw: bytes) -> str | None:
+    if not raw:
+        return None
+    # Algunos lectores envían 4 bytes binarios (UID)
+    if len(raw) <= 8 and not any(32 <= b < 127 for b in raw):
+        if len(raw) >= 3:
+            for order in ("big", "little"):
+                try:
+                    return str(int.from_bytes(raw, order))
+                except OverflowError:
+                    pass
     text = raw.decode("utf-8", errors="ignore").strip()
     if not text:
         return None
@@ -87,7 +97,7 @@ def drain_buffer(ser: serial.Serial, buffer: bytearray) -> None:
     """Muchos lectores no envían salto de línea; acumula bytes hasta pausa."""
     while ser.in_waiting:
         buffer.extend(ser.read(ser.in_waiting))
-    if len(buffer) < 4:
+    if len(buffer) < 1:
         return
     for sep in (b"\r", b"\n"):
         if sep in buffer:

@@ -18,5 +18,8 @@ Si sale "No such file or directory":
   -> Ejecute descargar-lector-recepcion.bat (con internet)
   -> O copie de nuevo toda la carpeta con serial_card_reader.py
 
+Si pasa tarjeta y NO sale nada en pantalla:
+  -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
+
 Para liberar COM3 (ZKAccess u otra app):
   -> detener-lector-tarjeta.bat
