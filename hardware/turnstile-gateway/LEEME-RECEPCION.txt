@@ -1,0 +1,21 @@
+LECTOR DE TARJETA - PC DE RECEPCION (Windows)
+=============================================
+
+IMPORTANTE: copie TODA esta carpeta al PC. No sirve copiar solo el .bat.
+
+Archivos obligatorios (misma carpeta):
+  - serial_card_reader.py
+  - iniciar-lector-tarjeta.bat
+  - detener-lector-tarjeta.bat
+
+Como usar:
+  1. Conecte el lector USB (COM3 en Administrador de dispositivos).
+  2. Doble clic en iniciar-lector-tarjeta.bat
+  3. Debe verse: "Escuchando COM3 @ 9600 baud"
+  4. Pase una tarjeta -> sale el numero en pantalla.
+
+Si sale "No such file or directory":
+  -> Falta serial_card_reader.py. Copie de nuevo toda la carpeta.
+
+Para liberar COM3 (ZKAccess u otra app):
+  -> detener-lector-tarjeta.bat

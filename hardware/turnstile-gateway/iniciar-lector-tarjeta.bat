@@ -8,6 +8,24 @@ echo  Deje esta ventana ABIERTA
 echo  Para liberar COM3: detener-lector-tarjeta.bat
 echo ========================================
 echo.
+echo Carpeta: %CD%
+echo.
+
+if not exist "serial_card_reader.py" (
+  echo ERROR: Falta serial_card_reader.py en esta carpeta.
+  echo.
+  echo Copie TODA la carpeta turnstile-gateway, no solo el .bat:
+  echo   serial_card_reader.py
+  echo   iniciar-lector-tarjeta.bat
+  echo   detener-lector-tarjeta.bat
+  echo   requirements-serial.txt
+  echo.
+  echo Debe quedar junto al .bat, por ejemplo:
+  echo   C:\SportGym\turnstile-gateway\serial_card_reader.py
+  echo.
+  pause
+  exit /b 1
+)
 
 where python >nul 2>&1
 if errorlevel 1 (
