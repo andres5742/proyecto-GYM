@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, ipcMain, session } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -125,7 +125,16 @@ function createWindow() {
     },
   );
 
-  mainWindow.loadURL(config.accesoUrl).catch((err) => {
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.insertCSS(`
+      .kiosk-brand, .kiosk-hero, .kiosk-hero__logo-wrap,
+      .access-card, .kiosk-motto__icon { display: none !important; }
+    `);
+  });
+
+  const accesoUrl = new URL(config.accesoUrl);
+  accesoUrl.searchParams.set('_v', String(Date.now()));
+  mainWindow.loadURL(accesoUrl.toString()).catch((err) => {
     dialog.showErrorBox(
       'Sport Gym Acceso',
       'Error al abrir ' + config.accesoUrl + ':\n' + err.message,
@@ -168,7 +177,13 @@ ipcMain.on('app-request-quit', () => {
   confirmQuit();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const ses = session.defaultSession;
+  await ses.clearCache();
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    details.requestHeaders['Cache-Control'] = 'no-cache';
+    callback({ requestHeaders: details.requestHeaders });
+  });
   spawnCardReader();
   createWindow();
   registerExitShortcuts();
