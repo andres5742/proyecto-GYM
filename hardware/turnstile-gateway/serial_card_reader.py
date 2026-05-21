@@ -64,51 +64,43 @@ def stop_handler(signum=None, frame=None) -> None:
 def normalize_card(raw: bytes) -> str | None:
     if not raw:
         return None
-    # Panel ZKT por COM: p. ej. b'!\x8a\xe2' → hex 218AE2 o decimal 2198114
-    if 3 <= len(raw) <= 8 and not any(32 <= b < 127 for b in raw):
+    text = raw.decode("utf-8", errors="ignore").strip()
+    digits = re.sub(r"\D", "", text)
+    # Texto claro: solo números (1061778723)
+    if len(digits) >= 4:
+        return digits
+    # Panel ZKT binario: b'!\x8a\xe2' → 218AE2 (el 0x21 es '!' y antes se ignoraba)
+    if 1 <= len(raw) <= 8:
         if PIN_FORMAT == "decimal":
             return str(int.from_bytes(raw, "big"))
         return raw.hex().upper()
-    text = raw.decode("utf-8", errors="ignore").strip()
-    if not text:
-        return None
-    # Solo dígitos (ej. 1061778723)
-    digits = re.sub(r"\D", "", text)
-    if len(digits) >= 4:
-        return digits
-    # Hex sin separadores (ej. A1B2C3D4)
     hex_only = re.sub(r"[^0-9A-Fa-f]", "", text)
     if len(hex_only) >= 8:
         return str(int(hex_only, 16))
     return text if len(text) >= 4 else None
 
 
-def emit_pin(raw: bytes, buffer: bytearray) -> None:
-    if DEBUG:
-        print(f"[RAW] {raw!r}")
-    pin = normalize_card(raw)
-    if pin:
-        post_pin(pin)
-    buffer.clear()
+_last_pin = ""
+_last_at = 0.0
 
 
-def drain_buffer(ser: serial.Serial, buffer: bytearray) -> None:
-    """Muchos lectores no envían salto de línea; acumula bytes hasta pausa."""
-    while ser.in_waiting:
-        buffer.extend(ser.read(ser.in_waiting))
-    if len(buffer) < 1:
+def handle_frame(data: bytes) -> None:
+    global _last_pin, _last_at
+    if not data:
         return
-    for sep in (b"\r", b"\n"):
-        if sep in buffer:
-            parts = buffer.split(sep)
-            buffer.clear()
-            if parts:
-                buffer.extend(parts[-1])
-            for part in parts[:-1]:
-                if part:
-                    emit_pin(bytes(part), bytearray())
-            return
-    emit_pin(bytes(buffer), buffer)
+    if DEBUG:
+        print(f"[RAW] {data!r} hex={data.hex()}")
+    pin = normalize_card(data)
+    if not pin:
+        if DEBUG:
+            print("  (no se pudo interpretar como tarjeta)")
+        return
+    now = time.monotonic()
+    if pin == _last_pin and (now - _last_at) < 2.0:
+        return
+    _last_pin = pin
+    _last_at = now
+    post_pin(pin)
 
 
 def post_pin(pin: str) -> None:
@@ -140,32 +132,22 @@ def main() -> None:
     if DEBUG:
         print("Modo DEBUG: muestra todo lo que llega por COM (SERIAL_DEBUG=1).")
     print("Pase una tarjeta. Ctrl+C o detener-lector-tarjeta.bat para liberar COM.")
-    print("Si no sale nada: pruebe SERIAL_BAUD=115200 o ejecute iniciar-lector-debug.bat")
+    print("Formato Pin:", PIN_FORMAT, "(hex=218AE2, decimal=2198114)")
     try:
-        with serial.Serial(PORT, BAUD, timeout=0.2) as ser:
+        with serial.Serial(PORT, BAUD, timeout=0.1) as ser:
             ser.reset_input_buffer()
-            buffer = bytearray()
-            last_rx: float | None = None
+            pending = bytearray()
+            idle_since: float | None = None
             while True:
                 if ser.in_waiting:
-                    buffer.extend(ser.read(ser.in_waiting))
-                    last_rx = time.monotonic()
-                    if len(buffer) >= 3 and not any(32 <= b < 127 for b in buffer):
-                        drain_buffer(ser, buffer)
-                        last_rx = None
-                        continue
-                elif buffer and last_rx and (time.monotonic() - last_rx) > 0.25:
-                    drain_buffer(ser, buffer)
-                    last_rx = None
-                    continue
-                chunk = ser.readline()
-                if chunk:
-                    if buffer:
-                        buffer.extend(chunk)
-                        drain_buffer(ser, buffer)
-                    else:
-                        emit_pin(chunk, bytearray())
-                    last_rx = time.monotonic()
+                    pending.extend(ser.read(ser.in_waiting))
+                    idle_since = time.monotonic()
+                elif pending and idle_since and (time.monotonic() - idle_since) > 0.08:
+                    handle_frame(bytes(pending))
+                    pending.clear()
+                    idle_since = None
+                else:
+                    time.sleep(0.03)
     except serial.SerialException as ex:
         release_port()
         print(f"No se pudo abrir {PORT}: {ex}", file=sys.stderr)
