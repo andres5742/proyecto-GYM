@@ -16,14 +16,26 @@ function loadConfig() {
 
 const config = loadConfig();
 
+/** Carpeta del .exe portable (no la temp interna de Electron). */
+function appBaseDir() {
+  return app.isPackaged ? path.dirname(process.execPath) : __dirname;
+}
+
 function spawnCardReader() {
   if (!config.spawnCardReader || process.platform !== 'win32') {
     return;
   }
-  const gwDir = path.resolve(__dirname, config.turnstileGatewayDir || '../turnstile-gateway');
+  const gwDir = path.resolve(
+    appBaseDir(),
+    config.turnstileGatewayDir || 'turnstile-gateway',
+  );
   const bat = path.join(gwDir, 'iniciar-lector-tarjeta.bat');
   if (!fs.existsSync(bat)) {
-    console.warn('No se encontró iniciar-lector-tarjeta.bat en', gwDir);
+    console.warn(
+      'No se encontró iniciar-lector-tarjeta.bat en',
+      gwDir,
+      '- copie turnstile-gateway junto al .exe',
+    );
     return;
   }
   const child = spawn('cmd.exe', ['/c', 'call', bat], {

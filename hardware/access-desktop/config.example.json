@@ -2,7 +2,7 @@
   "accesoUrl": "https://sportgymr10.com/acceso",
   "apiUrl": "https://sportgymr10.com/api",
   "accessDeviceKey": "clave-torniquete-produccion-2026",
-  "turnstileGatewayDir": "../turnstile-gateway",
+  "turnstileGatewayDir": "turnstile-gateway",
   "spawnCardReader": true,
   "kioskFullscreen": true
 }
