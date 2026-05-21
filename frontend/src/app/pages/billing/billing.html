@@ -1004,7 +1004,7 @@
                             min="0"
                             step="1"
                             class="close-caja-inventory-input"
-                            [value]="closeInventoryCounts()[line.productId] ?? 0"
+                            [value]="closeInventoryCounts()[line.productId]"
                             (input)="setCloseInventoryCount(line.productId, $any($event.target).value)"
                           />
                         </td>

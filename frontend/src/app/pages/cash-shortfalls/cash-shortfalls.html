@@ -102,7 +102,7 @@
                 <td class="col-detail">
                   @if (isInventoryShortfall(r)) {
                     <span class="detail-summary">{{ inventorySummary(r) }}</span>
-                    @if ((r.inventoryMissingLines?.length ?? 0) > 0) {
+                    @if (r.inventoryMissingLines.length > 0) {
                       <button
                         type="button"
                         class="btn-link"

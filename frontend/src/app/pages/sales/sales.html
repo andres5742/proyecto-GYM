@@ -600,7 +600,7 @@
                         step="1"
                         class="inventory-open-table__input"
                         [attr.aria-label]="'Conteo de ' + line.productName"
-                        [value]="inventoryCounts()[line.productId] ?? 0"
+                        [value]="inventoryCounts()[line.productId]"
                         (input)="setInventoryCount(line.productId, $any($event.target).value)"
                       />
                     </td>
