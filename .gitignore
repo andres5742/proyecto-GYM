@@ -11,6 +11,8 @@ frontend/.angular/
 hardware/access-desktop/node_modules/
 hardware/access-desktop/dist/
 hardware/access-desktop/config.json
+hardware/access-desktop/build/_logo_resize.py
+hardware/access-desktop/build/logo-256.png
 hardware/SportGym-Acceso-Windows.zip
 hardware/SportGym-Acceso-Windows-32bit.zip
 hardware/SportGym-Entrada-Instalador-32bit.zip

@@ -1,0 +1,20 @@
+INSTALADOR PC DE ENTRADA (Windows 32 bits)
+==========================================
+
+ARCHIVO PARA EL GYM (USB):
+
+  SportGym-Entrada-Instalador-32bit.zip
+
+En el PC Windows:
+  1. Descomprimir TODO el ZIP
+  2. Doble clic en INSTALAR.bat
+  3. Debe abrirse la pantalla de acceso (sportgymr10.com/acceso)
+
+Si no instala / no abre ventana:
+  - Use INSTALAR.bat (no un .exe suelto)
+  - Pruebe ABRIR-SIN-INSTALAR.bat dentro de la carpeta descomprimida
+  - Compruebe internet
+  - Windows 32 bits (no 64)
+
+Regenerar el ZIP en Linux:
+  cd hardware && ./empacar-instalacion-32bit.sh

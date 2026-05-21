@@ -20,19 +20,18 @@
 .kiosk {
   --kiosk-accent: #e8a85c;
   --kiosk-accent-soft: rgb(232 168 92 / 22%);
-  --kiosk-glass: rgb(255 255 255 / 11%);
-  --kiosk-glass-border: rgb(255 255 255 / 22%);
   --kiosk-text-soft: rgb(255 255 255 / 78%);
-  --kiosk-pad-x: clamp(0.75rem, 4vw, 1.5rem);
-  --kiosk-pad-y: clamp(0.75rem, 3vw, 1.25rem);
+  --kiosk-footer-h: clamp(5.5rem, 14vh, 7rem);
+  --kiosk-pad-x: clamp(0.85rem, 4vw, 1.5rem);
+  --kiosk-green: #5cff8a;
 
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 100vw;
   height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  height: 100dvh;
+  overflow: hidden;
   color: #fff;
   background:
     radial-gradient(ellipse 120% 80% at 50% -20%, rgb(255 255 255 / 8%), transparent 55%),
@@ -58,355 +57,180 @@
   }
 }
 
-/* Caja común: texto siempre dentro */
-%kiosk-box {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow: visible;
-  border-radius: 1.15rem;
-}
-
 %kiosk-text-safe {
   max-width: 100%;
   min-width: 0;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  hyphens: auto;
 }
 
 .kiosk-shell {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
-  padding: var(--kiosk-pad-y) var(--kiosk-pad-x);
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-  gap: clamp(0.65rem, 2.5vw, 1.1rem);
+  min-height: 0;
+  padding: clamp(0.65rem, 2vw, 1rem) var(--kiosk-pad-x);
+  padding-bottom: 0;
 }
 
-/* —— Logo protagonista —— */
-.kiosk-hero {
-  flex-shrink: 0;
+.kiosk-main {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: clamp(0.5rem, 2vw, 0.85rem);
-  width: 100%;
-  min-width: 0;
-  padding: clamp(0.35rem, 1.5vw, 0.5rem) 0;
-}
-
-.kiosk-hero__logo-wrap {
-  display: flex;
-  align-items: center;
   justify-content: center;
+  min-height: 0;
   width: 100%;
-  max-width: min(100%, 28rem);
-  padding: clamp(0.85rem, 3vw, 1.35rem) clamp(1rem, 4vw, 1.75rem);
-  background: #fff;
-  border-radius: clamp(1rem, 3vw, 1.35rem);
-  box-shadow:
-    0 16px 48px rgb(0 0 0 / 35%),
-    0 0 0 1px rgb(255 255 255 / 8%),
-    inset 0 1px 0 rgb(255 255 255 / 90%);
 }
 
-.kiosk-hero__logo {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: clamp(5rem, 26vw, 9.5rem);
-  object-fit: contain;
-}
-
-.kiosk-hero__clock {
-  display: inline-block;
-  margin: 0;
-  padding: 0.4rem 1rem;
-  font-size: clamp(1rem, 4.2vw, 1.25rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.1em;
-  color: rgb(255 255 255 / 92%);
-  background: rgb(0 0 0 / 28%);
-  border: 1px solid rgb(255 255 255 / 18%);
-  border-radius: var(--radius-pill);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
-}
-
-/* —— Motivación del día (protagonista) —— */
-.kiosk-motto {
-  @extend %kiosk-box;
+.kiosk-center {
   @extend %kiosk-text-safe;
 
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.55rem;
   width: 100%;
-  padding: clamp(1rem, 4vw, 1.5rem) clamp(1rem, 4vw, 1.35rem);
-  background: linear-gradient(155deg, rgb(232 168 92 / 32%) 0%, rgb(255 255 255 / 12%) 55%, rgb(0 0 0 / 12%) 100%);
-  border: 2px solid rgb(232 168 92 / 65%);
-  box-shadow:
-    0 12px 36px rgb(0 0 0 / 28%),
-    inset 0 1px 0 rgb(255 255 255 / 15%);
+  text-align: center;
+  padding: clamp(0.5rem, 2vw, 1rem) 0;
 
-  &__icon {
-    font-size: clamp(1.5rem, 5vw, 2rem);
-    line-height: 1;
-    color: var(--kiosk-accent);
-    filter: drop-shadow(0 2px 8px rgb(232 168 92 / 45%));
-  }
-
-  &__body {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  &__label {
-    @extend %kiosk-text-safe;
-
-    display: block;
-    margin-bottom: 0.45rem;
-    font-size: clamp(0.72rem, 2.8vw, 0.82rem);
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--kiosk-accent);
+  &--boot {
+    padding-top: 2rem;
   }
 
   &__quote {
     @extend %kiosk-text-safe;
 
-    margin: 0;
-    font-size: clamp(1.2rem, 5.5vw, 1.85rem);
+    margin: 0 0 clamp(1rem, 4vw, 1.75rem);
+    font-size: clamp(1.15rem, 5vw, 2rem);
     font-weight: 700;
     font-style: italic;
     line-height: 1.35;
     color: #fff;
-    text-shadow: 0 2px 12px rgb(0 0 0 / 25%);
-  }
-}
-
-/* —— Panel de acceso (compacto) —— */
-.kiosk-main {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 0.35rem;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-}
-
-.scan-panel {
-  @extend %kiosk-box;
-  @extend %kiosk-text-safe;
-
-  padding: clamp(0.65rem, 2.5vw, 0.9rem) var(--kiosk-pad-x);
-  background: rgb(255 255 255 / 8%);
-  border: 1px solid rgb(255 255 255 / 14%);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 14%);
-  text-align: center;
-
-  &--boot {
-    text-align: center;
+    text-shadow: 0 2px 16px rgb(0 0 0 / 30%);
   }
 
   &__lead {
     @extend %kiosk-text-safe;
 
-    margin: 0;
-    font-size: clamp(0.95rem, 3.8vw, 1.15rem);
+    margin: 0 0 0.5rem;
+    font-size: clamp(1rem, 4vw, 1.2rem);
     font-weight: 700;
-    line-height: 1.25;
-    color: rgb(255 255 255 / 88%);
+    color: var(--kiosk-accent);
+    letter-spacing: 0.04em;
   }
 
-  &__text {
+  &__welcome {
     @extend %kiosk-text-safe;
 
-    margin: 0;
-    font-size: clamp(0.88rem, 3.5vw, 0.95rem);
-    line-height: 1.5;
-    color: var(--kiosk-text-soft);
-  }
-
-  &__warn {
-    display: block;
-    margin-top: 0.45rem;
-    font-size: 0.85rem;
-  }
-
-  &__cta {
-    width: 100%;
-    max-width: 100%;
-    min-height: 2.85rem;
-    font-size: clamp(0.95rem, 3.5vw, 1.05rem);
-    font-weight: 700;
+    margin: 0 0 0.5rem;
+    font-size: clamp(1.25rem, 5.5vw, 1.85rem);
+    font-weight: 800;
+    line-height: 1.15;
+    animation: welcome-pop 0.45s ease-out;
   }
 
   &__status {
     @extend %kiosk-text-safe;
 
-    margin: 0 0 0.75rem;
-    font-size: clamp(0.9rem, 3.5vw, 1rem);
+    margin: 0;
+    font-size: clamp(0.9rem, 3.2vw, 1.05rem);
     line-height: 1.45;
+    color: var(--kiosk-text-soft);
 
     &--waiting {
-      color: var(--kiosk-text-soft);
       font-style: italic;
     }
-  }
 
-  &__badge {
-    display: inline-block;
-    max-width: 100%;
-    margin: 0 0 0.55rem;
-    padding: 0.25rem 0.6rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    background: var(--kiosk-accent-soft);
-    border: 1px solid rgb(232 168 92 / 35%);
-    border-radius: var(--radius-pill);
-    color: var(--kiosk-accent);
-    overflow-wrap: break-word;
+    &--warn {
+      color: #ffb4b4;
+    }
   }
 }
 
-.welcome-headline {
-  @extend %kiosk-text-safe;
-
-  margin: 0 0 0.5rem;
-  font-size: clamp(1.35rem, 6vw, 2rem);
-  font-weight: 800;
-  line-height: 1.15;
-  animation: welcome-pop 0.45s ease-out;
-}
-
-.audio-unlock-btn {
-  display: inline-block;
-  max-width: 100%;
-  margin: 0 0 0.65rem;
-  padding: 0.5rem 0.85rem;
-  border: 1px solid rgb(255 255 255 / 25%);
-  border-radius: var(--radius-pill);
-  background: rgb(255 255 255 / 14%);
-  color: #fff;
-  font-size: clamp(0.82rem, 3vw, 0.9rem);
-  font-weight: 600;
-  cursor: pointer;
-  overflow-wrap: break-word;
-
-  &--pulse {
-    animation: audio-pulse 1.2s ease-in-out infinite;
-  }
-}
-
-.access-card {
-  display: flex;
-  justify-content: center;
+/* —— Footer fijo: fecha, hora, CERRAR —— */
+.kiosk-footer {
+  flex-shrink: 0;
   width: 100%;
-  margin: 0.5rem auto 0.35rem;
-
-  &--pulse .access-card__surface {
-    animation: kiosk-pulse 2.2s ease-in-out infinite;
-  }
-
-  &__surface {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: min(100%, 14rem);
-    aspect-ratio: 1.586 / 1;
-    padding: clamp(0.65rem, 3vw, 1rem);
-    background: #fff;
-    border-radius: 0.65rem;
-    box-shadow:
-      0 10px 28px rgb(0 0 0 / 32%),
-      0 2px 0 rgb(255 255 255 / 80%) inset,
-      0 0 0 1px rgb(0 0 0 / 6%);
-  }
-
-  &__logo {
-    display: block;
-    width: 100%;
-    height: 100%;
-    max-height: 100%;
-    object-fit: contain;
-  }
+  padding: 0.55rem var(--kiosk-pad-x) max(0.65rem, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgb(0 0 0 / 0%) 0%, rgb(0 0 0 / 55%) 35%, rgb(0 0 0 / 72%) 100%);
+  border-top: 1px solid rgb(255 255 255 / 12%);
 }
 
-@keyframes kiosk-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 10px 28px rgb(0 0 0 / 32%),
-      0 2px 0 rgb(255 255 255 / 80%) inset,
-      0 0 0 1px rgb(0 0 0 / 6%);
-  }
-  50% {
-    box-shadow:
-      0 12px 32px rgb(0 0 0 / 36%),
-      0 0 28px rgb(232 168 92 / 28%),
-      0 0 0 1px rgb(232 168 92 / 35%);
-  }
-}
-
-.kiosk-shortcuts {
-  margin: 0.5rem 0 0;
-  font-size: clamp(0.72rem, 2.8vw, 0.85rem);
-  color: var(--kiosk-text-soft);
-  text-align: center;
-
-  kbd {
-    padding: 0.15rem 0.4rem;
-    font-family: inherit;
-    font-size: 0.9em;
-    background: rgb(0 0 0 / 25%);
-    border: 1px solid rgb(255 255 255 / 20%);
-    border-radius: 4px;
-  }
-
-  &__sep {
-    margin: 0 0.35rem;
-    opacity: 0.6;
-  }
-
-  &--hint {
-    font-size: 0.85em;
-    opacity: 0.75;
-  }
-}
-
-.scan-methods {
+.kiosk-footer__datetime {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.45rem;
+}
 
-  &__item {
-    max-width: 100%;
-    padding: 0.35rem 0.65rem;
-    font-size: clamp(0.75rem, 3vw, 0.82rem);
-    font-weight: 600;
-    line-height: 1.25;
-    text-align: center;
-    background: rgb(0 0 0 / 18%);
-    border: 1px solid rgb(255 255 255 / 12%);
-    border-radius: var(--radius-pill);
-    color: var(--kiosk-text-soft);
-    overflow-wrap: break-word;
+.kiosk-footer__date,
+.kiosk-footer__time {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--kiosk-green);
+  text-shadow: 0 0 12px rgb(92 255 138 / 35%);
+}
+
+.kiosk-footer__date {
+  font-size: clamp(0.62rem, 2.4vw, 0.82rem);
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.kiosk-footer__time {
+  font-size: clamp(0.95rem, 3.8vw, 1.35rem);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.kiosk-footer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.kiosk-footer__hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: clamp(0.65rem, 2.2vw, 0.78rem);
+  color: rgb(255 255 255 / 55%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kiosk-footer__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border: 2px solid var(--kiosk-accent);
+  border-radius: 0.35rem;
+  background: rgb(0 0 0 / 35%);
+  color: var(--kiosk-accent);
+  font-size: clamp(0.78rem, 2.8vw, 0.95rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--kiosk-accent);
+    color: #1a1d22;
+    outline: none;
   }
+}
+
+.kiosk-footer__close-x {
+  font-size: 1.15em;
+  line-height: 1;
 }
 
 .result-banner {
@@ -416,7 +240,8 @@
   align-items: flex-start;
   gap: 0.65rem;
   width: 100%;
-  margin-top: 0.75rem;
+  max-width: 28rem;
+  margin: 1rem auto 0;
   padding: 0.85rem 1rem;
   border-radius: 0.85rem;
   text-align: left;
@@ -440,7 +265,6 @@
     display: block;
     font-size: clamp(1rem, 4vw, 1.12rem);
     margin-bottom: 0.2rem;
-    overflow-wrap: break-word;
   }
 
   .result-cedula {
@@ -448,7 +272,6 @@
     margin: 0.15rem 0 0.35rem;
     font-size: clamp(0.88rem, 3.5vw, 1rem);
     font-weight: 700;
-    letter-spacing: 0.04em;
     color: var(--kiosk-accent);
   }
 
@@ -457,7 +280,6 @@
     font-size: clamp(0.85rem, 3.2vw, 0.92rem);
     line-height: 1.45;
     color: var(--kiosk-text-soft);
-    overflow-wrap: break-word;
   }
 }
 
@@ -475,128 +297,6 @@
   font-weight: 700;
   border-radius: var(--radius-pill);
   background: rgb(255 255 255 / 15%);
-  overflow-wrap: break-word;
-}
-
-.cedula-test {
-  @extend %kiosk-text-safe;
-
-  width: 100%;
-  max-width: 15rem;
-  margin: 0.35rem auto 0;
-  padding: 0.3rem 0.35rem;
-  background: rgb(255 255 255 / 6%);
-  border: 1px solid rgb(232 168 92 / 28%);
-  border-radius: 0.4rem;
-
-  &__row {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    width: 100%;
-  }
-
-  &__label {
-    flex-shrink: 0;
-    font-size: 0.62rem;
-    font-weight: 700;
-    color: var(--kiosk-accent);
-    letter-spacing: 0.02em;
-  }
-
-  &__input {
-    flex: 1 1 auto;
-    min-width: 0;
-    height: 1.65rem;
-    padding: 0 0.35rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: #1a1d22;
-    background: #fff;
-    border: 1px solid rgb(232 168 92 / 45%);
-    border-radius: 0.3rem;
-
-    &::placeholder {
-      color: rgb(0 0 0 / 30%);
-      font-size: 0.7rem;
-    }
-
-    &:focus {
-      outline: none;
-      border-color: var(--kiosk-accent);
-    }
-  }
-
-  &__meta {
-    margin: 0.2rem 0 0;
-    padding-left: 2.1rem;
-    font-size: 0.58rem;
-    line-height: 1.2;
-    color: var(--kiosk-text-soft);
-    text-align: left;
-  }
-
-  &__btn {
-    flex-shrink: 0;
-    min-width: 2.1rem;
-    height: 1.65rem;
-    padding: 0 0.4rem;
-    font-size: 0.65rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-}
-
-:host ::ng-deep {
-  .scan-panel app-face-webcam-capture {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .face-capture {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .face-capture__frame {
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: min(36dvh, 220px) !important;
-    margin-left: auto;
-    margin-right: auto;
-    aspect-ratio: 4 / 3;
-  }
-
-  .face-capture__camera-switch {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 auto 0.5rem !important;
-  }
-
-  .face-capture__camera-btn {
-    min-height: 2.35rem;
-    font-size: clamp(0.75rem, 2.8vw, 0.85rem);
-    padding: 0.4rem 0.45rem;
-  }
-
-  .face-capture__hint {
-    padding: 0.5rem 0.35rem;
-    font-size: 0.82rem;
-  }
-}
-
-@keyframes audio-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgb(255 255 255 / 30%);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgb(255 255 255 / 0%);
-  }
 }
 
 @keyframes welcome-pop {
@@ -610,97 +310,21 @@
   }
 }
 
-/* Tablet / escritorio: más ancho pero sin apretar texto */
-@media (min-width: 600px) {
-  .kiosk-shell {
-    max-width: 34rem;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .kiosk-hero__logo {
-    max-height: 10rem;
-  }
-
-  .kiosk-motto__quote {
-    font-size: 1.75rem;
-  }
-}
-
 @media (min-width: 900px) {
   .kiosk-shell {
-    max-width: 40rem;
+    max-width: 42rem;
+    margin: 0 auto;
   }
 
-  .kiosk-hero__logo-wrap {
-    max-width: 32rem;
-  }
 }
 
-/* Pantallas bajas: menos altura, scroll si hace falta */
-@media (max-height: 720px) {
-  .kiosk {
-    --kiosk-pad-y: 0.55rem;
+@media (max-height: 640px) {
+  .kiosk-center__quote {
+    margin-bottom: 0.65rem;
+    font-size: clamp(1rem, 4.5vw, 1.35rem);
   }
 
-  .kiosk-hero__logo {
-    max-height: clamp(3.75rem, 18vw, 5.5rem);
+  .kiosk-footer__datetime {
+    margin-bottom: 0.3rem;
   }
-
-  .kiosk-hero__logo-wrap {
-    padding: 0.65rem 1rem;
-  }
-
-  .kiosk-motto {
-    padding: 0.75rem 1rem;
-  }
-
-  .kiosk-motto__quote {
-    font-size: clamp(1rem, 4.5vw, 1.25rem);
-  }
-
-  .scan-panel {
-    padding-top: 0.55rem;
-    padding-bottom: 0.55rem;
-  }
-
-  .scan-panel__lead {
-    font-size: 0.95rem;
-  }
-
-  .welcome-headline {
-    font-size: 1.25rem;
-    margin-bottom: 0.35rem;
-  }
-
-  :host ::ng-deep .face-capture__frame {
-    max-height: min(30dvh, 165px) !important;
-  }
-}
-
-@media (max-height: 580px) {
-  .kiosk-hero__logo {
-    max-height: 3.25rem;
-  }
-
-  .kiosk-motto__quote {
-    font-size: 0.95rem;
-  }
-
-  :host ::ng-deep .face-capture__frame {
-    max-height: min(26dvh, 130px) !important;
-  }
-
-  .result-banner {
-    margin-top: 0.5rem;
-    padding: 0.65rem 0.75rem;
-  }
-}
-
-/* Móvil muy estrecho */
-@media (max-width: 360px) {
-  .kiosk {
-    --kiosk-pad-x: 0.65rem;
-  }
-
 }

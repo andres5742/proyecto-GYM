@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { AccessVerifyResponse, KioskAccessEvent } from '../../core/models/access.model';
@@ -33,7 +32,6 @@ const AUTO_START_MS = 400;
 
 @Component({
   selector: 'app-access-kiosk',
-  imports: [DatePipe],
   templateUrl: './access-kiosk.html',
   styleUrl: './access-kiosk.scss',
 })
@@ -60,6 +58,34 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly audioSupported = isWelcomeAudioSupported();
   protected readonly motivationalPhrase = signal(KIOSK_MOTIVATIONAL_PHRASES[0]);
   protected readonly configError = signal<string | null>(null);
+  protected readonly isDesktopApp =
+    typeof window !== 'undefined' && Boolean(window.sportGymDesktop?.isDesktopApp);
+
+  protected footerDateLabel(): string {
+    return this.clock()
+      .toLocaleDateString('es-CO', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+      .toUpperCase();
+  }
+
+  protected footerTimeLabel(): string {
+    return this.clock()
+      .toLocaleTimeString('es-CO', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      })
+      .toUpperCase();
+  }
+
+  protected closeApp(): void {
+    window.sportGymDesktop?.requestClose?.();
+  }
 
   ngOnInit(): void {
     if (!document.querySelector('link[rel="manifest"][href*="manifest-acceso"]')) {

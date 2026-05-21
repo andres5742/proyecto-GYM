@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -14,14 +14,31 @@ function loadConfig() {
   return JSON.parse(raw);
 }
 
-const config = loadConfig();
+let config;
+try {
+  config = loadConfig();
+} catch (err) {
+  console.error('config', err);
+  if (process.platform === 'win32') {
+    dialog.showErrorBoxSync(
+      'Sport Gym Acceso',
+      'No se pudo leer config.json:\n' + err.message,
+    );
+  }
+  process.exit(1);
+}
 
 function appBaseDir() {
   return app.isPackaged ? path.dirname(process.execPath) : __dirname;
 }
 
-/** Lector incluido en el instalador (resources) o carpeta junto al .exe. */
+/** Carpeta turnstile-gateway: primero junto al .exe (C:\SportGym), luego resources. */
 function resolveGatewayDir() {
+  const beside = path.join(appBaseDir(), 'turnstile-gateway');
+  const besideBat = path.join(beside, 'iniciar-lector-tarjeta.bat');
+  if (fs.existsSync(besideBat)) {
+    return beside;
+  }
   if (app.isPackaged && process.resourcesPath) {
     const bundled = path.join(process.resourcesPath, 'turnstile-gateway');
     const bat = path.join(bundled, 'iniciar-lector-tarjeta.bat');
@@ -54,10 +71,30 @@ function spawnCardReader() {
   child.unref();
 }
 
+function resolveWindowIcon() {
+  const candidates = [];
+  if (app.isPackaged && process.resourcesPath) {
+    candidates.push(
+      path.join(process.resourcesPath, 'SportGym.ico'),
+      path.join(process.resourcesPath, 'icon.ico'),
+    );
+  }
+  candidates.push(path.join(__dirname, 'build', 'icon.ico'));
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return undefined;
+}
+
 function createWindow() {
+  const iconPath = resolveWindowIcon();
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    show: false,
+    icon: iconPath,
     fullscreen: Boolean(config.kioskFullscreen),
     autoHideMenuBar: true,
     webPreferences: {
@@ -67,15 +104,78 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL(config.accesoUrl);
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL) => {
+      dialog.showErrorBox(
+        'Sport Gym Acceso',
+        'No se pudo cargar la pantalla:\n' +
+          validatedURL +
+          '\n\n' +
+          errorDescription +
+          ' (' +
+          errorCode +
+          ')\n\nCompruebe internet o la URL en config.json.',
+      );
+    },
+  );
+
+  mainWindow.loadURL(config.accesoUrl).catch((err) => {
+    dialog.showErrorBox(
+      'Sport Gym Acceso',
+      'Error al abrir ' + config.accesoUrl + ':\n' + err.message,
+    );
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+function confirmQuit() {
+  if (!mainWindow) {
+    app.quit();
+    return;
+  }
+  const choice = dialog.showMessageBoxSync(mainWindow, {
+    type: 'question',
+    buttons: ['Cancelar', 'Cerrar aplicación'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Sport Gym Acceso',
+    message: '¿Cerrar la aplicación de acceso?',
+  });
+  if (choice === 1) {
+    app.quit();
+  }
+}
+
+function registerExitShortcuts() {
+  globalShortcut.register('Control+Shift+Q', confirmQuit);
+  globalShortcut.register('Escape', confirmQuit);
+}
+
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-gpu');
+}
+
+ipcMain.on('app-request-quit', () => {
+  confirmQuit();
+});
+
 app.whenReady().then(() => {
   spawnCardReader();
   createWindow();
+  registerExitShortcuts();
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {

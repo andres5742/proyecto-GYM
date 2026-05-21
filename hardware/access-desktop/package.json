@@ -6,14 +6,16 @@
   "scripts": {
     "start": "electron .",
     "dist:install": "electron-builder --win nsis --ia32",
-    "dist": "electron-builder --win portable --ia32",
-    "dist:x64": "electron-builder --win portable --x64"
+    "icons": "node scripts/generar-icono.js",
+    "dist": "npm run icons && electron-builder --win dir --ia32",
+    "dist:portable": "electron-builder --win portable --ia32",
+    "dist:x64": "electron-builder --win dir --x64"
   },
   "author": "Sport Gym",
   "license": "UNLICENSED",
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "22.3.27",
+    "electron-builder": "24.13.3"
   },
   "build": {
     "appId": "com.sportgym.acceso",
@@ -21,7 +23,12 @@
     "directories": {
       "output": "dist"
     },
+    "icon": "build/icon.ico",
     "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "SportGym.ico"
+      },
       {
         "from": "../turnstile-gateway",
         "to": "turnstile-gateway",
@@ -34,10 +41,11 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "dir",
           "arch": ["ia32"]
         }
       ],
+      "icon": "build/icon.ico",
       "signAndEditExecutable": false
     },
     "nsis": {

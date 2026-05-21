@@ -5,67 +5,24 @@
   [class.waiting]="kioskReady() && !lastResult()"
 >
   <div class="kiosk-shell">
-    <header class="kiosk-hero" aria-label="Sport Gym R.10">
-      <div class="kiosk-hero__logo-wrap">
-        <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="gym-logo kiosk-hero__logo" />
-      </div>
-      <time class="kiosk-hero__clock">{{ clock() | date: 'HH:mm:ss' }}</time>
-    </header>
-
-    <section class="kiosk-motto" aria-live="polite">
-      <span class="kiosk-motto__icon" aria-hidden="true">✦</span>
-      <div class="kiosk-motto__body">
-        <span class="kiosk-motto__label">Motivación del día</span>
-        <p class="kiosk-motto__quote">{{ motivationalPhrase() }}</p>
-      </div>
-    </section>
-
     <main class="kiosk-main">
       @if (configError(); as err) {
-        <section class="scan-panel">
-          <p class="scan-panel__lead">Pantalla no disponible</p>
-          <p class="scan-panel__warn">{{ err }}</p>
+        <section class="kiosk-center">
+          <p class="kiosk-center__lead">Pantalla no disponible</p>
+          <p class="kiosk-center__status kiosk-center__status--warn">{{ err }}</p>
         </section>
       } @else if (kioskReady()) {
-        <section class="scan-panel">
+        <section class="kiosk-center">
+          <p class="kiosk-center__quote" aria-live="polite">{{ motivationalPhrase() }}</p>
+
           @if (lastResult()?.result === 'GRANTED' && welcomeTitle(); as headline) {
-            <p class="welcome-headline" aria-live="assertive">{{ headline }}</p>
+            <p class="kiosk-center__welcome" aria-live="assertive">{{ headline }}</p>
           } @else {
-            <p class="scan-panel__lead">Pase su tarjeta o huella</p>
+            <p class="kiosk-center__lead">Pase su tarjeta o huella</p>
           }
 
-          <p class="scan-panel__status" [class.scan-panel__status--waiting]="!lastResult()">
+          <p class="kiosk-center__status" [class.kiosk-center__status--waiting]="!lastResult()">
             {{ statusLine() }}
-          </p>
-
-          @if (audioUnlocked()) {
-            <span class="scan-panel__badge">Voz de bienvenida activa</span>
-          }
-
-          @if (showWelcomeAudioBtn()) {
-            <button type="button" class="audio-unlock-btn audio-unlock-btn--pulse" (click)="playWelcomeNow()">
-              🔊 Escuchar bienvenida
-            </button>
-          }
-
-          <div class="access-card" [class.access-card--pulse]="!lastResult()" aria-hidden="true">
-            <div class="access-card__surface">
-              <img src="/logo-sport-gym.png" alt="" class="access-card__logo" />
-            </div>
-          </div>
-
-          <div class="scan-methods">
-            <span class="scan-methods__item">💳 Tarjeta</span>
-            <span class="scan-methods__item">👆 Huella</span>
-          </div>
-
-          <p class="kiosk-shortcuts" aria-label="Atajos de torniquete">
-            <kbd>F2</kbd> Entreno del día (abre puerta)
-            <span class="kiosk-shortcuts__sep">·</span>
-            <kbd>F3</kbd> Bailes deportivos (abre puerta)
-          </p>
-          <p class="kiosk-shortcuts kiosk-shortcuts--hint">
-            Recepción ve el ingreso en el panel web → Acceso → Ingresos
           </p>
 
           @if (lastResult(); as r) {
@@ -85,37 +42,28 @@
               </div>
             </div>
           }
-
-          <section class="cedula-test" aria-label="Prueba con cédula">
-            <div class="cedula-test__row">
-              <label class="cedula-test__label" for="kiosk-cedula-input">Cédula</label>
-              <input
-                id="kiosk-cedula-input"
-                class="cedula-test__input"
-                type="text"
-                inputmode="numeric"
-                autocomplete="off"
-                spellcheck="false"
-                [value]="deviceUserId()"
-                (input)="onCedulaInput($any($event.target).value)"
-                placeholder="Número"
-                (keyup.enter)="simulateScan()"
-              />
-              <button type="button" class="btn btn-primary cedula-test__btn" (click)="simulateScan()">
-                OK
-              </button>
-            </div>
-            @if (deviceUserId(); as typed) {
-              <p class="cedula-test__meta" aria-live="polite">{{ cedulaDigitCount(typed) }} dígitos</p>
-            }
-          </section>
         </section>
       } @else {
-        <section class="scan-panel scan-panel--boot">
-          <p class="scan-panel__lead">Bienvenido al gimnasio</p>
-          <p class="scan-panel__status scan-panel__status--waiting">{{ statusLine() }}</p>
+        <section class="kiosk-center kiosk-center--boot">
+          <p class="kiosk-center__lead">Bienvenido al gimnasio</p>
+          <p class="kiosk-center__status kiosk-center__status--waiting">{{ statusLine() }}</p>
         </section>
       }
     </main>
   </div>
+
+  <footer class="kiosk-footer" aria-label="Información y cerrar">
+    <div class="kiosk-footer__datetime">
+      <time class="kiosk-footer__date">{{ footerDateLabel() }}</time>
+      <time class="kiosk-footer__time">{{ footerTimeLabel() }}</time>
+    </div>
+    <div class="kiosk-footer__bar">
+      <span class="kiosk-footer__hint">F2 entreno · F3 bailes · Tarjeta o huella</span>
+      @if (isDesktopApp) {
+        <button type="button" class="kiosk-footer__close" (click)="closeApp()">
+          CERRAR <span class="kiosk-footer__close-x" aria-hidden="true">✕</span>
+        </button>
+      }
+    </div>
+  </footer>
 </div>

@@ -4,5 +4,6 @@
   "accessDeviceKey": "clave-torniquete-produccion-2026",
   "turnstileGatewayDir": "turnstile-gateway",
   "spawnCardReader": true,
-  "kioskFullscreen": true
+  "kioskFullscreen": true,
+  "kioskMaximized": false
 }
