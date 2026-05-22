@@ -93,9 +93,15 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        /** Entrega de turno: recepción con Ventas o personal de panel (TRAINER/ADMIN). */
-        if (isShiftHandoverApi(path) && allowsShiftHandoverAccess(authentication)) {
-            filterChain.doFilter(request, response);
+        /** Entrega de turno: recepción (TRAINER/ADMIN); permisos finos en ShiftHandoverService. */
+        if (isShiftHandoverApi(path)) {
+            if (allowsShiftHandoverAccess(authentication)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            response.sendError(
+                    HttpServletResponse.SC_FORBIDDEN,
+                    "No tienes acceso a entrega de turno. Use un usuario de recepción o administración.");
             return;
         }
 
@@ -169,7 +175,7 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
         return path.startsWith("/api/shift-handovers");
     }
 
-    private boolean allowsShiftHandoverAccess(Authentication authentication) {
+    private static boolean allowsShiftHandoverAccess(Authentication authentication) {
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {
@@ -179,12 +185,6 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             return true;
         }
         UserRole role = SecurityUtils.currentRole();
-        if (role == UserRole.ADMIN) {
-            return true;
-        }
-        if (role == UserRole.TRAINER) {
-            return appModuleService.isEnabled("VENTAS") || appModuleService.isEnabled("ENTREGA_TURNO");
-        }
-        return false;
+        return role == UserRole.ADMIN || role == UserRole.TRAINER;
     }
 }
