@@ -12,4 +12,6 @@ public record MembershipOnboardingRequest(
         @NotNull Long planId,
         @NotNull PaymentMethod paymentMethod,
         @NotNull @Min(1) @Max(36) Integer monthsPaid,
+        @NotNull @Min(1) Long amount,
+        Long obligationId,
         @Valid AccessOnboardingData access) {}

@@ -33,6 +33,7 @@ public interface BillingPaymentRepository extends JpaRepository<BillingPayment, 
             LEFT JOIN FETCH p.member
             LEFT JOIN FETCH p.plan
             LEFT JOIN FETCH p.employee
+            LEFT JOIN FETCH p.membershipObligation
             LEFT JOIN FETCH p.sale s
             LEFT JOIN FETCH s.product
             WHERE p.id = :id

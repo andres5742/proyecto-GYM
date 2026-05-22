@@ -83,6 +83,14 @@ public class BillingPayment {
     @Column(length = 300)
     private String notes;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "membership_obligation_id")
+    private MembershipObligation membershipObligation;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "membership_payment_kind", length = 10)
+    private MembershipPaymentKind membershipPaymentKind;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

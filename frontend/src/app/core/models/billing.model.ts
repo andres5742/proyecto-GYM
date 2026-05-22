@@ -3,6 +3,23 @@ import { PaymentMethod } from './sale.model';
 
 export type BillingPaymentType = 'DAY_WORKOUT' | 'SPORTS_DANCE' | 'MEMBERSHIP';
 
+export type MembershipPaymentKind = 'FULL' | 'PARTIAL';
+
+export interface MembershipObligation {
+  id: number;
+  memberId: number;
+  memberName: string;
+  planId: number;
+  planName: string;
+  monthsPaid: number;
+  totalAmount: number;
+  amountPaid: number;
+  balance: number;
+  status: 'OPEN' | 'PAID';
+  plannedMembershipStart: string;
+  plannedMembershipEnd: string;
+}
+
 export interface BillingPayment {
   id: number;
   paymentType: BillingPaymentType;
@@ -18,6 +35,8 @@ export interface BillingPayment {
   paymentDate: string;
   membershipStart?: string | null;
   membershipEnd?: string | null;
+  membershipPaymentKind?: MembershipPaymentKind | null;
+  membershipPaymentKindLabel?: string | null;
   recordedByEmployeeId?: number | null;
   recordedByEmployeeName: string;
   createdAt: string;
@@ -40,6 +59,16 @@ export interface MembershipPaymentRequest {
   planId: number;
   paymentMethod: PaymentMethod;
   monthsPaid: number;
+  amount: number;
+  obligationId?: number | null;
+}
+
+export interface MembershipPaymentOutcome {
+  payment: BillingPayment;
+  obligation: MembershipObligation | null;
+  membershipActivated: boolean;
+  balanceRemaining: number; // pesos enteros
+  message: string;
 }
 
 export type AccessOnboardingKind = 'FINGERPRINT' | 'FACE';
@@ -65,12 +94,18 @@ export interface MembershipOnboardingRequest {
   planId: number;
   paymentMethod: PaymentMethod;
   monthsPaid: number;
+  amount: number;
+  obligationId?: number | null;
   access?: AccessOnboardingData | null;
 }
 
 export interface MembershipOnboardingResponse {
   member: Member;
   payment: BillingPayment;
+  openObligation: MembershipObligation | null;
+  membershipActivated: boolean;
+  balanceRemaining: number; // pesos enteros
+  paymentMessage: string;
   accessRegistered: boolean;
   accessMessage: string;
 }

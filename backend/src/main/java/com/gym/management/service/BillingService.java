@@ -9,8 +9,10 @@ import com.gym.management.dto.AccessOnboardingData;
 import com.gym.management.dto.AccessOnboardingKind;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.FaceWebcamEnrollRequest;
+import com.gym.management.dto.MembershipObligationResponse;
 import com.gym.management.dto.MembershipOnboardingRequest;
 import com.gym.management.dto.MembershipOnboardingResponse;
+import com.gym.management.dto.MembershipPaymentOutcomeResponse;
 import com.gym.management.dto.MembershipPaymentRequest;
 import com.gym.management.dto.MemberResponse;
 import com.gym.management.mapper.MemberMapper;
@@ -65,6 +67,7 @@ public class BillingService {
     private final TurnstileGatewayService turnstileGatewayService;
     private final AccessLogRepository accessLogRepository;
     private final BillingCashRegisterService billingCashRegisterService;
+    private final MembershipObligationService membershipObligationService;
     private final MemberService memberService;
     private final AccessControlService accessControlService;
     private final FaceWebcamService faceWebcamService;
@@ -272,8 +275,15 @@ public class BillingService {
         return firstName.isEmpty() ? "Entreno registrado." : "Entreno registrado, " + firstName + ".";
     }
 
+    @Transactional(readOnly = true)
+    public MembershipObligationResponse findOpenMembershipObligation(Long memberId) {
+        return membershipObligationService
+                .findOpenForMember(memberId)
+                .orElse(null);
+    }
+
     @Transactional
-    public BillingPaymentResponse registerMembershipPayment(MembershipPaymentRequest request) {
+    public MembershipPaymentOutcomeResponse registerMembershipPayment(MembershipPaymentRequest request) {
         Member member = memberRepository
                 .findById(request.memberId())
                 .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado: " + request.memberId()));
@@ -284,13 +294,17 @@ public class BillingService {
 
         requireMembershipBillablePlan(plan);
 
-        BillingPaymentMethodRules.requireAllowed(request.paymentMethod());
         BillingCashRegister cashRegister = billingCashRegisterService.getOpenRegisterRequired();
 
-        MembershipDates dates = computeMembershipDates(member, plan, request.monthsPaid());
-        BillingPayment billing =
-                saveMembershipPayment(member, plan, request.paymentMethod(), request.monthsPaid(), cashRegister, dates);
-        return BillingPaymentMapper.toResponse(billing);
+        return membershipObligationService.registerPayment(
+                member,
+                plan,
+                request.monthsPaid(),
+                request.paymentMethod(),
+                request.amount(),
+                cashRegister,
+                resolveRegisteringEmployee(),
+                request.obligationId());
     }
 
     @Transactional
@@ -320,36 +334,30 @@ public class BillingService {
             member = memberService.createForBilling(request.newMember());
         }
 
-        MembershipDates dates = computeMembershipDates(member, plan, request.monthsPaid());
-        BillingPayment billing = saveMembershipPayment(
-                member, plan, request.paymentMethod(), request.monthsPaid(), cashRegister, dates);
+        MembershipPaymentOutcomeResponse outcome = membershipObligationService.registerPayment(
+                member,
+                plan,
+                request.monthsPaid(),
+                request.paymentMethod(),
+                request.amount(),
+                cashRegister,
+                resolveRegisteringEmployee(),
+                request.obligationId());
 
         AccessEnrollmentResult accessResult = registerAccessIfPresent(member.getId(), request.access());
 
         return new MembershipOnboardingResponse(
                 MemberMapper.toResponse(member),
-                BillingPaymentMapper.toResponse(billing),
+                outcome.payment(),
+                outcome.obligation(),
+                outcome.membershipActivated(),
+                outcome.balanceRemaining(),
+                outcome.message(),
                 accessResult.registered(),
                 accessResult.message());
     }
 
-    private record MembershipDates(LocalDate start, LocalDate end) {}
-
     private record AccessEnrollmentResult(boolean registered, String message) {}
-
-    private MembershipDates computeMembershipDates(Member member, MembershipPlan plan, int monthsPaid) {
-        LocalDate today = LocalDate.now(GYM_ZONE);
-        LocalDate start = today;
-        LocalDate currentEnd = member.getMembershipEnd();
-        if (currentEnd != null && !currentEnd.isBefore(today)) {
-            start = currentEnd.plusDays(1);
-        } else {
-            member.setMembershipStart(today);
-        }
-        long totalDays = (long) plan.getDurationDays() * monthsPaid;
-        LocalDate end = start.plusDays(totalDays);
-        return new MembershipDates(start, end);
-    }
 
     private void requireMembershipBillablePlan(MembershipPlan plan) {
         if (isDayPassPlan(plan)) {
@@ -362,41 +370,6 @@ public class BillingService {
         String name = plan.getName() != null ? plan.getName().trim() : "";
         return name.equalsIgnoreCase(dayWorkoutPlanName.trim())
                 || name.equalsIgnoreCase(sportsDancePlanName.trim());
-    }
-
-    private BillingPayment saveMembershipPayment(
-            Member member,
-            MembershipPlan plan,
-            PaymentMethod paymentMethod,
-            int monthsPaid,
-            BillingCashRegister cashRegister,
-            MembershipDates dates) {
-        BigDecimal amount = plan.getPrice().multiply(BigDecimal.valueOf(monthsPaid));
-
-        member.setPlan(plan);
-        if (member.getMembershipStart() == null) {
-            member.setMembershipStart(dates.start());
-        }
-        member.setMembershipEnd(dates.end());
-        member.setStatus(MembershipStatus.ACTIVE);
-        member.setMembershipFrozen(false);
-        member.setFrozenRemainingDays(null);
-        memberRepository.save(member);
-
-        String monthsLabel = monthsPaid == 1 ? "1 mes" : monthsPaid + " meses";
-        return billingPaymentRepository.save(BillingPayment.builder()
-                .paymentType(BillingPaymentType.MEMBERSHIP)
-                .billingCashRegister(cashRegister)
-                .member(member)
-                .plan(plan)
-                .employee(resolveRegisteringEmployee())
-                .paymentMethod(paymentMethod)
-                .amount(amount)
-                .paymentDate(dates.start())
-                .membershipStart(dates.start())
-                .membershipEnd(dates.end())
-                .notes("Membresía " + plan.getName() + " · " + monthsLabel)
-                .build());
     }
 
     private AccessEnrollmentResult registerAccessIfPresent(Long memberId, AccessOnboardingData access) {
@@ -440,7 +413,10 @@ public class BillingService {
         }
 
         if (payment.getPaymentType() == BillingPaymentType.MEMBERSHIP) {
-            tryRevertMembershipOnDelete(payment);
+            membershipObligationService.revertPayment(payment);
+            if (payment.getMembershipObligation() == null) {
+                tryRevertMembershipOnDelete(payment);
+            }
         } else if (payment.getSale() != null) {
             // Compatibilidad con registros antiguos vinculados a ventas
             Sale sale = payment.getSale();

@@ -785,6 +785,35 @@
   }
 }
 
+.membership-debt-alert {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-warm-accent, #e8a85c);
+  background: rgb(232 168 92 / 14%);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.membership-pay-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+}
+
+.membership-pay-mode__opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.membership-summary__row--warn dd {
+  color: var(--color-warm-accent, #c45c2a);
+  font-weight: 700;
+}
+
 .membership-form__submit {
   width: 100%;
   min-height: 2.65rem;

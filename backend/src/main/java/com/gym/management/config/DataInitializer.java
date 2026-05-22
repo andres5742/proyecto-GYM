@@ -204,6 +204,42 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureMembershipObligationTables(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS membership_obligations (
+                            id BIGSERIAL PRIMARY KEY,
+                            member_id BIGINT NOT NULL REFERENCES members(id),
+                            plan_id BIGINT NOT NULL REFERENCES membership_plans(id),
+                            months_paid INTEGER NOT NULL,
+                            total_amount NUMERIC(12,2) NOT NULL,
+                            amount_paid NUMERIC(12,2) NOT NULL DEFAULT 0,
+                            status VARCHAR(10) NOT NULL,
+                            planned_membership_start DATE NOT NULL,
+                            planned_membership_end DATE NOT NULL,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                        )
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_payments
+                        ADD COLUMN IF NOT EXISTS membership_obligation_id BIGINT
+                            REFERENCES membership_obligations(id)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_payments
+                        ADD COLUMN IF NOT EXISTS membership_payment_kind VARCHAR(10)
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner ensureEmployeeBirthDateColumn(JdbcTemplate jdbc) {
         return args -> {
             try {

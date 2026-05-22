@@ -5,8 +5,10 @@ import com.gym.management.dto.BillingMonthlySummaryResponse;
 import com.gym.management.dto.BillingPaymentResponse;
 import com.gym.management.dto.DayWorkoutRegisterRequest;
 import com.gym.management.dto.DayWorkoutRegisterResponse;
+import com.gym.management.dto.MembershipObligationResponse;
 import com.gym.management.dto.MembershipOnboardingRequest;
 import com.gym.management.dto.MembershipOnboardingResponse;
+import com.gym.management.dto.MembershipPaymentOutcomeResponse;
 import com.gym.management.dto.MembershipPaymentRequest;
 import com.gym.management.service.BillingService;
 import jakarta.validation.Valid;
@@ -61,8 +63,13 @@ public class BillingController {
         return billingService.registerSportsDanceAndOpenGate(request);
     }
 
+    @GetMapping("/members/{memberId}/open-membership-obligation")
+    public MembershipObligationResponse openMembershipObligation(@PathVariable Long memberId) {
+        return billingService.findOpenMembershipObligation(memberId);
+    }
+
     @PostMapping("/membership-payment")
-    public BillingPaymentResponse membershipPayment(@Valid @RequestBody MembershipPaymentRequest request) {
+    public MembershipPaymentOutcomeResponse membershipPayment(@Valid @RequestBody MembershipPaymentRequest request) {
         return billingService.registerMembershipPayment(request);
     }
 

@@ -3,6 +3,8 @@ package com.gym.management.mapper;
 import com.gym.management.dto.BillingPaymentResponse;
 import com.gym.management.model.BillingPayment;
 import com.gym.management.model.BillingPaymentType;
+import com.gym.management.model.MembershipPaymentKind;
+import com.gym.management.util.MoneyUtil;
 
 public final class BillingPaymentMapper {
 
@@ -29,10 +31,12 @@ public final class BillingPaymentMapper {
                 saleId,
                 payment.getPaymentMethod(),
                 SaleMapper.paymentMethodLabel(payment.getPaymentMethod()),
-                payment.getAmount(),
+                MoneyUtil.roundPesos(payment.getAmount()),
                 payment.getPaymentDate(),
                 payment.getMembershipStart(),
                 payment.getMembershipEnd(),
+                payment.getMembershipPaymentKind(),
+                membershipPaymentKindLabel(payment.getMembershipPaymentKind()),
                 recordedById,
                 recordedByName,
                 payment.getCreatedAt());
@@ -50,6 +54,16 @@ public final class BillingPaymentMapper {
             case DAY_WORKOUT -> "Entreno del día";
             case SPORTS_DANCE -> "Bailes deportivos";
             case MEMBERSHIP -> "Membresía";
+        };
+    }
+
+    public static String membershipPaymentKindLabel(MembershipPaymentKind kind) {
+        if (kind == null) {
+            return null;
+        }
+        return switch (kind) {
+            case FULL -> "Pago completo";
+            case PARTIAL -> "Abono";
         };
     }
 }

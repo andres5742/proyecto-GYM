@@ -17,8 +17,10 @@ import {
   BillingPayment,
   DayWorkoutRegisterRequest,
   DayWorkoutRegisterResponse,
+  MembershipObligation,
   MembershipOnboardingRequest,
   MembershipOnboardingResponse,
+  MembershipPaymentOutcome,
   MembershipPaymentRequest,
   OpenBillingCashRegisterRequest,
 } from '../models/billing.model';
@@ -52,8 +54,14 @@ export class BillingService {
     return this.http.post<DayWorkoutRegisterResponse>(`${this.baseUrl}/sports-dance/register`, request);
   }
 
-  registerMembershipPayment(request: MembershipPaymentRequest): Observable<BillingPayment> {
-    return this.http.post<BillingPayment>(`${this.baseUrl}/membership-payment`, request);
+  findOpenMembershipObligation(memberId: number): Observable<MembershipObligation | null> {
+    return this.http.get<MembershipObligation | null>(
+      `${this.baseUrl}/members/${memberId}/open-membership-obligation`,
+    );
+  }
+
+  registerMembershipPayment(request: MembershipPaymentRequest): Observable<MembershipPaymentOutcome> {
+    return this.http.post<MembershipPaymentOutcome>(`${this.baseUrl}/membership-payment`, request);
   }
 
   registerMembershipOnboarding(

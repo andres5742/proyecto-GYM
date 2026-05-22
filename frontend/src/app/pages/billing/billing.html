@@ -215,8 +215,8 @@
     <header class="membership-panel__header">
       <div class="membership-panel__intro">
         <h3>Pago de membresía</h3>
-        <p class="membership-panel__hint">
-          Afiliado existente o nuevo. Vencimiento según plan y meses pagados.
+                <p class="membership-panel__hint">
+          Afiliado existente o nuevo. Con el primer abono ya puede ingresar al gym; el saldo pendiente se cobra después.
         </p>
       </div>
       @if (!canBill()) {
@@ -267,9 +267,17 @@
                 label="Buscar por nombre o cédula"
                 [allowRegisterNew]="true"
                 [memberId]="membershipMemberId()"
-                (memberIdChange)="membershipMemberId.set($event)"
+                (memberIdChange)="onMembershipMemberChange($event)"
                 (registerNew)="onRegisterNewMember($event)"
               />
+              @if (openMembershipObligation(); as debt) {
+                <p class="membership-debt-alert" role="status">
+                  Saldo pendiente de <strong>{{ debt.balance | cop }}</strong> por
+                  <strong>{{ debt.planName }}</strong>
+                  ({{ debt.monthsPaid }} {{ debt.monthsPaid === 1 ? 'mes' : 'meses' }}).
+                  Ya puede ingresar al gym; registre el abono que paga hoy.
+                </p>
+              }
             </div>
           } @else {
             <div class="membership-block__body new-member-form">
@@ -403,7 +411,8 @@
               <span class="field__label">Plan</span>
               <select
                 [ngModel]="membershipPlanId()"
-                (ngModelChange)="membershipPlanId.set($event != null ? +$event : null)"
+                (ngModelChange)="onMembershipPlanChange($event)"
+                [disabled]="membershipPayingDebt()"
               >
                 <option [ngValue]="null">Selecciona plan…</option>
                 @for (plan of membershipPlans(); track plan.id) {
@@ -423,6 +432,55 @@
                 step="1"
                 [ngModel]="membershipMonthsPaid()"
                 (ngModelChange)="setMembershipMonthsPaid($event)"
+                [disabled]="membershipPayingDebt()"
+              />
+            </label>
+
+            @if (!membershipPayingDebt()) {
+              <div class="field field--pay-mode">
+                <span class="field__label">Tipo de cobro</span>
+                <div class="membership-pay-mode">
+                  <label class="membership-pay-mode__opt">
+                    <input
+                      type="radio"
+                      name="membershipPayMode"
+                      [checked]="membershipPaymentMode() === 'full'"
+                      (change)="setMembershipPaymentMode('full')"
+                    />
+                    Pago completo
+                  </label>
+                  <label class="membership-pay-mode__opt">
+                    <input
+                      type="radio"
+                      name="membershipPayMode"
+                      [checked]="membershipPaymentMode() === 'partial'"
+                      (change)="setMembershipPaymentMode('partial')"
+                    />
+                    Abono parcial
+                  </label>
+                </div>
+              </div>
+            }
+
+            <label class="field field--amount">
+              <span class="field__label">{{
+                membershipPayingDebt() ? 'Monto del abono hoy' : 'Monto a pagar hoy'
+              }}</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                [ngModel]="membershipAmountToday()"
+                (ngModelChange)="membershipAmountToday.set($event != null && $event !== '' ? roundCop(+$event) : null)"
+                [placeholder]="
+                  membershipPayingDebt()
+                    ? 'Ej: ' + (openMembershipObligation()?.balance ?? '')
+                    : membershipPaymentMode() === 'full'
+                      ? 'Total del plan'
+                      : 'Cuánto abona hoy'
+                "
               />
             </label>
 
@@ -442,7 +500,15 @@
                 [disabled]="saving() || !canBill()"
                 (click)="registerMembership()"
               >
-                {{ saving() ? 'Guardando…' : 'Generar pago y activar plan' }}
+                {{
+                  saving()
+                    ? 'Guardando…'
+                    : membershipPayingDebt()
+                      ? 'Registrar abono'
+                      : membershipPaymentMode() === 'partial'
+                        ? 'Registrar abono'
+                        : 'Pago completo y activar plan'
+                }}
               </button>
             </div>
           </div>
@@ -459,14 +525,33 @@
             </div>
             <div class="membership-summary__row membership-summary__row--total">
               <dt>
-                Total
+                Total membresía
                 <span class="membership-summary__meta">
                   ({{ membershipMonthsPaid() }}
                   {{ membershipMonthsPaid() === 1 ? 'mes' : 'meses' }})
                 </span>
               </dt>
-              <dd>{{ membershipChargeTotal() | cop }}</dd>
+              <dd>
+                {{
+                  (openMembershipObligation()?.totalAmount ?? membershipChargeTotal()) | cop
+                }}
+              </dd>
             </div>
+            @if (membershipAmountToCharge(); as payToday) {
+              <div class="membership-summary__row">
+                <dt>Paga hoy</dt>
+                <dd>{{ payToday | cop }}</dd>
+              </div>
+            }
+            @if (membershipBalancePreview(); as balanceLeft) {
+              <div
+                class="membership-summary__row"
+                [class.membership-summary__row--warn]="balanceLeft > 0"
+              >
+                <dt>{{ balanceLeft > 0 ? 'Saldo pendiente' : 'Queda al día' }}</dt>
+                <dd>{{ balanceLeft | cop }}</dd>
+              </div>
+            }
             <div class="membership-summary__row">
               <dt>Vence (estimado)</dt>
               <dd>{{ membershipEndDatePreview() }}</dd>
@@ -591,6 +676,9 @@
                   <td class="col-time">{{ formatPaymentTime(p.createdAt) }}</td>
                   <td class="col-type">
                     <span [class]="paymentTypeBadgeClass(p.paymentType)">{{ p.paymentTypeLabel }}</span>
+                    @if (p.membershipPaymentKindLabel) {
+                      <span class="muted small"> · {{ p.membershipPaymentKindLabel }}</span>
+                    }
                   </td>
                   <td class="col-member">{{ p.memberName }}</td>
                   <td class="col-recorded-by">{{ p.recordedByEmployeeName }}</td>

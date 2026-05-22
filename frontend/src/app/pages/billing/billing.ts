@@ -15,7 +15,12 @@ import {
   BillingMonthlySummary,
 } from '../../core/models/billing.model';
 import { Gender, Member } from '../../core/models/member.model';
-import { AccessOnboardingKind, MembershipOnboardingRequest } from '../../core/models/billing.model';
+import {
+  AccessOnboardingKind,
+  MembershipObligation,
+  MembershipOnboardingRequest,
+} from '../../core/models/billing.model';
+import { roundCop } from '../../core/utils/money';
 import {
   isBillingDayPassPlan,
   isTiqueteraPlan,
@@ -199,6 +204,46 @@ export class BillingPage implements OnInit {
   protected readonly membershipPlanId = signal<number | null>(null);
   protected readonly membershipMonthsPaid = signal(1);
   protected readonly membershipPaymentMethod = signal<PaymentMethod>('CASH');
+  protected readonly membershipPaymentMode = signal<'full' | 'partial'>('full');
+  protected readonly membershipAmountToday = signal<number | null>(null);
+  protected readonly openMembershipObligation = signal<MembershipObligation | null>(null);
+
+  protected readonly membershipPayingDebt = computed(() => this.openMembershipObligation() != null);
+  protected readonly roundCop = roundCop;
+
+  protected readonly membershipAmountToCharge = computed(() => {
+    const debt = this.openMembershipObligation();
+    if (debt) {
+      const amount = this.membershipAmountToday();
+      return amount != null && amount > 0 ? roundCop(amount) : roundCop(debt.balance);
+    }
+    const total = this.membershipChargeTotal();
+    if (total == null) {
+      return null;
+    }
+    if (this.membershipPaymentMode() === 'full') {
+      return total;
+    }
+    const amount = this.membershipAmountToday();
+    return amount != null && amount > 0 ? roundCop(amount) : null;
+  });
+
+  protected readonly membershipBalancePreview = computed(() => {
+    const debt = this.openMembershipObligation();
+    if (debt) {
+      const pay = this.membershipAmountToCharge();
+      if (pay == null) {
+        return debt.balance;
+      }
+      return Math.max(0, debt.balance - pay);
+    }
+    const total = this.membershipChargeTotal();
+    const pay = this.membershipAmountToCharge();
+    if (total == null || pay == null) {
+      return null;
+    }
+    return Math.max(0, total - pay);
+  });
 
   private readonly billingFaceCapture = viewChild('billingFaceCapture', {
     read: FaceWebcamCaptureComponent,
@@ -253,7 +298,7 @@ export class BillingPage implements OnInit {
     if (!plan || months < 1) {
       return null;
     }
-    return plan.price * months;
+    return roundCop(plan.price * months);
   });
 
   protected readonly membershipEndDatePreview = computed(() => {
@@ -728,6 +773,12 @@ export class BillingPage implements OnInit {
       return;
     }
     this.membershipMonthsPaid.set(Math.min(36, Math.max(1, parsed)));
+    if (this.membershipPaymentMode() === 'full' && !this.membershipPayingDebt()) {
+      const total = this.membershipChargeTotal();
+      if (total != null) {
+        this.membershipAmountToday.set(total);
+      }
+    }
   }
 
   protected membershipPlanOptionSuffix(plan: MembershipPlan): string {
@@ -746,6 +797,49 @@ export class BillingPage implements OnInit {
       this.accessKind.set('SKIP');
       this.fingerprintDeviceId.set('');
       this.fingerprintDeviceLabel.set('');
+    }
+  }
+
+  onMembershipMemberChange(memberId: number | null): void {
+    this.membershipMemberId.set(memberId);
+    this.openMembershipObligation.set(null);
+    if (!Number.isFinite(memberId)) {
+      return;
+    }
+    this.billingService.findOpenMembershipObligation(memberId!).subscribe({
+      next: (obligation) => {
+        this.openMembershipObligation.set(obligation);
+        if (obligation) {
+          this.membershipPlanId.set(obligation.planId);
+          this.membershipMonthsPaid.set(obligation.monthsPaid);
+          this.membershipPaymentMode.set('partial');
+          this.membershipAmountToday.set(roundCop(obligation.balance));
+        }
+      },
+    });
+  }
+
+  onMembershipPlanChange(value: string | number | null): void {
+    this.membershipPlanId.set(value != null ? +value : null);
+    if (this.membershipPaymentMode() === 'full' && !this.membershipPayingDebt()) {
+      const plan = this.membershipPlans().find((p) => p.id === +(value ?? 0));
+      const months = this.membershipMonthsPaid();
+      if (plan && months >= 1) {
+        this.membershipAmountToday.set(roundCop(plan.price * months));
+      }
+    }
+  }
+
+  setMembershipPaymentMode(mode: 'full' | 'partial'): void {
+    if (this.membershipPayingDebt()) {
+      return;
+    }
+    this.membershipPaymentMode.set(mode);
+    const total = this.membershipChargeTotal();
+    if (mode === 'full' && total != null) {
+      this.membershipAmountToday.set(total);
+    } else if (mode === 'partial') {
+      this.membershipAmountToday.set(null);
     }
   }
 
@@ -776,6 +870,9 @@ export class BillingPage implements OnInit {
     this.membershipPlanId.set(null);
     this.membershipMonthsPaid.set(1);
     this.membershipPaymentMethod.set('CASH');
+    this.membershipPaymentMode.set('full');
+    this.membershipAmountToday.set(null);
+    this.openMembershipObligation.set(null);
   }
 
   async registerMembership(): Promise<void> {
@@ -797,6 +894,22 @@ export class BillingPage implements OnInit {
     }
     if (monthsPaid < 1) {
       this.message.set('Indica al menos 1 mes a pagar');
+      return;
+    }
+
+    const amount = roundCop(this.membershipAmountToCharge());
+    if (amount <= 0) {
+      this.message.set('Indique cuánto va a abonar hoy y el medio de pago (pesos, sin decimales)');
+      return;
+    }
+    const debt = this.openMembershipObligation();
+    if (debt && amount > roundCop(debt.balance)) {
+      this.message.set(`El abono no puede superar el saldo pendiente ($${roundCop(debt.balance).toLocaleString('es-CO')})`);
+      return;
+    }
+    const total = this.membershipChargeTotal();
+    if (!debt && total != null && amount > total) {
+      this.message.set(`El monto no puede superar el total de la membresía ($${total.toLocaleString('es-CO')})`);
       return;
     }
 
@@ -863,6 +976,8 @@ export class BillingPage implements OnInit {
       planId,
       paymentMethod: this.membershipPaymentMethod(),
       monthsPaid,
+      amount,
+      obligationId: debt?.id ?? null,
       access,
     };
 
@@ -880,10 +995,12 @@ export class BillingPage implements OnInit {
         const accessNote = res.accessRegistered
           ? res.accessMessage
           : 'Puede registrar huella o rostro después en Acceso biométrico.';
+        const title =
+          res.balanceRemaining > 0 ? 'Abono registrado — puede ingresar' : 'Membresía al día';
         void Swal.fire({
           icon: 'success',
-          title: 'Pago registrado',
-          html: `Membresía activada para <strong>${res.member.firstName} ${res.member.lastName}</strong>.<br>${accessNote}`,
+          title,
+          html: `<strong>${res.member.firstName} ${res.member.lastName}</strong><br>${res.paymentMessage}<br>${accessNote}`,
           confirmButtonText: 'Aceptar',
           confirmButtonColor: '#d4623a',
         });
