@@ -2,6 +2,7 @@ package com.gym.management.service;
 
 import com.gym.management.dto.BillingCashRegisterClosePreviewResponse;
 import com.gym.management.dto.BillingCashRegisterCloseResultResponse;
+import com.gym.management.dto.ShiftOpenCashPreviewResponse;
 import com.gym.management.dto.BillingCashRegisterExpenseRequest;
 import com.gym.management.dto.BillingCashRegisterExpenseResponse;
 import com.gym.management.dto.BillingCashRegisterResponse;
@@ -65,6 +66,41 @@ public class BillingCashRegisterService {
                 .findFirstByRegisterDateOrderByOpenedAtDesc(today())
                 .map(this::toResponseWithTotals)
                 .orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public ShiftOpenCashPreviewResponse shiftOpenCashPreview(LocalDate shiftDate) {
+        LocalDate date = shiftDate != null ? shiftDate : today();
+        BillingCashRegister register = cashRegisterRepository
+                .findFirstByRegisterDateOrderByOpenedAtDesc(date)
+                .orElseThrow(() -> new BusinessException(
+                        "No hay caja del día en Facturación. Ábrala antes de abrir otro turno."));
+        if (register.getStatus() != ShiftStatus.OPEN) {
+            throw new BusinessException(
+                    "La caja del día está cerrada. Reábrala en Facturación antes de abrir otro turno.");
+        }
+        Long id = register.getId();
+        Map<PaymentMethod, BigDecimal> expensesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        expenseRepository.sumByPaymentMethodByCashRegisterId(id));
+        BigDecimal cashExpenses = expensesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        ProductDayTotals productTotals = loadProductTotalsForDate(date);
+        Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
+        BigDecimal fiadoCash = sumFiadoCashCollected(date);
+        BigDecimal expected = computeCashInDrawer(register, true);
+        Employee opener = register.getOpenedBy();
+        String openerName = opener.getFirstName() + " " + opener.getLastName();
+        return new ShiftOpenCashPreviewResponse(
+                id,
+                openerName,
+                register.getOpeningCashAmount(),
+                cashExpenses,
+                productTotals.cashTotal(),
+                fiadoCash,
+                cashByType.getOrDefault(BillingPaymentType.MEMBERSHIP, BigDecimal.ZERO),
+                cashByType.getOrDefault(BillingPaymentType.DAY_WORKOUT, BigDecimal.ZERO),
+                cashByType.getOrDefault(BillingPaymentType.SPORTS_DANCE, BigDecimal.ZERO),
+                expected);
     }
 
     @Transactional(readOnly = true)
@@ -146,6 +182,8 @@ public class BillingCashRegisterService {
 
     @Transactional(readOnly = true)
     public BillingCashRegisterClosePreviewResponse closePreview(Long id) {
+        assertCanCloseCashRegister();
+        assertNoOpenWorkShifts();
         BillingCashRegister register = getRegister(id);
         if (register.getStatus() == ShiftStatus.CLOSED) {
             throw new BusinessException("La caja ya está cerrada");
@@ -161,6 +199,8 @@ public class BillingCashRegisterService {
 
     @Transactional
     public BillingCashRegisterCloseResultResponse close(Long id, CloseBillingCashRegisterRequest request) {
+        assertCanCloseCashRegister();
+        assertNoOpenWorkShifts();
         BillingCashRegister register = getRegister(id);
         if (!register.getRegisterDate().equals(today())) {
             throw new BusinessException("Solo se puede cerrar la caja del día actual");
@@ -229,6 +269,21 @@ public class BillingCashRegisterService {
             throw new BusinessException("No se pudo identificar al empleado");
         }
         return employeeService.getEmployee(employeeId);
+    }
+
+    private void assertCanCloseCashRegister() {
+        if (!SecurityUtils.isAdmin()) {
+            throw new BusinessException("No puede cerrar caja. Solo la administración puede cerrar la caja del día.");
+        }
+    }
+
+    private void assertNoOpenWorkShifts() {
+        workShiftRepository
+                .findFirstByStatusOrderByOpenedAtDesc(ShiftStatus.OPEN)
+                .ifPresent(open -> {
+                    throw new BusinessException(
+                            "Debe cerrar el turno «" + open.getName() + "» antes de cerrar la caja del día.");
+                });
     }
 
     /**

@@ -4,12 +4,16 @@ import com.gym.management.dto.CashShortfallResponse;
 import com.gym.management.dto.InventoryMissingLineDto;
 import com.gym.management.dto.ProductInventoryCountItem;
 import com.gym.management.dto.ProductInventoryLineResponse;
+import com.gym.management.dto.CashDenominationCount;
+import com.gym.management.dto.ShiftOpenCashPreviewResponse;
 import com.gym.management.dto.ShiftOpenInventoryPreviewResponse;
 import com.gym.management.exception.BusinessException;
+import com.gym.management.model.BillingCashRegister;
 import com.gym.management.model.Employee;
 import com.gym.management.model.Product;
 import com.gym.management.model.ShiftStatus;
 import com.gym.management.model.WorkShift;
+import com.gym.management.repository.BillingCashRegisterRepository;
 import com.gym.management.repository.ProductRepository;
 import com.gym.management.repository.WorkShiftRepository;
 import com.gym.management.util.MoneyUtil;
@@ -22,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +38,9 @@ public class ShiftInventoryService {
 
     private final WorkShiftRepository workShiftRepository;
     private final ProductRepository productRepository;
+    private final BillingCashRegisterRepository cashRegisterRepository;
+    @Lazy
+    private final BillingCashRegisterService billingCashRegisterService;
     private final CashShortfallService cashShortfallService;
 
     @Transactional(readOnly = true)
@@ -41,16 +49,18 @@ public class ShiftInventoryService {
         boolean required = isInventoryCheckRequired(date);
         List<ProductInventoryLineResponse> products = activeProductLines();
         if (!required) {
-            return new ShiftOpenInventoryPreviewResponse(false, null, null, null, products);
+            return new ShiftOpenInventoryPreviewResponse(false, null, null, null, products, null);
         }
         WorkShift previous = getPreviousClosedShiftRequired(date);
         String employeeName = previous.getEmployee().getFirstName() + " " + previous.getEmployee().getLastName();
+        ShiftOpenCashPreviewResponse cash = billingCashRegisterService.shiftOpenCashPreview(date);
         return new ShiftOpenInventoryPreviewResponse(
                 true,
                 previous.getId(),
                 previous.getName(),
                 employeeName,
-                products);
+                products,
+                cash);
     }
 
     @Transactional(readOnly = true)
@@ -59,17 +69,21 @@ public class ShiftInventoryService {
     }
 
     @Transactional
-    public InventoryOpenResult processBeforeOpen(LocalDate shiftDate, List<ProductInventoryCountItem> counts) {
+    public InventoryOpenResult processBeforeOpen(
+            LocalDate shiftDate, List<ProductInventoryCountItem> counts, CashDenominationCount cashCount) {
         if (!isInventoryCheckRequired(shiftDate)) {
             return InventoryOpenResult.none();
+        }
+        WorkShift previousShift = getPreviousClosedShiftRequired(shiftDate);
+        Optional<CashShortfallResponse> cashShortfall = processCashBeforeOpen(shiftDate, cashCount, previousShift);
+
+        List<Product> activeProducts = productRepository.findByActiveTrueOrderByNameAsc();
+        if (activeProducts.isEmpty()) {
+            return new InventoryOpenResult(false, null, BigDecimal.ZERO, List.of(), cashShortfall.orElse(null));
         }
         if (counts == null || counts.isEmpty()) {
             throw new BusinessException(
                     "Debe confirmar el inventario de todos los productos antes de abrir el turno");
-        }
-        List<Product> activeProducts = productRepository.findByActiveTrueOrderByNameAsc();
-        if (activeProducts.isEmpty()) {
-            return InventoryOpenResult.none();
         }
         Map<Long, Integer> countedByProduct = new HashMap<>();
         for (ProductInventoryCountItem item : counts) {
@@ -86,7 +100,6 @@ public class ShiftInventoryService {
             }
         }
 
-        WorkShift previousShift = getPreviousClosedShiftRequired(shiftDate);
         List<InventoryMissingLineDto> missingLines = new ArrayList<>();
         BigDecimal shortfallTotal = BigDecimal.ZERO;
 
@@ -115,13 +128,33 @@ public class ShiftInventoryService {
         productRepository.saveAll(activeProducts);
         shortfallTotal = MoneyUtil.roundPesos(shortfallTotal);
 
-        Optional<CashShortfallResponse> shortfall = Optional.empty();
+        Optional<CashShortfallResponse> inventoryShortfall = Optional.empty();
         if (shortfallTotal.compareTo(BigDecimal.ZERO) > 0) {
-            shortfall = Optional.of(cashShortfallService.registerFromInventoryCheck(
+            inventoryShortfall = Optional.of(cashShortfallService.registerFromInventoryCheck(
                     previousShift, shortfallTotal, missingLines));
         }
 
-        return new InventoryOpenResult(true, shortfall.orElse(null), shortfallTotal, missingLines);
+        return new InventoryOpenResult(
+                true,
+                inventoryShortfall.orElse(null),
+                shortfallTotal,
+                missingLines,
+                cashShortfall.orElse(null));
+    }
+
+    private Optional<CashShortfallResponse> processCashBeforeOpen(
+            LocalDate shiftDate, CashDenominationCount cashCount, WorkShift previousShift) {
+        if (cashCount == null) {
+            throw new BusinessException("Debe contar el efectivo en caja antes de abrir el turno");
+        }
+        ShiftOpenCashPreviewResponse preview = billingCashRegisterService.shiftOpenCashPreview(shiftDate);
+        BigDecimal expected = preview.expectedCashTotal();
+        BigDecimal declared = MoneyUtil.roundPesos(cashCount.totalCash());
+        BillingCashRegister register = cashRegisterRepository
+                .findByIdWithEmployee(preview.cashRegisterId())
+                .orElseThrow(() -> new BusinessException("Caja del día no encontrada"));
+        return cashShortfallService.registerFromShiftOpenCashCheck(
+                register, previousShift, expected, declared);
     }
 
     @Transactional
@@ -210,12 +243,13 @@ public class ShiftInventoryService {
 
     public record InventoryOpenResult(
             boolean adjusted,
-            CashShortfallResponse shortfall,
-            BigDecimal shortfallAmount,
-            List<InventoryMissingLineDto> missingLines) {
+            CashShortfallResponse inventoryShortfall,
+            BigDecimal inventoryShortfallAmount,
+            List<InventoryMissingLineDto> missingLines,
+            CashShortfallResponse cashShortfall) {
 
         static InventoryOpenResult none() {
-            return new InventoryOpenResult(false, null, BigDecimal.ZERO, List.of());
+            return new InventoryOpenResult(false, null, BigDecimal.ZERO, List.of(), null);
         }
     }
 

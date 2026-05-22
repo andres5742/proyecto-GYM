@@ -20,7 +20,6 @@
       </div>
       <div class="shift-open-actions">
         <a routerLink="/panel/entrega-turno" class="btn btn-primary">Entregar turno</a>
-        <button type="button" class="btn btn-warn" (click)="closeShiftAction()">Cerrar turno</button>
       </div>
     </div>
 
@@ -531,20 +530,25 @@
 @if (inventoryModalOpen() && inventoryPreview(); as preview) {
   <div class="inventory-modal-backdrop" (click)="closeInventoryModal()">
     <div
-      class="inventory-open-modal"
+      class="inventory-open-modal inventory-open-modal--wide"
       role="dialog"
       aria-labelledby="inventory-open-title"
       (click)="$event.stopPropagation()"
     >
       <header class="inventory-open-modal__header">
         <div class="inventory-open-modal__title-block">
-          <span class="inventory-open-modal__icon" aria-hidden="true">📦</span>
+          <span class="inventory-open-modal__icon" aria-hidden="true">💵</span>
           <div>
-            <h3 id="inventory-open-title">Conteo de inventario</h3>
+            <h3 id="inventory-open-title">Conteo de caja e inventario</h3>
             @if (preview.previousEmployeeName) {
               <p class="inventory-open-modal__meta">
                 Turno anterior: <strong>{{ preview.previousShiftName }}</strong> ·
                 {{ preview.previousEmployeeName }}
+              </p>
+            }
+            @if (preview.cash; as cash) {
+              <p class="inventory-open-modal__meta">
+                Caja abierta por: <strong>{{ cash.cashRegisterOpenedByName }}</strong>
               </p>
             }
           </div>
@@ -554,77 +558,210 @@
         </button>
       </header>
 
-      <p class="inventory-open-modal__lead">
-        Confirme la cantidad física de cada producto antes de abrir el turno. Si hay faltantes, se actualiza el
-        inventario y se registra un descuadre al responsable del turno anterior.
-      </p>
+      <div class="inventory-open-modal__scroll">
+        <p class="inventory-open-modal__lead">
+          Cuente el efectivo en caja y confirme el inventario antes de abrir el turno. Si algo no cuadra, se registra
+          un descuadre: inventario al vendedor del turno anterior; efectivo a quien abrió la caja del día.
+        </p>
 
-      @if (preview.products.length === 0) {
-        <div class="inventory-open-modal__empty">
-          <p>No hay productos activos en inventario.</p>
-        </div>
-      } @else {
-        <div class="inventory-open-modal__table-section">
-          <div class="inventory-open-modal__table-toolbar">
-            <span class="inventory-open-modal__count">{{ preview.products.length }} productos</span>
-            <button type="button" class="btn btn-secondary btn-sm" (click)="fillInventoryExpected()">
-              Usar cantidades del sistema
-            </button>
-          </div>
-          <div class="inventory-open-table-wrap">
-            <table class="inventory-open-table">
-              <thead>
-                <tr>
-                  <th scope="col" class="col-product">Producto</th>
-                  <th scope="col" class="col-system">Sistema</th>
-                  <th scope="col" class="col-count">Conteo físico</th>
-                  <th scope="col" class="col-missing">Faltante</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (line of preview.products; track line.productId) {
-                  <tr [class.has-missing]="inventoryMissingQty(line.productId) > 0">
-                    <td class="col-product">
-                      <span class="inventory-open-table__name">{{ line.productName }}</span>
-                      @if (line.category) {
-                        <span class="inventory-open-table__cat">{{ line.category }}</span>
-                      }
-                    </td>
-                    <td class="col-system">
-                      <span class="inventory-open-table__qty">{{ line.expectedQuantity }}</span>
-                    </td>
-                    <td class="col-count">
+        @if (preview.cash; as cash) {
+          <section class="inventory-open-modal__cash">
+            <h4 class="inventory-open-modal__section-title">Efectivo en caja</h4>
+
+            <div class="inventory-open-compare" [class.inventory-open-compare--ok]="openCashMatches()">
+              <article class="inventory-open-compare__card">
+                <span class="inventory-open-compare__label">Usted contó</span>
+                <strong class="inventory-open-compare__value">{{ openCashTotal() | cop }}</strong>
+                <span class="inventory-open-compare__meta"
+                  >Billetes {{ openBillTotal() | cop }} · Monedas {{ openCoinTotal() | cop }}</span
+                >
+              </article>
+              <span class="inventory-open-compare__vs" aria-hidden="true">=</span>
+              <article class="inventory-open-compare__card inventory-open-compare__card--expected">
+                <span class="inventory-open-compare__label">Debe haber</span>
+                <strong class="inventory-open-compare__value">{{ cash.expectedCashTotal | cop }}</strong>
+                @if (openCashMatches()) {
+                  <span class="inventory-open-compare__status inventory-open-compare__status--ok">Cuadra</span>
+                } @else if (openCashDiff() < 0) {
+                  <span class="inventory-open-compare__status inventory-open-compare__status--warn">
+                    Falta {{ -openCashDiff() | cop }}
+                  </span>
+                } @else {
+                  <span class="inventory-open-compare__status inventory-open-compare__status--info">
+                    Sobra {{ openCashDiff() | cop }}
+                  </span>
+                }
+              </article>
+            </div>
+
+            <dl class="inventory-open-breakdown">
+              <div class="inventory-open-breakdown__row">
+                <dt>Efectivo inicial</dt>
+                <dd>+ {{ cash.openingCashAmount | cop }}</dd>
+              </div>
+              @if (cash.productCashTotal > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Productos vendidos (efectivo)</dt>
+                  <dd>+ {{ cash.productCashTotal | cop }}</dd>
+                </div>
+              }
+              @if (billingCashConceptTotal(cash) > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--group">
+                  <dt>Efectivo por concepto</dt>
+                  <dd>+ {{ billingCashConceptTotal(cash) | cop }}</dd>
+                </div>
+                @if (cash.cashMembership > 0) {
+                  <div class="inventory-open-breakdown__chip-row">
+                    <span>Membresías</span>
+                    <span>{{ cash.cashMembership | cop }}</span>
+                  </div>
+                }
+                @if (cash.cashDayWorkout > 0) {
+                  <div class="inventory-open-breakdown__chip-row">
+                    <span>Entrenos</span>
+                    <span>{{ cash.cashDayWorkout | cop }}</span>
+                  </div>
+                }
+                @if (cash.cashSportsDance > 0) {
+                  <div class="inventory-open-breakdown__chip-row">
+                    <span>Bailes</span>
+                    <span>{{ cash.cashSportsDance | cop }}</span>
+                  </div>
+                }
+              }
+              @if (cash.fiadoCashTotal > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Fiado cobrado hoy (efectivo)</dt>
+                  <dd>+ {{ cash.fiadoCashTotal | cop }}</dd>
+                </div>
+              }
+              @if (cash.cashExpenses > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
+                  <dt>Gastos en efectivo</dt>
+                  <dd>− {{ cash.cashExpenses | cop }}</dd>
+                </div>
+              }
+            </dl>
+
+            <div class="inventory-open-denom">
+              <div class="inventory-open-denom__col">
+                <h5>Billetes</h5>
+                <div class="inventory-open-denom__grid">
+                  @for (d of billDenominations; track d.key) {
+                    <label class="inventory-open-denom__field">
+                      <span>{{ d.label }}</span>
                       <input
                         type="number"
                         min="0"
                         step="1"
-                        class="inventory-open-table__input"
-                        [attr.aria-label]="'Conteo de ' + line.productName"
-                        [value]="inventoryCounts()[line.productId]"
-                        (input)="setInventoryCount(line.productId, $any($event.target).value)"
+                        [value]="openShiftCash()[d.key]"
+                        (input)="updateOpenCash(d.key, $any($event.target).value)"
                       />
-                    </td>
-                    <td class="col-missing">
-                      <span
-                        class="inventory-open-table__missing"
-                        [class.is-positive]="inventoryMissingQty(line.productId) > 0"
-                      >
-                        {{ inventoryMissingQty(line.productId) }}
-                      </span>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-        @if (hasAnyInventoryMissing()) {
+                      <small>= {{ (openShiftCash()[d.key] || 0) * d.value | cop }}</small>
+                    </label>
+                  }
+                </div>
+              </div>
+              <div class="inventory-open-denom__col">
+                <h5>Monedas</h5>
+                <div class="inventory-open-denom__grid">
+                  @for (d of coinDenominations; track d.key) {
+                    <label class="inventory-open-denom__field">
+                      <span>{{ d.label }}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        [value]="openShiftCash()[d.key]"
+                        (input)="updateOpenCash(d.key, $any($event.target).value)"
+                      />
+                      <small>= {{ (openShiftCash()[d.key] || 0) * d.value | cop }}</small>
+                    </label>
+                  }
+                </div>
+              </div>
+            </div>
+          </section>
+        }
+
+        <section class="inventory-open-modal__products">
+          <h4 class="inventory-open-modal__section-title">Inventario de productos</h4>
+
+          @if (preview.products.length === 0) {
+            <div class="inventory-open-modal__empty">
+              <p>No hay productos activos en inventario.</p>
+            </div>
+          } @else {
+            <div class="inventory-open-modal__table-section">
+              <div class="inventory-open-modal__table-toolbar">
+                <span class="inventory-open-modal__count">{{ preview.products.length }} productos</span>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="fillInventoryExpected()">
+                  Usar cantidades del sistema
+                </button>
+              </div>
+              <div class="inventory-open-table-wrap">
+                <table class="inventory-open-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" class="col-product">Producto</th>
+                      <th scope="col" class="col-system">Sistema</th>
+                      <th scope="col" class="col-count">Conteo físico</th>
+                      <th scope="col" class="col-missing">Faltante</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of preview.products; track line.productId) {
+                      <tr [class.has-missing]="inventoryMissingQty(line.productId) > 0">
+                        <td class="col-product">
+                          <span class="inventory-open-table__name">{{ line.productName }}</span>
+                          @if (line.category) {
+                            <span class="inventory-open-table__cat">{{ line.category }}</span>
+                          }
+                        </td>
+                        <td class="col-system">
+                          <span class="inventory-open-table__qty">{{ line.expectedQuantity }}</span>
+                        </td>
+                        <td class="col-count">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            class="inventory-open-table__input"
+                            [attr.aria-label]="'Conteo de ' + line.productName"
+                            [value]="inventoryCounts()[line.productId]"
+                            (input)="setInventoryCount(line.productId, $any($event.target).value)"
+                          />
+                        </td>
+                        <td class="col-missing">
+                          <span
+                            class="inventory-open-table__missing"
+                            [class.is-positive]="inventoryMissingQty(line.productId) > 0"
+                          >
+                            {{ inventoryMissingQty(line.productId) }}
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </section>
+
+        @if (hasAnyInventoryMissing() || (preview.cash && !openCashMatches())) {
           <p class="inventory-open-modal__warn" role="status">
-            Hay productos faltantes. Al confirmar se registrará el descuadre en
-            <strong>Descuadres de caja</strong>.
+            @if (hasAnyInventoryMissing() && preview.cash && !openCashMatches()) {
+              Hay diferencias en efectivo e inventario. Al confirmar se registrarán los descuadres correspondientes.
+            } @else if (preview.cash && !openCashMatches()) {
+              El efectivo no cuadra. Al confirmar se registrará el descuadre a cargo de
+              <strong>{{ preview.cash.cashRegisterOpenedByName }}</strong>.
+            } @else {
+              Hay productos faltantes. Al confirmar se registrará el descuadre al vendedor del turno anterior.
+            }
           </p>
         }
-      }
+      </div>
 
       <footer class="inventory-open-modal__footer">
         <button type="button" class="btn btn-secondary" (click)="closeInventoryModal()" [disabled]="openingShift()">
@@ -634,7 +771,7 @@
           type="button"
           class="btn btn-primary"
           (click)="confirmInventoryAndOpenShift()"
-          [disabled]="openingShift() || preview.products.length === 0"
+          [disabled]="openingShift()"
         >
           {{ openingShift() ? 'Abriendo…' : 'Confirmar y abrir turno' }}
         </button>

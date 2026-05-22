@@ -7,4 +7,5 @@ public record ShiftOpenInventoryPreviewResponse(
         Long previousShiftId,
         String previousShiftName,
         String previousEmployeeName,
-        List<ProductInventoryLineResponse> products) {}
+        List<ProductInventoryLineResponse> products,
+        ShiftOpenCashPreviewResponse cash) {}

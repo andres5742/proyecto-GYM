@@ -203,6 +203,10 @@ public class AppModuleService {
             return isAllowedForRole(UserRole.ADMIN, code);
         }
         if (role == UserRole.TRAINER) {
+            if ("ENTREGA_TURNO".equals(code)) {
+                return isAllowedForRole(UserRole.TRAINER, code)
+                        || isAllowedForRole(UserRole.TRAINER, "VENTAS");
+            }
             return isAllowedForRole(UserRole.TRAINER, code);
         }
         return false;

@@ -56,7 +56,7 @@
           <span class="nav-icon">🧾</span> Facturación
         </a>
       }
-      @if (modules.isEnabled('ENTREGA_TURNO')) {
+      @if (modules.isEnabled('ENTREGA_TURNO') || modules.isEnabled('VENTAS')) {
         <a routerLink="/panel/entrega-turno" routerLinkActive="active">
           <span class="nav-icon">🧾</span> Entrega de turno
         </a>

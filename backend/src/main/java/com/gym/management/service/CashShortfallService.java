@@ -299,11 +299,50 @@ public class CashShortfallService {
         return CashShortfallKind.CASH_HANDOVER;
     }
 
+    @Transactional
+    public Optional<CashShortfallResponse> registerFromShiftOpenCashCheck(
+            BillingCashRegister register,
+            WorkShift previousShift,
+            BigDecimal expectedAmount,
+            BigDecimal declaredAmount) {
+        BigDecimal expected = MoneyUtil.roundPesos(expectedAmount);
+        BigDecimal declared = MoneyUtil.roundPesos(declaredAmount);
+        if (declared.compareTo(expected) >= 0) {
+            return Optional.empty();
+        }
+        BigDecimal shortfall = expected.subtract(declared);
+        Employee responsible = register.getOpenedBy();
+        String openerName = responsible.getFirstName() + " " + responsible.getLastName();
+        String notes =
+                "Falta de efectivo en caja al abrir turno: se esperaban "
+                        + MoneyUtil.formatPesos(expected)
+                        + ", se contaron "
+                        + MoneyUtil.formatPesos(declared)
+                        + ". Responsable: quien abrió la caja ("
+                        + openerName
+                        + ").";
+        EmployeeCashShortfall record = EmployeeCashShortfall.builder()
+                .employee(responsible)
+                .billingCashRegister(register)
+                .shiftHandover(null)
+                .workShift(previousShift)
+                .recordDate(register.getRegisterDate())
+                .expectedAmount(expected)
+                .declaredAmount(declared)
+                .shortfallAmount(shortfall)
+                .status(CashShortfallStatus.PENDING)
+                .kind(CashShortfallKind.CASH_SHIFT_OPEN)
+                .notes(notes)
+                .build();
+        return Optional.of(toResponse(shortfallRepository.save(record)));
+    }
+
     private static String kindLabel(CashShortfallKind kind) {
         return switch (kind) {
             case INVENTORY -> "Inventario";
             case CASH_HANDOVER -> "Caja (entrega)";
             case CASH_REGISTER -> "Caja (cierre)";
+            case CASH_SHIFT_OPEN -> "Caja (apertura turno)";
         };
     }
 

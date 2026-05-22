@@ -17,6 +17,7 @@ import { WorkShift } from '../../core/models/shift.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ShiftHandoverService } from '../../core/services/shift-handover.service';
 import { ShiftService } from '../../core/services/shift.service';
+import { httpErrorMessage } from '../../core/utils/http-error-message';
 
 @Component({
   selector: 'app-shift-handover',
@@ -153,12 +154,9 @@ export class ShiftHandoverPage implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        const msg =
-          err?.status === 403
-            ? 'No tienes permiso para Entrega de turno. Pide al administrador que active el módulo para tu rol.'
-            : ((typeof err?.error === 'string' ? err.error : err?.error?.message) ??
-              'No se pudo cargar la entrega del turno');
-        this.message.set(msg);
+        this.message.set(
+          httpErrorMessage(err, 'No se pudo cargar la entrega del turno'),
+        );
         this.loading.set(false);
       },
     });

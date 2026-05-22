@@ -382,14 +382,13 @@ public class ShiftHandoverService {
             throw new BusinessException(
                     "Tu usuario no está vinculado a un empleado. Pide al administrador que lo asocie.");
         }
-        if (shift.getStatus() == ShiftStatus.OPEN && workShiftService.isGlobalOpenShift(shift.getId())) {
+        if (shift.getEmployee() == null) {
+            throw new BusinessException("El turno no tiene vendedor asignado.");
+        }
+        if (shift.getEmployee().getId().equals(employeeId)) {
             return;
         }
-        if (shift.getEmployee() != null && shift.getEmployee().getId().equals(employeeId)) {
-            return;
-        }
-        throw new BusinessException(
-                "No puedes gestionar este turno. Solo el turno abierto del gimnasio o los tuyos.");
+        throw new BusinessException("Solo quien abrió el turno puede registrar la entrega.");
     }
 
     private AuthenticatedUser requireUser() {

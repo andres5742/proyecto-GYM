@@ -684,6 +684,14 @@ export class BillingPage implements OnInit, OnDestroy {
     if (!reg) {
       return;
     }
+    if (!this.auth.isAdmin()) {
+      void Swal.fire({
+        icon: 'warning',
+        title: 'No puede cerrar caja',
+        text: 'Solo la administración puede cerrar la caja del día.',
+      });
+      return;
+    }
     this.closingCaja.set(true);
     this.billingService.closeCashRegisterPreview(reg.id).subscribe({
       next: (preview) => {

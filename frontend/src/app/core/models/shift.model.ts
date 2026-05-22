@@ -1,4 +1,5 @@
 import { PaymentMethod, Sale, SalesSummary } from './sale.model';
+import { ShiftHandoverCashForm } from './shift-handover.model';
 
 export type ShiftStatus = 'OPEN' | 'CLOSED';
 
@@ -29,12 +30,26 @@ export interface ProductInventoryLine {
   unitPrice: number;
 }
 
+export interface ShiftOpenCashPreview {
+  cashRegisterId: number;
+  cashRegisterOpenedByName: string;
+  openingCashAmount: number;
+  cashExpenses: number;
+  productCashTotal: number;
+  fiadoCashTotal: number;
+  cashMembership: number;
+  cashDayWorkout: number;
+  cashSportsDance: number;
+  expectedCashTotal: number;
+}
+
 export interface ShiftOpenInventoryPreview {
   inventoryCheckRequired: boolean;
   previousShiftId: number | null;
   previousShiftName: string | null;
   previousEmployeeName: string | null;
   products: ProductInventoryLine[];
+  cash: ShiftOpenCashPreview | null;
 }
 
 export interface WorkShiftRequest {
@@ -42,6 +57,7 @@ export interface WorkShiftRequest {
   shiftDate?: string;
   employeeId?: number;
   inventoryCounts?: ProductInventoryCountItem[];
+  cashCount?: ShiftHandoverCashForm;
 }
 
 export interface WorkShiftOpenResult {
@@ -50,6 +66,9 @@ export interface WorkShiftOpenResult {
   inventoryShortfallRegistered: boolean;
   inventoryShortfallAmount: number;
   inventoryShortfallNotes: string | null;
+  cashShortfallRegistered: boolean;
+  cashShortfallAmount: number;
+  cashShortfallNotes: string | null;
 }
 
 export interface PaymentMethodTotals {

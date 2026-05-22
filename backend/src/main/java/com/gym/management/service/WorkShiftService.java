@@ -65,7 +65,7 @@ public class WorkShiftService {
         Employee seller = resolveSellerForOpen(request.employeeId());
         LocalDate shiftDate = request.shiftDate() != null ? request.shiftDate() : LocalDate.now();
         ShiftInventoryService.InventoryOpenResult inventoryResult =
-                shiftInventoryService.processBeforeOpen(shiftDate, request.inventoryCounts());
+                shiftInventoryService.processBeforeOpen(shiftDate, request.inventoryCounts(), request.cashCount());
         WorkShift shift = WorkShift.builder()
                 .shiftDate(shiftDate)
                 .name(request.name())
@@ -75,13 +75,17 @@ public class WorkShiftService {
                 .build();
         WorkShiftResponse response =
                 WorkShiftMapper.toResponse(workShiftRepository.save(shift), BigDecimal.ZERO, 0L);
-        var shortfall = inventoryResult.shortfall();
+        var inventoryShortfall = inventoryResult.inventoryShortfall();
+        var cashShortfall = inventoryResult.cashShortfall();
         return new WorkShiftOpenResultResponse(
                 response,
                 inventoryResult.adjusted(),
-                shortfall != null,
-                inventoryResult.shortfallAmount(),
-                shortfall != null ? shortfall.notes() : null);
+                inventoryShortfall != null,
+                inventoryResult.inventoryShortfallAmount(),
+                inventoryShortfall != null ? inventoryShortfall.notes() : null,
+                cashShortfall != null,
+                cashShortfall != null ? cashShortfall.shortfallAmount() : java.math.BigDecimal.ZERO,
+                cashShortfall != null ? cashShortfall.notes() : null);
     }
 
     @Transactional

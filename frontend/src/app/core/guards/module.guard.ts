@@ -28,6 +28,9 @@ export const moduleGuard: CanActivateFn = (route) => {
       if (modules.isEnabled(key, scope)) {
         return true;
       }
+      if (key === 'ENTREGA_TURNO' && modules.isEnabled('VENTAS', scope)) {
+        return true;
+      }
       return router.createUrlTree([key.startsWith('PUBLIC_') ? '/' : '/panel']);
     }),
   );

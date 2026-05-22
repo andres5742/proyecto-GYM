@@ -93,8 +93,8 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        /** Arqueo / entrega de turno: recepción (TRAINER/ADMIN), sin depender del toggle de módulos en BD. */
-        if (isShiftHandoverApi(path) && isStaffPanelUser(authentication)) {
+        /** Entrega de turno: recepción con Ventas o personal de panel (TRAINER/ADMIN). */
+        if (isShiftHandoverApi(path) && allowsShiftHandoverAccess(authentication)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -169,7 +169,7 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
         return path.startsWith("/api/shift-handovers");
     }
 
-    private static boolean isStaffPanelUser(Authentication authentication) {
+    private boolean allowsShiftHandoverAccess(Authentication authentication) {
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {
@@ -179,6 +179,12 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             return true;
         }
         UserRole role = SecurityUtils.currentRole();
-        return role == UserRole.TRAINER || role == UserRole.ADMIN;
+        if (role == UserRole.ADMIN) {
+            return true;
+        }
+        if (role == UserRole.TRAINER) {
+            return appModuleService.isEnabled("VENTAS") || appModuleService.isEnabled("ENTREGA_TURNO");
+        }
+        return false;
     }
 }

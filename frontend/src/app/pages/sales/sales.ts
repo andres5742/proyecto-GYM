@@ -19,6 +19,12 @@ import {
   ShiftOpenInventoryPreview,
   WorkShift,
 } from '../../core/models/shift.model';
+import {
+  CASH_DENOMINATIONS,
+  computeCashTotal,
+  emptyCashForm,
+  ShiftHandoverCashForm,
+} from '../../core/models/shift-handover.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MemberService } from '../../core/services/member.service';
 import { ProductService } from '../../core/services/product.service';
@@ -68,6 +74,13 @@ export class Sales implements OnInit {
   protected readonly inventoryModalOpen = signal(false);
   protected readonly inventoryPreview = signal<ShiftOpenInventoryPreview | null>(null);
   protected readonly inventoryCounts = signal<Record<number, number>>({});
+  protected readonly openShiftCash = signal<ShiftHandoverCashForm>(emptyCashForm());
+  protected readonly billDenominations = CASH_DENOMINATIONS.filter((d) => d.type === 'bill').sort(
+    (a, b) => b.value - a.value,
+  );
+  protected readonly coinDenominations = CASH_DENOMINATIONS.filter((d) => d.type === 'coin').sort(
+    (a, b) => b.value - a.value,
+  );
   protected readonly pendingShiftName = signal('Mañana');
   protected readonly loadingInventoryPreview = signal(false);
   protected readonly loadingHistory = signal(false);
@@ -378,6 +391,7 @@ export class Sales implements OnInit {
           counts[line.productId] = line.expectedQuantity;
         }
         this.inventoryCounts.set(counts);
+        this.openShiftCash.set(emptyCashForm());
         this.inventoryPreview.set(preview);
         this.inventoryModalOpen.set(true);
       },
@@ -426,9 +440,39 @@ export class Sales implements OnInit {
     this.inventoryCounts.set(counts);
   }
 
+  protected readonly openCashTotal = computed(() => computeCashTotal(this.openShiftCash()));
+
+  protected readonly openCashExpected = computed(
+    () => this.inventoryPreview()?.cash?.expectedCashTotal ?? 0,
+  );
+
+  protected readonly openCashDiff = computed(() => this.openCashTotal() - this.openCashExpected());
+
+  protected readonly openCashMatches = computed(() => this.openCashDiff() === 0);
+
+  protected readonly openBillTotal = computed(() =>
+    this.billDenominations.reduce((s, d) => s + (this.openShiftCash()[d.key] || 0) * d.value, 0),
+  );
+
+  protected readonly openCoinTotal = computed(() =>
+    this.coinDenominations.reduce((s, d) => s + (this.openShiftCash()[d.key] || 0) * d.value, 0),
+  );
+
+  protected billingCashConceptTotal(
+    cash: NonNullable<ShiftOpenInventoryPreview['cash']>,
+  ): number {
+    return cash.cashMembership + cash.cashDayWorkout + cash.cashSportsDance;
+  }
+
+  protected updateOpenCash(key: keyof ShiftHandoverCashForm, value: string | number): void {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    this.openShiftCash.update((c) => ({ ...c, [key]: n }));
+  }
+
   closeInventoryModal(): void {
     this.inventoryModalOpen.set(false);
     this.inventoryPreview.set(null);
+    this.openShiftCash.set(emptyCashForm());
   }
 
   confirmInventoryAndOpenShift(): void {
@@ -441,13 +485,19 @@ export class Sales implements OnInit {
       productId: p.productId,
       countedQuantity: this.inventoryCounts()[p.productId] ?? 0,
     }));
-    this.submitOpenShift(this.pendingShiftName(), user.employeeId ?? undefined, inventoryCounts);
+    this.submitOpenShift(
+      this.pendingShiftName(),
+      user.employeeId ?? undefined,
+      inventoryCounts,
+      { ...this.openShiftCash() },
+    );
   }
 
   private submitOpenShift(
     shiftName: string,
     employeeId?: number,
     inventoryCounts?: ProductInventoryCountItem[],
+    cashCount?: ShiftHandoverCashForm,
   ): void {
     const user = this.auth.currentUser();
     if (!user) {
@@ -459,24 +509,28 @@ export class Sales implements OnInit {
         name: shiftName,
         employeeId,
         inventoryCounts,
+        cashCount,
       })
       .subscribe({
         next: (result) => {
           const shift = result.shift;
+          const fmtCop = (n: number) =>
+            new Intl.NumberFormat('es-CO', {
+              style: 'currency',
+              currency: 'COP',
+              maximumFractionDigits: 0,
+            }).format(n);
           let msg = `Turno "${shift.name}" abierto · Vendedor: ${shift.employeeName ?? user.fullName}`;
           if (result.inventoryShortfallRegistered) {
             const prev = this.inventoryPreview()?.previousEmployeeName ?? 'turno anterior';
-            const amount =
-              typeof result.inventoryShortfallAmount === 'number'
-                ? new Intl.NumberFormat('es-CO', {
-                    style: 'currency',
-                    currency: 'COP',
-                    maximumFractionDigits: 0,
-                  }).format(result.inventoryShortfallAmount)
-                : '';
-            msg += `. Se registró descuadre por inventario faltante (${amount}) a cargo de ${prev}.`;
+            msg += `. Descuadre por inventario (${fmtCop(result.inventoryShortfallAmount)}) a cargo de ${prev}.`;
           } else if (result.inventoryAdjusted) {
             msg += '. Inventario actualizado con el conteo.';
+          }
+          if (result.cashShortfallRegistered) {
+            const opener =
+              this.inventoryPreview()?.cash?.cashRegisterOpenedByName ?? 'quien abrió la caja';
+            msg += `. Descuadre por efectivo (${fmtCop(result.cashShortfallAmount)}) a cargo de ${opener}.`;
           }
           this.message.set(msg);
           this.openingShift.set(false);
@@ -497,26 +551,6 @@ export class Sales implements OnInit {
           }
         },
       });
-  }
-
-  closeShiftAction(): void {
-    const shift = this.openShift();
-    if (!shift || !confirm(`¿Cerrar el turno "${shift.name}"?`)) {
-      return;
-    }
-    this.shiftService.close(shift.id).subscribe({
-      next: () => {
-        this.message.set('Turno cerrado');
-        this.historyDetail.set(null);
-        this.cartProductIds.set([]);
-        this.qtyMatrix.set({});
-        this.refreshShift();
-        if (this.auth.isAdmin()) {
-          this.loadShiftHistory();
-        }
-      },
-      error: () => this.message.set('No se pudo cerrar el turno'),
-    });
   }
 
   getQty(productId: number, method: PaymentMethod): number {
