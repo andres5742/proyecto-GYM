@@ -755,6 +755,11 @@
     grid-column: 1 / -1;
   }
 
+  .field--pay-mode,
+  .field--amount {
+    grid-column: 1 / -1;
+  }
+
   .field--method {
     grid-column: 1;
   }
@@ -773,6 +778,11 @@
 
     .field--months {
       grid-column: 2;
+    }
+
+    .field--pay-mode,
+    .field--amount {
+      grid-column: 1 / -1;
     }
 
     .field--method {
