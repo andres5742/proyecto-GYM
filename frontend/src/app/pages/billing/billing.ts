@@ -434,12 +434,28 @@ export class BillingPage implements OnInit, OnDestroy {
     (reg.sessionCashDayWorkout ?? 0) +
     (reg.sessionCashSportsDance ?? 0);
 
-  /** Efectivo físico en caja: facturación + productos del día; sin Nequi ni otros digitales. */
+  protected dayCollectedTotal(reg: BillingCashRegister): number {
+    return roundCop((reg.sessionTotal ?? 0) + (reg.dayFiadoCollectedTotal ?? 0));
+  }
+
+  protected dayMovementCount(reg: BillingCashRegister): number {
+    return (reg.paymentCount ?? 0) + (reg.dayFiadoPaymentCount ?? 0);
+  }
+
+  protected fiadoCashCollected(reg: BillingCashRegister): number {
+    return this.methodTotal(reg.dayFiadoCollectedByMethod, 'CASH');
+  }
+
+  /** Efectivo físico en caja (usa el total calculado en el servidor). */
   protected billingCashInDrawer(reg: BillingCashRegister): number {
+    if (reg.cashInDrawer != null && !Number.isNaN(reg.cashInDrawer)) {
+      return roundCop(reg.cashInDrawer);
+    }
     const billingCash = this.methodTotal(reg.sessionIncomeByMethod, 'CASH');
     const cashOut = this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
     const productCash = reg.dayProductSalesCash ?? 0;
-    return roundCop(reg.openingCashAmount + billingCash + productCash - cashOut);
+    const fiadoCash = this.fiadoCashCollected(reg);
+    return roundCop(reg.openingCashAmount + billingCash + productCash + fiadoCash - cashOut);
   }
 
   protected sessionNonCashIncome(reg: BillingCashRegister): number {

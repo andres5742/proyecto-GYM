@@ -583,23 +583,7 @@
 }
 
 .membership-form__fields--new {
-  @media (min-width: 900px) {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: start;
-
-    .membership-block--affiliate {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
-    .membership-block--payment {
-      grid-column: 2;
-      grid-row: 1 / span 2;
-      align-self: stretch;
-    }
-  }
+  gap: 1.15rem;
 }
 
 .membership-form {
@@ -670,11 +654,18 @@
   }
 }
 
+.membership-block__body--affiliate {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 0.85rem;
+}
+
 .membership-flow__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
-  margin: 0 1rem 0.75rem;
+  margin: 0;
 }
 
 .membership-flow__tab {
@@ -718,6 +709,18 @@
     min-height: 2.75rem;
     margin: 0;
     font-size: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.85rem;
+    box-shadow: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgb(212 98 58 / 14%);
+    }
   }
 
   input[type='number'] {
@@ -741,26 +744,49 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding-top: 0.15rem !important;
+}
+
+.new-member-panel__lead {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .new-member-panel__data.new-member-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem 0.75rem;
+  gap: 0.65rem 0.85rem;
 
   .field--gender {
     grid-column: 1 / -1;
 
-    @media (min-width: 520px) {
+    @media (min-width: 640px) {
       grid-column: span 1;
     }
   }
 }
 
 .new-member-panel__card {
-  padding-top: 0.85rem;
-  border-top: 1px dashed var(--color-border);
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+}
+
+@media (min-width: 720px) {
+  .new-member-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 1rem 1.25rem;
+    align-items: start;
+
+    &__lead {
+      grid-column: 1 / -1;
+    }
+
+    &__card {
+      align-self: stretch;
+    }
+  }
 }
 
 .card-enroll__row {
@@ -928,53 +954,45 @@
   }
 }
 
-.membership-payment-grid {
-  display: grid;
-  grid-template-columns: 1fr minmax(5.5rem, 7rem);
-  gap: 0.75rem 1rem;
-  align-items: end;
+.membership-checkout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 
-  .field--plan {
-    grid-column: 1 / -1;
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
   }
 
-  .field--pay-mode,
-  .field--amount {
-    grid-column: 1 / -1;
+  &__row {
+    display: grid;
+    gap: 0.75rem;
+    align-items: end;
+
+    @media (min-width: 520px) {
+      grid-template-columns: minmax(5rem, 6.5rem) minmax(0, 1fr);
+    }
+
+    &--pay {
+      @media (min-width: 520px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
   }
 
-  .field--method {
-    grid-column: 1;
+  &__months input {
+    text-align: center;
   }
 
-  .field--submit {
-    grid-column: 1 / -1;
-    margin-top: 0.25rem;
+  &__pay-mode {
+    min-width: 0;
   }
 
-  @media (min-width: 560px) {
-    grid-template-columns: minmax(0, 2fr) minmax(5rem, 7rem) minmax(0, 1.2fr);
-
-    .field--plan {
-      grid-column: 1;
-    }
-
-    .field--months {
-      grid-column: 2;
-    }
-
-    .field--pay-mode,
-    .field--amount {
-      grid-column: 1 / -1;
-    }
-
-    .field--method {
-      grid-column: 3;
-    }
-
-    .field--submit {
-      grid-column: 1 / -1;
-    }
+  &__actions {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
   }
 }
 
@@ -1039,93 +1057,6 @@
   }
 }
 
-.membership-payment-grid--compact {
-  gap: 0.55rem 0.65rem;
-
-  .field--plan {
-    grid-column: 1 / -1;
-  }
-
-  .field--months {
-    grid-column: auto;
-  }
-
-  .field--pay-mode {
-    grid-column: 1 / -1;
-    margin-bottom: 0.1rem;
-  }
-
-  .field--amount,
-  .field--method {
-    grid-column: auto;
-  }
-
-  .field--submit {
-    grid-column: 1 / -1;
-    margin-top: 0.35rem;
-
-    .membership-form__submit {
-      max-width: 100%;
-    }
-  }
-
-  @media (min-width: 520px) {
-    grid-template-columns: minmax(0, 1fr) minmax(4.5rem, 5.5rem);
-
-    .field--plan {
-      grid-column: 1 / -1;
-    }
-
-    .field--months {
-      grid-column: 2;
-      grid-row: 1;
-    }
-
-    .field--plan {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
-    .field--pay-mode {
-      grid-column: 1 / -1;
-      grid-row: 2;
-    }
-
-    .field--amount {
-      grid-column: 1;
-      grid-row: 3;
-    }
-
-    .field--method {
-      grid-column: 2;
-      grid-row: 3;
-    }
-
-    .field--submit {
-      grid-row: 4;
-    }
-  }
-
-  @media (min-width: 900px) {
-    .membership-block--payment & {
-      grid-template-columns: 1fr;
-      gap: 0.5rem;
-
-      .field--plan,
-      .field--months,
-      .field--amount,
-      .field--method {
-        grid-column: 1;
-        grid-row: auto;
-      }
-
-      .field--months {
-        max-width: 5.5rem;
-      }
-    }
-  }
-}
-
 .membership-summary__row--warn dd {
   color: var(--color-warm-accent, #c45c2a);
   font-weight: 700;
@@ -1133,11 +1064,13 @@
 
 .membership-form__submit {
   width: 100%;
-  min-height: 2.65rem;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.9rem;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
   line-height: 1.25;
   white-space: normal;
+  border-radius: var(--radius-sm);
 }
 
 .membership-summary {
@@ -1234,24 +1167,12 @@
     grid-template-columns: 1fr;
   }
 
-  .membership-form__fields--new {
-    display: flex;
-    flex-direction: column;
-  }
-
   .card-enroll__row {
     grid-template-columns: 1fr;
   }
 
-  .membership-payment-grid {
+  .membership-checkout__row {
     grid-template-columns: 1fr;
-
-    .field--plan,
-    .field--months,
-    .field--method,
-    .field--submit {
-      grid-column: 1;
-    }
   }
 
   .membership-form__submit {

@@ -30,5 +30,9 @@ public record BillingCashRegisterResponse(
         BigDecimal sessionCashMembership,
         BigDecimal sessionCashDayWorkout,
         BigDecimal sessionCashSportsDance,
-        /** Inicio + ventas productos en efectivo + cobros facturación en efectivo − gastos en efectivo. */
+        /** Cobros de abonos a productos fiados del día (todos los medios). */
+        BigDecimal dayFiadoCollectedTotal,
+        Map<PaymentMethod, BigDecimal> dayFiadoCollectedByMethod,
+        long dayFiadoPaymentCount,
+        /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos en efectivo. */
         BigDecimal cashInDrawer) {}

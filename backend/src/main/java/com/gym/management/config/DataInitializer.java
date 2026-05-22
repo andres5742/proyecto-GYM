@@ -143,7 +143,10 @@ public class DataInitializer {
 
     @Bean
     CommandLineRunner ensureRoleModulePermissions() {
-        return args -> appModuleService.ensureDefaultRolePermissions();
+        return args -> {
+            appModuleService.ensureDefaultRolePermissions();
+            appModuleService.ensureEntregaTurnoStaffAccess();
+        };
     }
 
     @Bean
@@ -489,6 +492,7 @@ public class DataInitializer {
                         61);
             }
             appModuleService.ensureFacturacionStaffAccess();
+            appModuleService.ensureEntregaTurnoStaffAccess();
             appModuleService.ensureDefaultRolePermissions();
             if (planRepository.findByNameIgnoreCase("Entreno día").isEmpty()) {
                 planRepository.save(MembershipPlan.builder()

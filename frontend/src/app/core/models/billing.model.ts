@@ -153,7 +153,11 @@ export interface BillingCashRegister {
   sessionCashMembership: number;
   sessionCashDayWorkout: number;
   sessionCashSportsDance: number;
-  /** Inicio + facturación efectivo + productos efectivo − gastos (sin Nequi ni digitales). */
+  /** Abonos a productos fiados cobrados hoy (todos los medios). */
+  dayFiadoCollectedTotal: number;
+  dayFiadoCollectedByMethod: Record<PaymentMethod, number>;
+  dayFiadoPaymentCount: number;
+  /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos. */
   cashInDrawer: number;
 }
 

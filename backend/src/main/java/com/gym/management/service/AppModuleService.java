@@ -134,20 +134,30 @@ public class AppModuleService {
 
     @Transactional
     public void ensureFacturacionStaffAccess() {
-        if (appModuleRepository.findById("FACTURACION").isEmpty()) {
+        ensureStaffModuleAccess("FACTURACION");
+    }
+
+    /** Recepción: entrega de turno y arqueo de caja del entrenador. */
+    @Transactional
+    public void ensureEntregaTurnoStaffAccess() {
+        ensureStaffModuleAccess("ENTREGA_TURNO");
+    }
+
+    private void ensureStaffModuleAccess(String moduleCode) {
+        if (appModuleRepository.findById(moduleCode).isEmpty()) {
             return;
         }
         for (UserRole role : List.of(UserRole.TRAINER, UserRole.ADMIN)) {
             RoleModulePermission permission = roleModulePermissionRepository
-                    .findById(new com.gym.management.model.RoleModulePermissionId(role, "FACTURACION"))
+                    .findById(new com.gym.management.model.RoleModulePermissionId(role, moduleCode))
                     .orElse(RoleModulePermission.builder()
                             .role(role)
-                            .moduleCode("FACTURACION")
+                            .moduleCode(moduleCode)
                             .build());
             permission.setAllowed(true);
             roleModulePermissionRepository.save(permission);
         }
-        appModuleRepository.findById("FACTURACION").ifPresent(module -> {
+        appModuleRepository.findById(moduleCode).ifPresent(module -> {
             if (!Boolean.TRUE.equals(module.getEnabled())) {
                 module.setEnabled(true);
                 appModuleRepository.save(module);

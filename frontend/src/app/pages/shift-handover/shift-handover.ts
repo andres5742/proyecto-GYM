@@ -154,8 +154,10 @@ export class ShiftHandoverPage implements OnInit {
       },
       error: (err) => {
         const msg =
-          (typeof err?.error === 'string' ? err.error : err?.error?.message) ??
-          'No se pudo cargar la entrega del turno';
+          err?.status === 403
+            ? 'No tienes permiso para Entrega de turno. Pide al administrador que active el módulo para tu rol.'
+            : ((typeof err?.error === 'string' ? err.error : err?.error?.message) ??
+              'No se pudo cargar la entrega del turno');
         this.message.set(msg);
         this.loading.set(false);
       },

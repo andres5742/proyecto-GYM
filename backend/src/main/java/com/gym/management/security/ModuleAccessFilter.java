@@ -92,6 +92,13 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        /** Arqueo / entrega de turno: recepción (TRAINER/ADMIN), sin depender del toggle de módulos en BD. */
+        if (isShiftHandoverApi(path) && isStaffPanelUser(authentication)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken
@@ -156,5 +163,22 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
     /** Afiliados al registrar ventas en pendiente/deuda (sin módulo Socios). */
     private static boolean isVentasSupportCatalogRead(String path, HttpMethod method) {
         return method == HttpMethod.GET && "/api/members".equals(path);
+    }
+
+    private static boolean isShiftHandoverApi(String path) {
+        return path.startsWith("/api/shift-handovers");
+    }
+
+    private static boolean isStaffPanelUser(Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return false;
+        }
+        if (SecurityUtils.isSuperAdmin()) {
+            return true;
+        }
+        UserRole role = SecurityUtils.currentRole();
+        return role == UserRole.TRAINER || role == UserRole.ADMIN;
     }
 }

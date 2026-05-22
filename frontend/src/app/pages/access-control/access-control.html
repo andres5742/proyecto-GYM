@@ -2,7 +2,7 @@
   <div class="access-header__main">
     <h2>Acceso biométrico y torniquete</h2>
     <p class="muted">
-      Registra afiliados y entrenadores (huella, tarjeta ZKTeco o rostro). Un ingreso por día. Tiquetera: cupo de entrenos del plan (ej. 16); al agotarlos no puede ingresar más hasta renovar.
+      Registra afiliados y entrenadores (huella o tarjeta ZKTeco). Un ingreso por día. Tiquetera: cupo de entrenos del plan (ej. 16); al agotarlos no puede ingresar más hasta renovar.
     </p>
     <a routerLink="/acceso" target="_blank" class="kiosk-link">Abrir pantalla del torniquete ↗</a>
   </div>
@@ -16,11 +16,7 @@
       <span class="access-stats__label">Tarjetas afiliados</span>
     </li>
     <li class="access-stats__item">
-      <span class="access-stats__value">{{ faceCount() }}</span>
-      <span class="access-stats__label">Rostros afiliados</span>
-    </li>
-    <li class="access-stats__item">
-      <span class="access-stats__value">{{ staffFingerprintCount() + staffFaceCount() }}</span>
+      <span class="access-stats__value">{{ staffFingerprintCount() + staffCardCount() }}</span>
       <span class="access-stats__label">Entrenadores</span>
     </li>
     <li class="access-stats__item">
@@ -50,7 +46,7 @@
     (click)="setSection('registered')"
   >
     Afiliados registrados
-    <span class="access-nav__badge">{{ fingerprintCount() + cardCount() + faceCount() }}</span>
+    <span class="access-nav__badge">{{ fingerprintCount() + cardCount() }}</span>
   </button>
   <button
     type="button"
@@ -99,16 +95,6 @@
             type="button"
             class="segmented__btn"
             role="tab"
-            [attr.aria-selected]="registerMethod() === 'fingerprint'"
-            [class.is-active]="registerMethod() === 'fingerprint'"
-            (click)="setRegisterMethod('fingerprint')"
-          >
-            Huella en lector
-          </button>
-          <button
-            type="button"
-            class="segmented__btn"
-            role="tab"
             [attr.aria-selected]="registerMethod() === 'card'"
             [class.is-active]="registerMethod() === 'card'"
             (click)="setRegisterMethod('card')"
@@ -119,16 +105,16 @@
             type="button"
             class="segmented__btn"
             role="tab"
-            [attr.aria-selected]="registerMethod() === 'face'"
-            [class.is-active]="registerMethod() === 'face'"
-            (click)="setRegisterMethod('face')"
+            [attr.aria-selected]="registerMethod() === 'fingerprint'"
+            [class.is-active]="registerMethod() === 'fingerprint'"
+            (click)="setRegisterMethod('fingerprint')"
           >
-            Rostro con cámara
+            Huella en lector
           </button>
         </div>
       </div>
       <p class="register-sidebar__legend muted small">
-        En afiliados, <span class="legend-chip on">Huella</span> / <span class="legend-chip on">Tarjeta</span> / <span class="legend-chip on">Rostro</span> en verde = ya registrado.
+        En afiliados, <span class="legend-chip on">Huella</span> / <span class="legend-chip on">Tarjeta</span> en verde = ya registrado.
       </p>
     </aside>
 
@@ -209,41 +195,6 @@
             </button>
           </footer>
         </form>
-      }
-
-      @if (registerAudience() === 'members' && registerMethod() === 'face') {
-        <header class="register-workspace__head">
-          <h3>Afiliado · rostro</h3>
-          <p class="muted small">Cámara de la entrada. No se guarda foto, solo la plantilla.</p>
-        </header>
-        <div class="register-form register-form--split">
-          <div class="register-form__fields">
-            <app-member-search-select
-              [members]="members()"
-              [accessByMemberId]="accessByMemberId()"
-              label="Afiliado"
-              [memberId]="faceMemberId()"
-              (memberIdChange)="onFaceMemberSelected($event)"
-            />
-            <p class="register-hint">{{ faceStatus() }}</p>
-            <button
-              type="button"
-              class="btn btn-primary"
-              [disabled]="saving() || faceMemberId() == null"
-              (click)="enrollFace()"
-            >
-              {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
-            </button>
-          </div>
-          <div class="register-form__camera">
-            <app-face-webcam-capture
-              #memberFaceCapture
-              [compact]="true"
-              [allowCameraSwitch]="true"
-              (statusChange)="onFaceStatus($event)"
-            />
-          </div>
-        </div>
       }
 
       @if (registerAudience() === 'staff' && registerMethod() === 'fingerprint') {
@@ -330,45 +281,6 @@
         </form>
       }
 
-      @if (registerAudience() === 'staff' && registerMethod() === 'face') {
-        <header class="register-workspace__head">
-          <h3>Entrenador · rostro</h3>
-          <p class="muted small">Misma cámara que usan los afiliados.</p>
-        </header>
-        <div class="register-form register-form--split">
-          <div class="register-form__fields">
-            <label>
-              Entrenador
-              <select
-                [value]="staffFaceEmployeeId() ?? ''"
-                (change)="onStaffFaceSelected($any($event.target).value ? +$any($event.target).value : null)"
-              >
-                <option value="">Selecciona entrenador…</option>
-                @for (t of trainers(); track t.id) {
-                  <option [value]="t.id">{{ t.firstName }} {{ t.lastName }}</option>
-                }
-              </select>
-            </label>
-            <p class="register-hint">{{ staffFaceStatus() }}</p>
-            <button
-              type="button"
-              class="btn btn-primary"
-              [disabled]="saving() || staffFaceEmployeeId() == null"
-              (click)="enrollStaffFace()"
-            >
-              {{ saving() ? 'Guardando…' : 'Capturar y guardar rostro' }}
-            </button>
-          </div>
-          <div class="register-form__camera">
-            <app-face-webcam-capture
-              #staffFaceCapture
-              [compact]="true"
-              [allowCameraSwitch]="true"
-              (statusChange)="onStaffFaceStatus($event)"
-            />
-          </div>
-        </div>
-      }
     </article>
   </div>
 }
@@ -426,31 +338,10 @@
           </app-data-table>
         </article>
 
-        <article class="access-card">
-          <header class="access-card__head">
-            <h4>Rostros</h4>
-            <span class="access-card__count">{{ faceCount() }}</span>
-          </header>
-          <app-data-table
-            [rows]="memberFaceEnrollments()"
-            [columns]="faceColumns"
-            searchPlaceholder="Nombre o cédula…"
-            emptyMessage="Sin rostros registrados."
-            [showActions]="true"
-            [pageSizeDefault]="10"
-          >
-            <ng-template #actions let-row>
-              <button type="button" class="btn btn-success btn-sm" (click)="manualOpen(row.memberId)">Abrir</button>
-              <button type="button" class="btn btn-delete btn-sm" (click)="removeFaceEnrollment(row.memberId)">
-                Quitar
-              </button>
-            </ng-template>
-          </app-data-table>
-        </article>
       </div>
     </section>
 
-    @if (staffFingerprintCount() > 0 || staffCardCount() > 0 || staffFaceCount() > 0) {
+    @if (staffFingerprintCount() > 0 || staffCardCount() > 0) {
       <section class="registered-block panel">
         <h3 class="registered-block__title">Entrenadores registrados</h3>
         <div class="registered-block__grid">
@@ -508,32 +399,6 @@
             </article>
           }
 
-          @if (staffFaceEnrollments().length > 0) {
-            <article class="access-card">
-              <header class="access-card__head">
-                <h4>Rostros</h4>
-                <span class="access-card__count">{{ staffFaceCount() }}</span>
-              </header>
-              <app-data-table
-                [rows]="staffFaceEnrollments()"
-                [columns]="staffFaceColumns"
-                searchPlaceholder="Buscar…"
-                emptyMessage="Sin rostros de entrenadores."
-                [showActions]="true"
-                [pageSizeDefault]="10"
-              >
-                <ng-template #actions let-row>
-                  <button
-                    type="button"
-                    class="btn btn-delete btn-sm"
-                    (click)="removeStaffFaceEnrollment(row.employeeId!)"
-                  >
-                    Quitar
-                  </button>
-                </ng-template>
-              </app-data-table>
-            </article>
-          }
         </div>
       </section>
     }

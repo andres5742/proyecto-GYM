@@ -33,7 +33,7 @@ export class Members implements OnInit {
   protected readonly canEditMembershipEnd = () => this.auth.isAdmin();
 
   protected readonly members = signal<Member[]>([]);
-  protected readonly accessByMemberId = signal(buildMemberAccessMap([], []));
+  protected readonly accessByMemberId = signal(buildMemberAccessMap([]));
   protected readonly plans = signal<MembershipPlan[]>([]);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
@@ -149,11 +149,7 @@ export class Members implements OnInit {
 
   loadAccessFlags(): void {
     this.accessService.listEnrollments().subscribe({
-      next: (enrollments) => {
-        this.accessService.listWebcamEnrollments().subscribe({
-          next: (webcam) => this.accessByMemberId.set(buildMemberAccessMap(enrollments, webcam)),
-        });
-      },
+      next: (enrollments) => this.accessByMemberId.set(buildMemberAccessMap(enrollments)),
     });
   }
 

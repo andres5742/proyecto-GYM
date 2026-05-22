@@ -95,15 +95,20 @@
       <article class="kpi-card kpi-card--income">
         <div class="kpi-card__body">
           <span class="kpi-card__label">Cobrado (todos los medios)</span>
-          <strong class="kpi-card__value">{{ reg.sessionTotal | cop }}</strong>
+          <strong class="kpi-card__value">{{ dayCollectedTotal(reg) | cop }}</strong>
           <span class="kpi-card__sub"
-            >{{ reg.paymentCount }} movimientos · no suma Nequi a efectivo en caja</span
+            >{{ dayMovementCount(reg) }} movimientos · no suma Nequi a efectivo en caja</span
           >
         </div>
         <div class="method-chips method-chips--kpi">
           @for (pm of paymentMethods; track pm.value) {
             @if (hasMethodAmount(reg.sessionIncomeByMethod, pm.value)) {
               <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(reg.sessionIncomeByMethod, pm.value) | cop }}</span>
+            }
+          }
+          @for (pm of paymentMethods; track pm.value) {
+            @if (hasMethodAmount(reg.dayFiadoCollectedByMethod, pm.value)) {
+              <span [class]="methodChipClass(pm.value)">Fiado {{ pm.label }} {{ methodTotal(reg.dayFiadoCollectedByMethod, pm.value) | cop }}</span>
             }
           }
         </div>
@@ -122,6 +127,25 @@
           }
         </div>
       </article>
+      @if ((reg.dayFiadoCollectedTotal ?? 0) > 0) {
+        <article class="kpi-card kpi-card--fiado">
+          <div class="kpi-card__body">
+            <span class="kpi-card__label">Fiado cobrado hoy</span>
+            <strong class="kpi-card__value">{{ reg.dayFiadoCollectedTotal | cop }}</strong>
+            <span class="kpi-card__sub"
+              >{{ reg.dayFiadoPaymentCount }}
+              {{ reg.dayFiadoPaymentCount === 1 ? 'abono' : 'abonos' }} · turno Ventas</span
+            >
+          </div>
+          <div class="method-chips method-chips--kpi">
+            @for (pm of paymentMethods; track pm.value) {
+              @if (hasMethodAmount(reg.dayFiadoCollectedByMethod, pm.value)) {
+                <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(reg.dayFiadoCollectedByMethod, pm.value) | cop }}</span>
+              }
+            }
+          </div>
+        </article>
+      }
       <article class="kpi-card kpi-card--products">
         <div class="kpi-card__body">
           <span class="kpi-card__label">Productos vendidos</span>
@@ -193,6 +217,12 @@
                 <li>
                   <span>Productos (efectivo)</span>
                   <strong>+ {{ reg.dayProductSalesCash | cop }}</strong>
+                </li>
+              }
+              @if (fiadoCashCollected(reg) > 0) {
+                <li>
+                  <span>Fiado cobrado (efectivo)</span>
+                  <strong>+ {{ fiadoCashCollected(reg) | cop }}</strong>
                 </li>
               }
               @if (closeRegisterCashExpenses(reg) > 0) {
@@ -269,32 +299,32 @@
       >
         <section class="membership-block membership-block--affiliate">
           <h4 class="membership-block__title">1. Afiliado</h4>
-
-          <div class="membership-flow__tabs" role="tablist" aria-label="Tipo de afiliado">
-            <button
-              type="button"
-              class="membership-flow__tab"
-              role="tab"
-              [attr.aria-selected]="membershipFlow() === 'existing'"
-              [class.is-active]="membershipFlow() === 'existing'"
-              (click)="setMembershipFlow('existing')"
-            >
-              Afiliado existente
-            </button>
-            <button
-              type="button"
-              class="membership-flow__tab"
-              role="tab"
-              [attr.aria-selected]="membershipFlow() === 'new'"
-              [class.is-active]="membershipFlow() === 'new'"
-              (click)="setMembershipFlow('new')"
-            >
-              Afiliado nuevo
-            </button>
-          </div>
+          <div class="membership-block__body membership-block__body--affiliate">
+            <div class="membership-flow__tabs" role="tablist" aria-label="Tipo de afiliado">
+              <button
+                type="button"
+                class="membership-flow__tab"
+                role="tab"
+                [attr.aria-selected]="membershipFlow() === 'existing'"
+                [class.is-active]="membershipFlow() === 'existing'"
+                (click)="setMembershipFlow('existing')"
+              >
+                Afiliado existente
+              </button>
+              <button
+                type="button"
+                class="membership-flow__tab"
+                role="tab"
+                [attr.aria-selected]="membershipFlow() === 'new'"
+                [class.is-active]="membershipFlow() === 'new'"
+                (click)="setMembershipFlow('new')"
+              >
+                Afiliado nuevo
+              </button>
+            </div>
 
           @if (membershipFlow() === 'existing') {
-            <div class="membership-block__body">
+            <div class="membership-affiliate-existing">
               <app-member-search-select
                 [members]="members()"
                 label="Buscar por nombre o cédula"
@@ -313,7 +343,10 @@
               }
             </div>
           } @else {
-            <div class="membership-block__body new-member-panel">
+            <div class="new-member-panel">
+              <p class="new-member-panel__lead muted small">
+                Complete los datos, vincule la tarjeta y al final confirme el cobro.
+              </p>
               <div class="new-member-panel__data new-member-form">
                 <p class="new-member-form__section-label">Datos personales</p>
                 <label class="field">
@@ -361,7 +394,7 @@
               </div>
 
               <div class="new-member-panel__card card-enroll">
-                <p class="new-member-form__section-label">Tarjeta ZKTeco</p>
+                <p class="new-member-form__section-label">Tarjeta de acceso</p>
                 <div class="card-enroll__row">
                   <div class="card-enroll__capture reader-capture reader-capture--compact">
                     @if (lastCapturedCardPin(); as pin) {
@@ -399,103 +432,108 @@
               </div>
             </div>
           }
+          </div>
         </section>
 
         <section class="membership-block membership-block--payment">
-          <h4 class="membership-block__title">
-            {{ membershipFlow() === 'new' ? '2. Cobro y membresía' : '2. Cobro y membresía' }}
-          </h4>
-          <div
-            class="membership-block__body membership-payment-grid"
-            [class.membership-payment-grid--compact]="membershipFlow() === 'new'"
-          >
-            <label class="field field--plan">
-              <span class="field__label">Plan</span>
-              <select
-                [ngModel]="membershipPlanId()"
-                (ngModelChange)="onMembershipPlanChange($event)"
-                [disabled]="membershipPayingDebt()"
-              >
-                <option [ngValue]="null">Selecciona plan…</option>
-                @for (plan of membershipPlans(); track plan.id) {
-                  <option [ngValue]="plan.id">
-                    {{ plan.name }} — {{ plan.price | cop }}{{ membershipPlanOptionSuffix(plan) }}
-                  </option>
+          <h4 class="membership-block__title">2. Cobro y membresía</h4>
+          <div class="membership-block__body membership-checkout">
+            <div class="membership-checkout__fields">
+              <label class="field membership-checkout__plan">
+                <span class="field__label">Plan</span>
+                <select
+                  [ngModel]="membershipPlanId()"
+                  (ngModelChange)="onMembershipPlanChange($event)"
+                  [disabled]="membershipPayingDebt()"
+                >
+                  <option [ngValue]="null">Selecciona plan…</option>
+                  @for (plan of membershipPlans(); track plan.id) {
+                    <option [ngValue]="plan.id">
+                      {{ plan.name }} — {{ plan.price | cop }}{{ membershipPlanOptionSuffix(plan) }}
+                    </option>
+                  }
+                </select>
+              </label>
+
+              <div class="membership-checkout__row">
+                <label class="field membership-checkout__months">
+                  <span class="field__label">Meses</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="36"
+                    step="1"
+                    [ngModel]="membershipMonthsPaid()"
+                    (ngModelChange)="setMembershipMonthsPaid($event)"
+                    [disabled]="membershipPayingDebt()"
+                  />
+                </label>
+
+                @if (!membershipPayingDebt()) {
+                  <div class="field membership-checkout__pay-mode">
+                    <span class="field__label">Tipo de cobro</span>
+                    <div class="membership-pay-mode membership-pay-mode--segmented">
+                      <label class="membership-pay-mode__opt">
+                        <input
+                          type="radio"
+                          name="membershipPayMode"
+                          [checked]="membershipPaymentMode() === 'full'"
+                          (change)="setMembershipPaymentMode('full')"
+                        />
+                        <span>Pago completo</span>
+                      </label>
+                      <label class="membership-pay-mode__opt">
+                        <input
+                          type="radio"
+                          name="membershipPayMode"
+                          [checked]="membershipPaymentMode() === 'partial'"
+                          (change)="setMembershipPaymentMode('partial')"
+                        />
+                        <span>Abono parcial</span>
+                      </label>
+                    </div>
+                  </div>
                 }
-              </select>
-            </label>
-
-            <label class="field field--months">
-              <span class="field__label">Meses</span>
-              <input
-                type="number"
-                min="1"
-                max="36"
-                step="1"
-                [ngModel]="membershipMonthsPaid()"
-                (ngModelChange)="setMembershipMonthsPaid($event)"
-                [disabled]="membershipPayingDebt()"
-              />
-            </label>
-
-            @if (!membershipPayingDebt()) {
-              <div class="field field--pay-mode">
-                <span class="field__label">Tipo de cobro</span>
-                <div class="membership-pay-mode membership-pay-mode--segmented">
-                  <label class="membership-pay-mode__opt">
-                    <input
-                      type="radio"
-                      name="membershipPayMode"
-                      [checked]="membershipPaymentMode() === 'full'"
-                      (change)="setMembershipPaymentMode('full')"
-                    />
-                    <span>Pago completo</span>
-                  </label>
-                  <label class="membership-pay-mode__opt">
-                    <input
-                      type="radio"
-                      name="membershipPayMode"
-                      [checked]="membershipPaymentMode() === 'partial'"
-                      (change)="setMembershipPaymentMode('partial')"
-                    />
-                    <span>Abono parcial</span>
-                  </label>
-                </div>
               </div>
-            }
 
-            <label class="field field--amount">
-              <span class="field__label">{{
-                membershipPayingDebt() ? 'Monto del abono hoy' : 'Monto a pagar hoy'
-              }}</span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                [ngModel]="membershipAmountToday()"
-                (ngModelChange)="membershipAmountToday.set($event != null && $event !== '' ? roundCop(+$event) : null)"
-                [placeholder]="
-                  membershipPayingDebt()
-                    ? 'Ej: ' + (openMembershipObligation()?.balance ?? '')
-                    : membershipPaymentMode() === 'full'
-                      ? 'Total del plan'
-                      : 'Cuánto abona hoy'
-                "
-              />
-            </label>
+              <div class="membership-checkout__row membership-checkout__row--pay">
+                <label class="field">
+                  <span class="field__label">{{
+                    membershipPayingDebt() ? 'Monto del abono hoy' : 'Monto a pagar hoy'
+                  }}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    [ngModel]="membershipAmountToday()"
+                    (ngModelChange)="membershipAmountToday.set($event != null && $event !== '' ? roundCop(+$event) : null)"
+                    [placeholder]="
+                      membershipPayingDebt()
+                        ? 'Ej: ' + (openMembershipObligation()?.balance ?? '')
+                        : membershipPaymentMode() === 'full'
+                          ? 'Total del plan'
+                          : 'Cuánto abona hoy'
+                    "
+                  />
+                </label>
 
-            <label class="field field--method">
-              <span class="field__label">Medio de pago</span>
-              <select [ngModel]="membershipPaymentMethod()" (ngModelChange)="membershipPaymentMethod.set($event)">
-                @for (pm of paymentMethods; track pm.value) {
-                  <option [ngValue]="pm.value">{{ pm.label }}</option>
-                }
-              </select>
-            </label>
+                <label class="field">
+                  <span class="field__label">Medio de pago</span>
+                  <select
+                    [ngModel]="membershipPaymentMethod()"
+                    (ngModelChange)="membershipPaymentMethod.set($event)"
+                  >
+                    @for (pm of paymentMethods; track pm.value) {
+                      <option [ngValue]="pm.value">{{ pm.label }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+            </div>
 
-            <div class="field field--submit">
+            <footer class="membership-checkout__actions">
               <button
                 type="button"
                 class="btn btn-primary membership-form__submit"
@@ -508,11 +546,11 @@
                     : membershipPayingDebt()
                       ? 'Registrar abono'
                       : membershipPaymentMode() === 'partial'
-                        ? 'Registrar abono'
+                        ? 'Registrar abono y activar acceso'
                         : 'Pago completo y activar plan'
                 }}
               </button>
-            </div>
+            </footer>
           </div>
         </section>
       </div>
@@ -963,16 +1001,16 @@
                   <dd>− {{ closeRegisterCashExpenses(reg) | cop }}</dd>
                 </div>
               }
-              <div class="close-caja-breakdown__row close-caja-breakdown__row--sub">
-                <dt>Efectivo en caja (sistema)</dt>
-                <dd>{{ preview.cashInDrawer | cop }}</dd>
-              </div>
               @if (preview.fiadoCashCollected > 0) {
                 <div class="close-caja-breakdown__row">
                   <dt>Fiado cobrado hoy (efectivo)</dt>
                   <dd>+ {{ preview.fiadoCashCollected | cop }}</dd>
                 </div>
               }
+              <div class="close-caja-breakdown__row close-caja-breakdown__row--sub">
+                <dt>Efectivo en caja (sistema)</dt>
+                <dd>{{ preview.cashInDrawer | cop }}</dd>
+              </div>
               <div class="close-caja-breakdown__row close-caja-breakdown__row--total">
                 <dt>Total a contar en caja</dt>
                 <dd>{{ closeExpectedCashRounded() | cop }}</dd>

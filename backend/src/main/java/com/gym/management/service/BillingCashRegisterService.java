@@ -114,6 +114,9 @@ public class BillingCashRegisterService {
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BillingPaymentMethodTotals.emptyBillableMap(),
+                0L,
                 request.openingCashAmount());
     }
 
@@ -147,12 +150,12 @@ public class BillingCashRegisterService {
         if (register.getStatus() == ShiftStatus.CLOSED) {
             throw new BusinessException("La caja ya está cerrada");
         }
-        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register));
+        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register, true));
         BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
         return new BillingCashRegisterClosePreviewResponse(
                 cashInDrawer,
                 fiadoCash,
-                cashInDrawer.add(fiadoCash),
+                cashInDrawer,
                 shiftInventoryService.listActiveProductLines());
     }
 
@@ -168,9 +171,7 @@ public class BillingCashRegisterService {
         Employee closer = resolveCurrentEmployee();
         WorkShift referenceShift = resolveReferenceShift(register.getRegisterDate());
 
-        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register));
-        BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
-        BigDecimal expectedCash = cashInDrawer.add(fiadoCash);
+        BigDecimal expectedCash = MoneyUtil.roundPesos(computeCashInDrawer(register, true));
         BigDecimal declaredCash = MoneyUtil.roundPesos(request.cashCount().totalCash());
 
         ShiftInventoryService.InventoryCloseAtRegisterResult inventoryResult =
@@ -238,11 +239,15 @@ public class BillingCashRegisterService {
     public BigDecimal cashInDrawerForToday() {
         return cashRegisterRepository
                 .findFirstByRegisterDateOrderByOpenedAtDesc(today())
-                .map(this::computeCashInDrawer)
+                .map(reg -> computeCashInDrawer(reg, false))
                 .orElse(BigDecimal.ZERO);
     }
 
     private BigDecimal computeCashInDrawer(BillingCashRegister register) {
+        return computeCashInDrawer(register, true);
+    }
+
+    private BigDecimal computeCashInDrawer(BillingCashRegister register, boolean includeFiadoCash) {
         Long id = register.getId();
         Map<PaymentMethod, BigDecimal> incomeByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
@@ -256,11 +261,14 @@ public class BillingCashRegisterService {
         if (productCash == null) {
             productCash = BigDecimal.ZERO;
         }
-        return MoneyUtil.roundPesos(
-                register.getOpeningCashAmount()
-                        .add(billingCashIn)
-                        .add(productCash)
-                        .subtract(cashOut));
+        BigDecimal total = register.getOpeningCashAmount()
+                .add(billingCashIn)
+                .add(productCash)
+                .subtract(cashOut);
+        if (includeFiadoCash) {
+            total = total.add(sumFiadoCashCollected(register.getRegisterDate()));
+        }
+        return MoneyUtil.roundPesos(total);
     }
 
     private BillingCashRegisterResponse toResponseWithTotals(BillingCashRegister register) {
@@ -277,7 +285,8 @@ public class BillingCashRegisterService {
         ProductDayTotals productTotals = loadProductTotalsForDate(register.getRegisterDate());
         long shiftsWithSales = workShiftRepository.countShiftsWithSalesByShiftDate(register.getRegisterDate());
         Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
-        BigDecimal cashInDrawer = computeCashInDrawer(register);
+        FiadoDayTotals fiadoTotals = loadFiadoTotalsForDate(register.getRegisterDate());
+        BigDecimal cashInDrawer = computeCashInDrawer(register, true);
         return BillingCashRegisterMapper.toResponse(
                 register,
                 total,
@@ -294,7 +303,18 @@ public class BillingCashRegisterService {
                 cashByType.getOrDefault(BillingPaymentType.MEMBERSHIP, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.DAY_WORKOUT, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.SPORTS_DANCE, BigDecimal.ZERO),
+                fiadoTotals.total(),
+                fiadoTotals.byMethod(),
+                fiadoTotals.paymentCount(),
                 cashInDrawer);
+    }
+
+    private FiadoDayTotals loadFiadoTotalsForDate(LocalDate date) {
+        BigDecimal total = productCreditPaymentRepository.sumAmountByShiftDate(date);
+        Map<PaymentMethod, BigDecimal> byMethod = BillingPaymentMethodTotals.fromAmountRows(
+                productCreditPaymentRepository.sumByShiftDateGroupByPaymentMethod(date));
+        long paymentCount = productCreditPaymentRepository.countByShiftDate(date);
+        return new FiadoDayTotals(total != null ? total : BigDecimal.ZERO, byMethod, paymentCount);
     }
 
     private ProductDayTotals loadProductTotalsForDate(LocalDate date) {
@@ -335,4 +355,7 @@ public class BillingCashRegisterService {
     }
 
     private record ProductDayTotals(BigDecimal total, long saleCount, long units, BigDecimal cashTotal) {}
+
+    private record FiadoDayTotals(
+            BigDecimal total, Map<PaymentMethod, BigDecimal> byMethod, long paymentCount) {}
 }

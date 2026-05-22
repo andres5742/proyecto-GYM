@@ -26,6 +26,9 @@ public final class BillingCashRegisterMapper {
             BigDecimal sessionCashMembership,
             BigDecimal sessionCashDayWorkout,
             BigDecimal sessionCashSportsDance,
+            BigDecimal dayFiadoCollectedTotal,
+            Map<PaymentMethod, BigDecimal> dayFiadoCollectedByMethod,
+            long dayFiadoPaymentCount,
             BigDecimal cashInDrawer) {
         String employeeName = register.getOpenedBy() != null
                 ? register.getOpenedBy().getFirstName() + " " + register.getOpenedBy().getLastName()
@@ -54,6 +57,9 @@ public final class BillingCashRegisterMapper {
                 sessionCashMembership != null ? sessionCashMembership : BigDecimal.ZERO,
                 sessionCashDayWorkout != null ? sessionCashDayWorkout : BigDecimal.ZERO,
                 sessionCashSportsDance != null ? sessionCashSportsDance : BigDecimal.ZERO,
+                dayFiadoCollectedTotal != null ? dayFiadoCollectedTotal : BigDecimal.ZERO,
+                dayFiadoCollectedByMethod != null ? dayFiadoCollectedByMethod : Map.of(),
+                dayFiadoPaymentCount,
                 cashInDrawer != null ? cashInDrawer : BigDecimal.ZERO);
     }
 }

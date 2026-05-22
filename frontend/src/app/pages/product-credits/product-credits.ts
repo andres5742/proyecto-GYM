@@ -13,6 +13,7 @@ import {
   ProductCredit,
   ProductCreditStatus,
 } from '../../core/models/product-credit.model';
+import { BillingContextService } from '../../core/services/billing-context.service';
 import { MemberService } from '../../core/services/member.service';
 import { ProductCreditService } from '../../core/services/product-credit.service';
 import { ProductService } from '../../core/services/product.service';
@@ -28,6 +29,7 @@ import { WorkShift } from '../../core/models/shift.model';
 })
 export class ProductCreditsPage implements OnInit {
   private readonly creditService = inject(ProductCreditService);
+  private readonly billingContext = inject(BillingContextService);
   private readonly memberService = inject(MemberService);
   private readonly productService = inject(ProductService);
   private readonly shiftService = inject(ShiftService);
@@ -361,6 +363,7 @@ export class ProductCreditsPage implements OnInit {
             `Cobro registrado: ${res.creditsPaid} producto(s) · ${res.totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}`,
           );
           this.saving.set(false);
+          this.billingContext.notifyBillingPaymentRecorded();
           this.closePayAllModal();
           this.load();
         },
@@ -412,6 +415,7 @@ export class ProductCreditsPage implements OnInit {
         next: () => {
           this.message.set('Abono registrado');
           this.saving.set(false);
+          this.billingContext.notifyBillingPaymentRecorded();
           this.reloadAndRefreshModal();
         },
         error: (err) => {

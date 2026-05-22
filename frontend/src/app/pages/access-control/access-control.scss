@@ -464,8 +464,7 @@
 :host ::ng-deep {
   .register-workspace,
   .register-sidebar {
-    app-member-search-select,
-    app-face-webcam-capture {
+    app-member-search-select {
       display: block;
       width: 100%;
       min-width: 0;
@@ -474,15 +473,6 @@
     .member-search__results {
       max-height: min(200px, 35vh);
       z-index: 20;
-    }
-
-    .face-capture__frame {
-      max-width: 100%;
-      margin: 0 auto;
-    }
-
-    .face-capture__camera-switch {
-      max-width: 100%;
     }
   }
 

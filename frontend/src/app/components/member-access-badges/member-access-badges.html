@@ -2,9 +2,8 @@
   <span class="access-badges" [class.compact]="compact()">
     <span class="access-badges__chip" [class.on]="f.fingerprint" title="Huella en lector">Huella</span>
     <span class="access-badges__chip" [class.on]="f.card" title="Tarjeta ZKTeco">Tarjeta</span>
-    <span class="access-badges__chip" [class.on]="f.face" title="Rostro en lector biométrico">Rostro</span>
     @if (!compact()) {
-      <span class="access-badges__count" [class.full]="f.count === 3">{{ f.count }}/3</span>
+      <span class="access-badges__count" [class.full]="f.count === 2">{{ f.count }}/2</span>
     }
   </span>
 } @else {

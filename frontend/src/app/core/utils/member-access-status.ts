@@ -1,29 +1,22 @@
-import {
-  BiometricEnrollResponse,
-  FaceWebcamEnrollResponse,
-  isMemberPerson,
-} from '../models/access.model';
+import { BiometricEnrollResponse, isMemberPerson } from '../models/access.model';
 
 export interface MemberAccessFlags {
   fingerprint: boolean;
   /** Tarjeta en lector ZKTeco (número Pin / card en el dispositivo). */
   card: boolean;
-  /** Lector biométrico de rostro (cámara en entrada). */
-  face: boolean;
   count: number;
 }
 
 export type MemberAccessMap = Record<number, MemberAccessFlags>;
 
-export function buildMemberAccessMap(
-  enrollments: BiometricEnrollResponse[],
-  webcamEnrollments: FaceWebcamEnrollResponse[],
-): MemberAccessMap {
+const ACCESS_METHOD_MAX = 2;
+
+export function buildMemberAccessMap(enrollments: BiometricEnrollResponse[]): MemberAccessMap {
   const map: MemberAccessMap = {};
 
   const ensure = (memberId: number): MemberAccessFlags => {
     if (!map[memberId]) {
-      map[memberId] = { fingerprint: false, card: false, face: false, count: 0 };
+      map[memberId] = { fingerprint: false, card: false, count: 0 };
     }
     return map[memberId];
   };
@@ -40,14 +33,8 @@ export function buildMemberAccessMap(
     }
   }
 
-  for (const w of webcamEnrollments) {
-    if (isMemberPerson(w) && w.memberId != null) {
-      ensure(w.memberId).face = true;
-    }
-  }
-
   for (const flags of Object.values(map)) {
-    flags.count = (flags.fingerprint ? 1 : 0) + (flags.card ? 1 : 0) + (flags.face ? 1 : 0);
+    flags.count = (flags.fingerprint ? 1 : 0) + (flags.card ? 1 : 0);
   }
 
   return map;
@@ -57,9 +44,8 @@ export function memberAccessSummary(flags: MemberAccessFlags | undefined): strin
   if (!flags || flags.count === 0) {
     return 'Sin acceso registrado';
   }
-  const max = 3;
-  if (flags.count === max) {
-    return `Acceso completo (${max}/${max})`;
+  if (flags.count === ACCESS_METHOD_MAX) {
+    return `Acceso completo (${ACCESS_METHOD_MAX}/${ACCESS_METHOD_MAX})`;
   }
   const parts: string[] = [];
   if (flags.fingerprint) {
@@ -68,8 +54,5 @@ export function memberAccessSummary(flags: MemberAccessFlags | undefined): strin
   if (flags.card) {
     parts.push('Tarjeta');
   }
-  if (flags.face) {
-    parts.push('Rostro');
-  }
-  return `${flags.count}/${max} · ${parts.join(', ')}`;
+  return `${flags.count}/${ACCESS_METHOD_MAX} · ${parts.join(', ')}`;
 }

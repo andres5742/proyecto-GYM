@@ -1,9 +1,11 @@
 import {
   Component,
+  DestroyRef,
   effect,
   ElementRef,
   forwardRef,
   HostListener,
+  inject,
   input,
   output,
   signal,
@@ -33,6 +35,9 @@ import { MemberAccessBadgesComponent } from '../member-access-badges/member-acce
   ],
 })
 export class MemberSearchSelectComponent implements ControlValueAccessor {
+  private readonly destroyRef = inject(DestroyRef);
+  private alive = true;
+
   readonly members = input<Member[]>([]);
   readonly accessByMemberId = input<MemberAccessMap>({});
   readonly label = input('Afiliado');
@@ -56,6 +61,9 @@ export class MemberSearchSelectComponent implements ControlValueAccessor {
   private ignoreNextDocumentClose = false;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.alive = false;
+    });
     effect(() => {
       const external = this.memberId();
       if (external !== undefined && external !== this.selectedId()) {
@@ -171,6 +179,9 @@ export class MemberSearchSelectComponent implements ControlValueAccessor {
   }
 
   private emitValue(id: number | null): void {
+    if (!this.alive) {
+      return;
+    }
     this.selectedId.set(id);
     this.onChange(id);
     this.memberIdChange.emit(id);
