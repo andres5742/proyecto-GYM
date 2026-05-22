@@ -63,28 +63,21 @@
   word-wrap: break-word;
 }
 
-/* Barra superior: logo + cerrar */
+/* Solo botón cerrar arriba a la derecha */
 .kiosk-header {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  position: relative;
   width: 100%;
+  min-height: 2.75rem;
   padding: clamp(0.45rem, 2vw, 0.65rem) var(--kiosk-pad-x);
   padding-bottom: 0;
-}
-
-.kiosk-header__logo {
-  display: block;
-  height: clamp(2.25rem, 8vw, 3.25rem);
-  width: auto;
-  max-width: min(55vw, 14rem);
-  object-fit: contain;
-  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 35%));
+  z-index: 2;
 }
 
 .kiosk-header__close {
+  position: absolute;
+  top: clamp(0.45rem, 2vw, 0.65rem);
+  right: var(--kiosk-pad-x);
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -130,15 +123,39 @@
   width: 100%;
 }
 
+/* Logo protagonista al centro */
+.kiosk-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: min(92vw, 32rem);
+  margin: 0 auto clamp(0.85rem, 3.5vw, 1.5rem);
+  padding: clamp(1rem, 4vw, 1.75rem) clamp(1.25rem, 5vw, 2.25rem);
+  background: #fff;
+  border-radius: clamp(1rem, 3vw, 1.35rem);
+  box-shadow:
+    0 16px 48px rgb(0 0 0 / 35%),
+    0 0 0 1px rgb(255 255 255 / 10%);
+}
+
+.kiosk-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: clamp(5.5rem, 24vw, 10.5rem);
+  object-fit: contain;
+}
+
 .kiosk-center {
   @extend %kiosk-text-safe;
 
   width: 100%;
   text-align: center;
-  padding: clamp(0.5rem, 2vw, 1rem) 0;
+  padding: clamp(0.25rem, 1.5vw, 0.65rem) 0;
 
   &--boot {
-    padding-top: 2rem;
+    padding-top: 0.5rem;
   }
 
   &__quote {
@@ -325,6 +342,15 @@
 }
 
 @media (max-height: 640px) {
+  .kiosk-logo-wrap {
+    margin-bottom: 0.55rem;
+    padding: 0.65rem 1rem;
+  }
+
+  .kiosk-logo {
+    max-height: clamp(4rem, 18vw, 6rem);
+  }
+
   .kiosk-center__quote {
     margin-bottom: 0.65rem;
     font-size: clamp(1rem, 4.5vw, 1.35rem);

@@ -4,8 +4,7 @@
   [class.denied]="lastResult()?.result === 'DENIED'"
   [class.waiting]="kioskReady() && !lastResult()"
 >
-  <header class="kiosk-header" aria-label="Sport Gym acceso">
-    <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="kiosk-header__logo" />
+  <header class="kiosk-header" aria-label="Cerrar aplicación">
     <button type="button" class="kiosk-header__close" (click)="closeApp()" aria-label="Cerrar aplicación">
       CERRAR <span aria-hidden="true">✕</span>
     </button>
@@ -15,11 +14,17 @@
     <main class="kiosk-main">
       @if (configError(); as err) {
         <section class="kiosk-center">
+          <div class="kiosk-logo-wrap">
+            <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="kiosk-logo" />
+          </div>
           <p class="kiosk-center__lead">Pantalla no disponible</p>
           <p class="kiosk-center__status kiosk-center__status--warn">{{ err }}</p>
         </section>
       } @else if (kioskReady()) {
         <section class="kiosk-center">
+          <div class="kiosk-logo-wrap">
+            <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="kiosk-logo" />
+          </div>
           <p class="kiosk-center__quote" aria-live="polite">{{ motivationalPhrase() }}</p>
 
           @if (lastResult()?.result === 'GRANTED' && welcomeTitle(); as headline) {
@@ -52,6 +57,9 @@
         </section>
       } @else {
         <section class="kiosk-center kiosk-center--boot">
+          <div class="kiosk-logo-wrap">
+            <img src="/logo-sport-gym.png" alt="Sport Gym R.10" class="kiosk-logo" />
+          </div>
           <p class="kiosk-center__lead">Bienvenido al gimnasio</p>
           <p class="kiosk-center__status kiosk-center__status--waiting">{{ statusLine() }}</p>
         </section>
