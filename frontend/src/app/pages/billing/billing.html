@@ -232,8 +232,15 @@
       }
     </header>
 
-    <div class="membership-form" [class.membership-form--with-summary]="selectedMembershipPlan() != null">
-      <div class="membership-form__fields">
+    <div
+      class="membership-form"
+      [class.membership-form--with-summary]="selectedMembershipPlan() != null"
+      [class.membership-form--new-member]="membershipFlow() === 'new'"
+    >
+      <div
+        class="membership-form__fields"
+        [class.membership-form__fields--new]="membershipFlow() === 'new'"
+      >
         <section class="membership-block membership-block--affiliate">
           <h4 class="membership-block__title">1. Afiliado</h4>
 
@@ -280,103 +287,102 @@
               }
             </div>
           } @else {
-            <div class="membership-block__body new-member-form">
-              <p class="new-member-form__hint muted small">
-                Datos para crear el afiliado y activar la membresía en un solo paso.
-              </p>
-              <label class="field">
-                <span class="field__label">Nombre</span>
-                <input
-                  type="text"
-                  [ngModel]="newMemberFirstName()"
-                  (ngModelChange)="newMemberFirstName.set($event)"
-                  placeholder="Ej: Juan"
-                />
-              </label>
-              <label class="field">
-                <span class="field__label">Apellido</span>
-                <input
-                  type="text"
-                  [ngModel]="newMemberLastName()"
-                  (ngModelChange)="newMemberLastName.set($event)"
-                />
-              </label>
-              <label class="field">
-                <span class="field__label">Documento</span>
-                <input
-                  type="text"
-                  [ngModel]="newMemberDocumentId()"
-                  (ngModelChange)="newMemberDocumentId.set($event)"
-                  placeholder="Cédula"
-                />
-              </label>
-              <label class="field">
-                <span class="field__label">Teléfono</span>
-                <input
-                  type="tel"
-                  [ngModel]="newMemberPhone()"
-                  (ngModelChange)="newMemberPhone.set($event)"
-                />
-              </label>
-              <label class="field field--gender">
-                <span class="field__label">Género</span>
-                <select [ngModel]="newMemberGender()" (ngModelChange)="newMemberGender.set($event)">
-                  @for (g of genders; track g.value) {
-                    <option [value]="g.value">{{ g.label }}</option>
-                  }
-                </select>
-              </label>
+            <div class="membership-block__body new-member-panel">
+              <div class="new-member-panel__data new-member-form">
+                <p class="new-member-form__section-label">Datos personales</p>
+                <label class="field">
+                  <span class="field__label">Nombre</span>
+                  <input
+                    type="text"
+                    [ngModel]="newMemberFirstName()"
+                    (ngModelChange)="newMemberFirstName.set($event)"
+                    placeholder="Ej: Juan"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field__label">Apellido</span>
+                  <input
+                    type="text"
+                    [ngModel]="newMemberLastName()"
+                    (ngModelChange)="newMemberLastName.set($event)"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field__label">Documento</span>
+                  <input
+                    type="text"
+                    [ngModel]="newMemberDocumentId()"
+                    (ngModelChange)="newMemberDocumentId.set($event)"
+                    placeholder="Cédula"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field__label">Teléfono</span>
+                  <input
+                    type="tel"
+                    [ngModel]="newMemberPhone()"
+                    (ngModelChange)="newMemberPhone.set($event)"
+                  />
+                </label>
+                <label class="field field--gender">
+                  <span class="field__label">Género</span>
+                  <select [ngModel]="newMemberGender()" (ngModelChange)="newMemberGender.set($event)">
+                    @for (g of genders; track g.value) {
+                      <option [value]="g.value">{{ g.label }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+
+              <div class="new-member-panel__card card-enroll">
+                <p class="new-member-form__section-label">Tarjeta ZKTeco</p>
+                <div class="card-enroll__row">
+                  <div class="card-enroll__capture reader-capture reader-capture--compact">
+                    @if (lastCapturedCardPin(); as pin) {
+                      <span class="reader-capture__status reader-capture__status--ok">✓</span>
+                      <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
+                    } @else if (cardCaptureWaiting()) {
+                      <span class="reader-capture__status" aria-hidden="true">💳</span>
+                      <p class="reader-capture__wait">Pase la tarjeta…</p>
+                    } @else {
+                      <span class="reader-capture__status" aria-hidden="true">💳</span>
+                      <p class="reader-capture__wait">Lector listo</p>
+                    }
+                  </div>
+                  <div class="card-enroll__fields">
+                    <label class="field">
+                      <span class="field__label">Nº tarjeta / Pin</span>
+                      <input
+                        type="text"
+                        [ngModel]="cardDeviceId()"
+                        (ngModelChange)="cardDeviceId.set($event)"
+                        placeholder="Automático o manual"
+                      />
+                    </label>
+                    <label class="field field--note">
+                      <span class="field__label">Nota</span>
+                      <input
+                        type="text"
+                        [ngModel]="cardDeviceLabel()"
+                        (ngModelChange)="cardDeviceLabel.set($event)"
+                        placeholder="Opcional"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           }
         </section>
 
-        @if (membershipFlow() === 'new') {
-          <section class="membership-block membership-block--access membership-access">
-            <h4 class="membership-block__title">2. Tarjeta de acceso</h4>
-            <div class="membership-block__body">
-              <p class="membership-access__lead muted small">
-                Pase la tarjeta en el lector ZKTeco: el número aparecerá aquí para vincularla al afiliado nuevo.
-              </p>
-              <div class="reader-capture">
-                <p class="reader-capture__title">Pase la tarjeta en el lector</p>
-                @if (lastCapturedCardPin(); as pin) {
-                  <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
-                  <p class="reader-capture__hint muted small">Código capturado — ya está en el campo de abajo.</p>
-                } @else if (cardCaptureWaiting()) {
-                  <p class="reader-capture__wait muted small">
-                    Esperando lectura… (el lector debe enviar eventos al servidor)
-                  </p>
-                }
-              </div>
-              <div class="membership-access__fields">
-                <label class="field">
-                  <span class="field__label">Nº tarjeta / Pin en ZKTeco</span>
-                  <input
-                    type="text"
-                    [ngModel]="cardDeviceId()"
-                    (ngModelChange)="cardDeviceId.set($event)"
-                    placeholder="Ej: 10042 o número de tarjeta"
-                  />
-                </label>
-                <label class="field">
-                  <span class="field__label">Nota (opcional)</span>
-                  <input
-                    type="text"
-                    [ngModel]="cardDeviceLabel()"
-                    (ngModelChange)="cardDeviceLabel.set($event)"
-                    placeholder="Ej: Tarjeta recepción"
-                  />
-                </label>
-              </div>
-            </div>
-          </section>
-        }
-
         <section class="membership-block membership-block--payment">
           <h4 class="membership-block__title">
-            {{ membershipFlow() === 'new' ? '3. Cobro y membresía' : '2. Cobro y membresía' }}
+            {{ membershipFlow() === 'new' ? '2. Cobro y membresía' : '2. Cobro y membresía' }}
           </h4>
-          <div class="membership-block__body membership-payment-grid">
+          <div
+            class="membership-block__body membership-payment-grid"
+            [class.membership-payment-grid--compact]="membershipFlow() === 'new'"
+          >
             <label class="field field--plan">
               <span class="field__label">Plan</span>
               <select
@@ -409,7 +415,7 @@
             @if (!membershipPayingDebt()) {
               <div class="field field--pay-mode">
                 <span class="field__label">Tipo de cobro</span>
-                <div class="membership-pay-mode">
+                <div class="membership-pay-mode membership-pay-mode--segmented">
                   <label class="membership-pay-mode__opt">
                     <input
                       type="radio"
@@ -417,7 +423,7 @@
                       [checked]="membershipPaymentMode() === 'full'"
                       (change)="setMembershipPaymentMode('full')"
                     />
-                    Pago completo
+                    <span>Pago completo</span>
                   </label>
                   <label class="membership-pay-mode__opt">
                     <input
@@ -426,7 +432,7 @@
                       [checked]="membershipPaymentMode() === 'partial'"
                       (change)="setMembershipPaymentMode('partial')"
                     />
-                    Abono parcial
+                    <span>Abono parcial</span>
                   </label>
                 </div>
               </div>
