@@ -1,0 +1,45 @@
+ATP-ACCESO 4.0.exe — como activa el rele (analisis)
+=================================================
+
+Programa: Visual FoxPro 9, "ATP-ACCESO 4.0 - SISTEMA PARA REGISTRO Y CONTROL EN ACCESOS PEATONALES"
+
+PUERTO SERIE (MSComm olecontrol2)
+  commport = 3  ->  COM3
+  settings = 19200,N,8,1  (NO 9600)
+
+COMANDOS (un caracter por olecontrol2.Output)
+  d = acceso denegado / restringido
+  b = error documento o clave
+  e, c, i = otros estados
+  CONFIRMADO en gym (COM3 @ 19200, un caracter):
+    BLOQUEAR seguro:  h   i   l
+    DESBLOQUEAR:      a b c d e f g  (y otras que no sean h,i,l)
+  Sport Gym: LOCK_CHAR=l  UNLOCK_CHAR=a
+  a = inicio / bienvenida pantalla
+
+BASE DE DATOS
+  MySQL ODBC (tabla acceso, abonados, huellas) — validacion de afiliado en ATP.
+  Sport Gym valida en sportgymr10.com; ATP validaba en MySQL local.
+
+POR QUE Sport Gym no movia el rele antes
+  - Usaba 9600 baud (lector tarjeta) para mandar 00/01 hex.
+  - ATP usa 19200 y letras d / h.
+
+CONFIG Sport Gym (turnstile-gate.env)
+  TURNSTILE_GATE_MODE=serial
+  TURNSTILE_GATE_PROTOCOL=atp-acceso
+  TURNSTILE_GATE_PORT=COM3
+  TURNSTILE_GATE_BAUD=19200
+  TURNSTILE_LOCK_CHAR=d
+  TURNSTILE_UNLOCK_CHAR=h
+
+PRUEBA
+  Cerrar ATP-ACCESO 4.0.exe y iniciar-lector-tarjeta.bat
+  probar-seguro-com3.bat (modo ATP) o poner-seguro / quitar-seguro
+
+IMPORTANTE
+  Solo un programa puede tener COM3 abierto a la vez.
+  Cierre ATP-ACCESO antes de Sport Gym lector.
+
+PRUEBA FINAL
+  h,i,l = bloqueo fisico. a-g (resto) = desbloqueo. Empujar al liberar.

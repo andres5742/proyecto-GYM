@@ -5,6 +5,7 @@ declare global {
     sportGymDesktop?: {
       isDesktopApp: boolean;
       requestClose: () => void;
+      syncAccessResult?: (result: string, gateOpened: boolean) => void;
     };
   }
 }

@@ -1,0 +1,40 @@
+SITUACION REAL EN EL GYM (confirmada)
+=====================================
+
+COM3 (cafe -> PC):
+  - SI envia numero de tarjeta -> Sport Gym detecta y valida en la nube.
+  - BLOQUEAR: h, i, l  |  DESBLOQUEAR: a,b,c,d,e,f,g (confirmado).
+  - turnstile-gate.env: LOCK=l UNLOCK=a
+
+ATP-ACCESO 4.0.exe:
+  - Mismo COM3: sonido/luces; rele fisico probablemente por lector PARED o logica interna cafe.
+  - Valida afiliado en MySQL local (no en sportgymr10.com).
+
+Lector de pared -> placa cafe:
+  - Abre seguro segun lista/logica de la cafe (no segun Sport Gym directamente).
+
+OPCIONES REALISTAS
+------------------
+
+A) DOS SISTEMAS (rapido)
+   - Sport Gym: pantalla + registro ingresos + lector validado en nube.
+   - ATP-ACCESO o lector de PARED: paso fisico; Sport Gym: registro en nube.
+   - Desventaja: seguro al abrir app Sport Gym no se controla desde PC.
+
+B) INTEGRAR ZKAccess
+   - En ZKAccess: ver IP del controlador / puerto / Push.
+   - Si hay API o webhook local, enlazar GRANTED de Sport Gym a esa URL.
+   - Revisar menu: dispositivo, comunicacion, rele/salida.
+
+C) SOLO LECTOR USB EN SPORT GYM
+   - Si el gym acepta desactivar autorizacion en la cafe para el lector de pared,
+     solo tarjetas dadas de alta en Sport Gym pasarian (pero seguro aun en cafe).
+
+D) HARDWARE EXTRA (electricista)
+   - Relé USB o salida del PC al bornes de rele de la cafe (contacto seco).
+   - Sport Gym mandaria pulso cuando API diga GRANTED.
+
+MIENTRAS TANTO (config minima)
+  turnstile-gate.env:
+    TURNSTILE_GATE_MODE=none
+  iniciar-lector-tarjeta.bat + Sport Gym Acceso = ingreso y pantalla OK.

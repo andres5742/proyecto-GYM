@@ -113,9 +113,23 @@ def post_pin(pin: str) -> None:
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            print(f"[{time.strftime('%H:%M:%S')}] {pin} → {resp.read().decode()}")
+            body = resp.read().decode()
+            print(f"[{time.strftime('%H:%M:%S')}] {pin} → {body}")
+            try:
+                from turnstile_gate import after_api_response
+
+                after_api_response(body)
+            except ImportError:
+                pass
     except urllib.error.HTTPError as e:
-        print(f"[{time.strftime('%H:%M:%S')}] {pin} → HTTP {e.code}: {e.read().decode()}", file=sys.stderr)
+        err_body = e.read().decode()
+        print(f"[{time.strftime('%H:%M:%S')}] {pin} → HTTP {e.code}: {err_body}", file=sys.stderr)
+        try:
+            from turnstile_gate import lock_gate
+
+            lock_gate()
+        except ImportError:
+            pass
     except Exception as ex:
         print(f"[{time.strftime('%H:%M:%S')}] {pin} → error: {ex}", file=sys.stderr)
 
@@ -128,6 +142,11 @@ def main() -> None:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, stop_handler)
     claim_port()
+    try:
+        from turnstile_gate import clear_active_serial, lock_gate, set_active_serial
+    except ImportError:
+        clear_active_serial = lock_gate = set_active_serial = None  # type: ignore
+
     print(f"Escuchando {PORT} @ {BAUD} baud → {API}")
     if DEBUG:
         print("Modo DEBUG: muestra todo lo que llega por COM (SERIAL_DEBUG=1).")
@@ -135,6 +154,9 @@ def main() -> None:
     print("Formato Pin:", PIN_FORMAT, "(hex=218AE2, decimal=2198114)")
     try:
         with serial.Serial(PORT, BAUD, timeout=0.1) as ser:
+            if set_active_serial:
+                set_active_serial(ser)
+                lock_gate()
             ser.reset_input_buffer()
             pending = bytearray()
             idle_since: float | None = None
@@ -147,6 +169,12 @@ def main() -> None:
                     pending.clear()
                     idle_since = None
                 else:
+                    try:
+                        from turnstile_gate import consume_pending_gate
+
+                        consume_pending_gate()
+                    except ImportError:
+                        pass
                     time.sleep(0.03)
     except serial.SerialException as ex:
         release_port()
@@ -154,6 +182,13 @@ def main() -> None:
         print("Cierra ZKAccess u otra app que use el mismo puerto, o ejecuta detener-lector-tarjeta.bat.", file=sys.stderr)
         sys.exit(1)
     finally:
+        try:
+            from turnstile_gate import clear_active_serial, lock_gate
+
+            lock_gate()
+            clear_active_serial()
+        except ImportError:
+            pass
         release_port()
 
 

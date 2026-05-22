@@ -1,0 +1,33 @@
+OPERACION REAL — PC ACCESO (Sport Gym + torniquete)
+==================================================
+
+QUE SI FUNCIONA
+  - iniciar-lector-tarjeta.bat + API sportgymr10.com (tarjeta, GRANTED/DENIED)
+  - Sport Gym Acceso (pantalla, cedula, F2/F3)
+  - Ingresos en recepcion (web)
+  - COM3: pitido y luces con protocolo ATP (d/h)
+
+BLOQUEO / DESBLOQUEO por COM3 @ 19200 (confirmado)
+  BLOQUEAR:  h  i  l   (en .env use una, ej. l)
+  LIBERAR:   a b c d e f g  (en .env use una, ej. a)
+
+COMO ABRIR EL PASO FISICO HOY
+  A) Lector de PARED (placa cafe) — tarjeta autorizada en la logica de la cafe
+  B) ATP-ACCESO 4.0.exe — valida MySQL local + luces; el rele puede ir por la pared
+  C) Probar en ATP con afiliado ACTIVO en base ATP: si ahi pasa, hay que sincronizar datos
+
+CONFIG PC (turnstile-gate.env en C:\SportGym\turnstile-gateway\)
+  TURNSTILE_GATE_MODE=serial
+  TURNSTILE_GATE_PROTOCOL=atp-acceso
+  TURNSTILE_GATE_PORT=COM3
+  TURNSTILE_GATE_BAUD=19200
+  TURNSTILE_LOCK_CHAR=l
+  TURNSTILE_UNLOCK_CHAR=a
+
+REGLA
+  No abrir ATP y iniciar-lector-tarjeta a la vez (mismo COM3).
+
+FUTURO (para un solo sistema)
+  - Sincronizar afiliados Sport Gym -> base MySQL de ATP, o
+  - Electricista: bornes de rele en placa cafe + contacto desde PC, o
+  - Encontrar si la cafe tiene IP (no aparecio en netstat)

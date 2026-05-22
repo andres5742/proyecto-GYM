@@ -17,6 +17,7 @@ FLUJO TÍPICO "QUIERO ENTRENO"
   2. Diga al cliente: "Vaya al PC de la entrada y pulse F2" (o pase tarjeta si es afiliado).
   3. En su PC, pestaña Ingresos: verá la fila nueva (F2 · Entreno o el nombre).
 
-PUERTA FÍSICA
-  deploy/.env → TURNSTILE_WEBHOOK=http://IP_RELE:PUERTO/ruta
-  (misma URL para tarjeta, F2 y F3)
+PUERTA FÍSICA (seguro = placa CAFÉ del torniquete)
+  Placa AZUL del PC = pantalla, audio, ethernet (no es el relé).
+  Si la placa CAFÉ tiene IP: deploy/.env → TURNSTILE_WEBHOOK=http://IP_CAFE:PUERTO/ruta
+  Si no hay IP/API: el seguro lo mueve la CAFÉ (lector pared) o ZKAccess; Sport Gym valida en pantalla.

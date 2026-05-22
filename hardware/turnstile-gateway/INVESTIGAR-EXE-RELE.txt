@@ -1,0 +1,45 @@
+COMO SABER COMO FUNCIONA EL .EXE QUE SI ABRE EL RELE
+====================================================
+
+No podemos abrir su .exe desde el servidor de desarrollo.
+Usted en el PC ATP-ACCESO puede capturar como habla con el torniquete.
+
+PASO 1 - Nombre del programa
+  Administrador de tareas -> Detalles -> el .exe al abrir la puerta
+  Ejemplos: ZKAccess.exe, Access.exe, ACS.exe, etc.
+
+PASO 2 - Ejecutar en el gym
+  investigar-app-rele.bat
+  Siga las instrucciones en pantalla (antes / durante abrir puerta).
+  Envie el archivo investigacion-rele-....txt
+
+PASO 3 - Lo mas importante: IP del controlador
+  En la app que funciona:
+    Dispositivo / Device / Communication / TCP/IP
+  Anote:
+    - IP del torniquete (ej. 192.168.101.x)
+    - Puerto (ZK suele 4370)
+    - Numero de dispositivo / door 1 / relay 1
+  Con eso Sport Gym puede usar TURNSTILE_WEBHOOK o HTTP local.
+
+PASO 4 - Process Monitor (opcional, muy util)
+  Descargar Procmon de Microsoft Sysinternals.
+  Filtro: Process Name contains ZK (o su .exe)
+  Abrir torniquete una vez.
+  Buscar lineas:
+    - TCP Connect -> IP:puerto del controlador
+    - COM3 -> si aparece Write en COM3 al abrir, anote bytes
+    - DeviceIoControl -> driver USB
+
+QUE YA SABEMOS DE SU GYM
+  - COM3 recibe tarjeta; bytes 00/01/FF NO mueven rele.
+  - El .exe viejo casi seguro habla por RED a la placa cafe
+    o activa rele solo en la cafe (sin pasar por COM3 del PC).
+
+INTEGRACION CON SPORT GYM (cuando tengamos IP/puerto)
+  VPS deploy/.env:
+    TURNSTILE_WEBHOOK=http://IP_DISPOSITIVO:PUERTO/...
+  o en el PC turnstile-gate.env modo http hacia esa IP.
+
+Si el .exe es ZKTeco / ZKAccess:
+  Documentacion tipica: protocolo UDP/TCP puerto 4370 al panel.

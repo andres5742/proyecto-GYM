@@ -42,7 +42,19 @@ set SERIAL_BAUD=9600
 set SERIAL_PIN_FORMAT=hex
 set SERIAL_DEBUG=0
 
-echo Puerto: %SERIAL_PORT%  Velocidad: %SERIAL_BAUD%
+REM Seguro torniquete: edite turnstile-gate.env (copie .example) o variables aqui:
+REM Seguro: protocolo ATP-ACCESO (copie turnstile-gate.env.example -> turnstile-gate.env)
+REM Cierre ATP-ACCESO 4.0.exe antes de abrir este lector (mismo COM3).
+set TURNSTILE_GATE_MODE=serial
+set TURNSTILE_GATE_PROTOCOL=atp-acceso
+set TURNSTILE_GATE_PORT=COM3
+set TURNSTILE_GATE_BAUD=19200
+set TURNSTILE_LOCK_CHAR=l
+set TURNSTILE_UNLOCK_CHAR=a
+set TURNSTILE_UNLOCK_MS=8000
+
+echo Puerto lector: %SERIAL_PORT%  Velocidad: %SERIAL_BAUD%
+echo Seguro torniquete: %TURNSTILE_GATE_MODE% en %TURNSTILE_GATE_PORT%
 echo API: %GYM_ACCESS_API%
 echo.
 echo Pase una tarjeta en el lector...

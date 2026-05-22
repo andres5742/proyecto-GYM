@@ -52,6 +52,59 @@ function resolveGatewayDir() {
   );
 }
 
+function runGateCommand(action) {
+  if (process.platform !== 'win32') {
+    return;
+  }
+  const gwDir = resolveGatewayDir();
+  const script = path.join(gwDir, 'turnstile_gate.py');
+  if (!fs.existsSync(script)) {
+    console.warn('No se encontró turnstile_gate.py en', gwDir);
+    return;
+  }
+  const child = spawn('python', [script, action], {
+    cwd: gwDir,
+    detached: false,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  child.unref();
+}
+
+/** Cola lock/unlock para el lector (mismo COM3 @ 19200, letras l/a). */
+function queueGateCommand(cmd, data) {
+  if (process.platform !== 'win32') {
+    return;
+  }
+  const gwDir = resolveGatewayDir();
+  const pending = path.join(gwDir, '.gate-pending.json');
+  try {
+    fs.writeFileSync(
+      pending,
+      JSON.stringify({ cmd, data: data || null, ts: Date.now() }),
+      'utf8',
+    );
+  } catch (err) {
+    console.warn('gate-pending', err.message);
+  }
+}
+
+function syncGateFromPayload(payload) {
+  const granted = payload && payload.result === 'GRANTED';
+  const opened = payload && Boolean(payload.gateOpened);
+  if (config.spawnCardReader) {
+    if (granted && opened) {
+      queueGateCommand('unlock');
+    } else {
+      queueGateCommand('lock');
+    }
+  } else if (granted && opened) {
+    runGateCommand('unlock');
+  } else {
+    runGateCommand('lock');
+  }
+}
+
 function spawnCardReader() {
   if (!config.spawnCardReader || process.platform !== 'win32') {
     return;
@@ -176,6 +229,14 @@ ipcMain.on('app-request-quit', () => {
   confirmQuit();
 });
 
+ipcMain.on('gate-sync', (_event, payload) => {
+  if (!payload || typeof payload !== 'object') {
+    syncGateFromPayload(null);
+    return;
+  }
+  syncGateFromPayload(payload);
+});
+
 app.whenReady().then(async () => {
   const ses = session.defaultSession;
   await ses.clearCache();
@@ -184,11 +245,19 @@ app.whenReady().then(async () => {
     callback({ requestHeaders: details.requestHeaders });
   });
   spawnCardReader();
+  if (!config.spawnCardReader) {
+    runGateCommand('lock');
+  }
   createWindow();
   registerExitShortcuts();
 });
 
 app.on('will-quit', () => {
+  if (config.spawnCardReader) {
+    queueGateCommand('lock');
+  } else {
+    runGateCommand('lock');
+  }
   globalShortcut.unregisterAll();
 });
 

@@ -1,0 +1,45 @@
+SPORT GYM — PLACAS DEL TORNiquete (corregido)
+=============================================
+
+PLACA AZUL GRANDE (borde izq. de la foto del interior)
+  - Es parte del COMPUTADOR de entrada (kiosk).
+  - Ahí van: pantalla, audio, ethernet del PC.
+  - Se conecta a la placa amarillo/cafe por postes y cable plano (ribbon).
+  - NO es el controlador del seguro del torniquete.
+
+MODULO AZUL PEQUENO (sobre la placa amarillo/cafe)
+  - NO es otra placa: es convertidor de tension (LM2596 / buck DC-DC).
+  - Potenciometro azul = ajuste de voltaje de salida (instalacion).
+  - Alimenta logica/rele; NO es el cable de la tarjeta ni el lector.
+
+PLACA CAFE (marron) — confirmado en sitio
+  - Es el cerebro del TORNiquete.
+  - Lector de PARED -> conector blanco inferior-izq. (4 hilos: verde, blanco, negro, morado/azul).
+  - Si desconecta ese cable, el lector se APAGA (la cafe le da alimentacion/datos).
+  - Placa cafe -> PC por COM3 (Windows): llega el numero de tarjeta a Sport Gym.
+  - CONFIRMADO en sitio: bytes de prueba por COM3 NO mueven el rele (probar-seguro-com3.bat).
+    COM3 = solo lectura de tarjeta hacia el PC, no control del seguro.
+  - El SEGURO lo abre la cafe sola (lector pared + firmware) o ZKAccess por otra via (red/USB interno).
+  - Sport Gym: validacion nube + pantalla; seguro fisico requiere integrar ZKAccess o cable de rele aparte.
+  - LUCES (LEDs del lector, LEDs en la placa, lamparas del torniquete):
+      las maneja la misma placa cafe (mismo cerebro que el seguro).
+      LEDs rojo/verde/amarillo soldados en la placa = estado (ok, error, paso).
+      Buzzer (circulo negro) = pitido al leer.
+      Sport Gym hoy NO controla luces aparte; si el protocolo COM3 trae comando
+      de color, iria en los mismos bytes que LOCK/UNLOCK o salidas marron/azul (rele).
+  - Sensor de PROXIMIDAD (cilindro metal, punta azul, junto a rueda dentada YD-100R)
+      -> cable negro -> placa cafe. NO es lector: detecta giro/paso del torniquete.
+  - Relé / solenoide (seguro) -> placa cafe.
+  - Abrir/cerrar el paso = quitar o poner seguro en esta placa.
+
+PC Sport Gym (mismo equipo)
+  - Pantalla + app /acceso (placa azul = solo I/O del PC).
+  - Lector USB tarjeta -> COM3 -> serial_card_reader.py -> API nube.
+  - Para mover el SEGURO hace falta OTRA via (no la placa azul):
+      A) Red: placa cafe con IP -> TURNSTILE_WEBHOOK o TURNSTILE_HTTP_* en .env
+      B) Serial: solo si la placa CAFE (no la azul) tiene puerto COM al PC
+      C) Lector de pared solo: la cafe decide sola; Sport Gym solo valida en pantalla
+
+Resumen
+  Sport Gym en el PC valida afiliado.
+  El seguro fisico lo manda la PLACA CAFE (o programa que ya la controlaba).
