@@ -16,31 +16,68 @@
   </p>
 }
 
-<section class="birthdays-panel panel" aria-live="polite">
+<section class="birthdays-panel birthdays-panel--trainers panel" aria-live="polite">
   <header class="birthdays-panel__header">
     <span class="birthdays-panel__icon" aria-hidden="true">🎂</span>
     <div>
-      <h3>{{ birthdayHeadline() }}</h3>
-      <p class="birthdays-panel__hint">Afiliados y entrenadores que cumplen años en los próximos 7 días</p>
+      <h3>{{ trainerBirthdayHeadline() }}</h3>
+      <p class="birthdays-panel__hint">Entrenadores que cumplen años en los próximos 7 días</p>
     </div>
   </header>
 
   @if (birthdaysLoading()) {
     <p class="birthdays-panel__empty">Cargando cumpleaños…</p>
-  } @else if (upcomingBirthdays().length === 0) {
-    <p class="birthdays-panel__empty">Nadie cumple años en los próximos 7 días.</p>
+  } @else if (trainerBirthdays().length === 0) {
+    <p class="birthdays-panel__empty">Ningún entrenador cumple años en los próximos 7 días.</p>
   } @else {
     <ul class="birthdays-list">
-      @for (item of upcomingBirthdays(); track item.personType + '-' + item.personId) {
+      @for (item of trainerBirthdays(); track item.personId) {
         <li class="birthdays-list__item" [class.birthdays-list__item--today]="item.daysUntil === 0">
           <div class="birthdays-list__main">
             <strong>{{ item.fullName }}</strong>
-            <span class="birthdays-list__type">{{ item.personTypeLabel }}</span>
           </div>
           <p class="birthdays-list__detail">{{ birthdayMessage(item) }}</p>
         </li>
       }
     </ul>
+  }
+</section>
+
+<section class="birthdays-panel birthdays-panel--members panel">
+  <button
+    type="button"
+    class="birthdays-panel__toggle"
+    (click)="toggleMemberBirthdays()"
+    [attr.aria-expanded]="showMemberBirthdays()"
+  >
+    <span class="birthdays-panel__toggle-icon" aria-hidden="true">👥</span>
+    {{ memberBirthdaysToggleLabel() }}
+    <span class="birthdays-panel__toggle-chevron" [class.open]="showMemberBirthdays()" aria-hidden="true"
+      >▼</span
+    >
+  </button>
+
+  @if (showMemberBirthdays()) {
+    <div class="birthdays-panel__members-body" aria-live="polite">
+      <p class="birthdays-panel__hint">Afiliados con cumpleaños en los próximos 7 días</p>
+
+      @if (birthdaysLoading()) {
+        <p class="birthdays-panel__empty">Cargando…</p>
+      } @else if (memberBirthdays().length === 0) {
+        <p class="birthdays-panel__empty">Ningún afiliado cumple años en los próximos 7 días.</p>
+      } @else {
+        <ul class="birthdays-list">
+          @for (item of memberBirthdays(); track item.personId) {
+            <li class="birthdays-list__item" [class.birthdays-list__item--today]="item.daysUntil === 0">
+              <div class="birthdays-list__main">
+                <strong>{{ item.fullName }}</strong>
+              </div>
+              <p class="birthdays-list__detail">{{ birthdayMessage(item) }}</p>
+            </li>
+          }
+        </ul>
+      }
+    </div>
   }
 </section>
 

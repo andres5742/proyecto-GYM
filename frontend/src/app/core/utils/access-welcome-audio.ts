@@ -236,6 +236,25 @@ export function welcomeHeadline(firstName?: string | null, gender?: Gender | nul
   return name ? `¡${word}, ${name}!` : `¡${word}!`;
 }
 
+/** Solo «Bienvenido» / «Bienvenida» para entrenadores en torniquete. */
+export function staffWelcomeHeadline(gender?: Gender | null): string {
+  return welcomeWord(gender);
+}
+
+function staffWelcomeSegments(gender?: Gender | null): SpeechSegment[] {
+  return [{ text: welcomeWord(gender), rate: 0.95, pitch: gender === 'FEMALE' ? 1.04 : 1 }];
+}
+
+/** Voz mínima para entrenador: una sola palabra, sin nombre ni avisos. */
+export function playStaffAccessWelcome(gender?: Gender | null): boolean {
+  const speech = getSpeech();
+  if (!speech) {
+    return false;
+  }
+  speakSequence(speech, staffWelcomeSegments(gender));
+  return true;
+}
+
 function membershipDaysPhrase(days: number): string {
   if (days === 1) {
     return 'Te queda un día de entreno antes de que venza tu membresía.';

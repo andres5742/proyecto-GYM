@@ -1,6 +1,6 @@
 import { Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { AccessVerifyResponse, KioskAccessEvent } from '../../core/models/access.model';
+import { AccessVerifyResponse, isStaffPerson, KioskAccessEvent } from '../../core/models/access.model';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AccessService } from '../../core/services/access.service';
 import {
@@ -9,7 +9,9 @@ import {
   isWelcomeAudioUnlocked,
   accessWelcomeHintsFromResponse,
   playAccessWelcome,
+  playStaffAccessWelcome,
   prepareWelcomeSpeech,
+  staffWelcomeHeadline,
   unlockWelcomeAudio,
   welcomeHeadline,
 } from '../../core/utils/access-welcome-audio';
@@ -184,7 +186,11 @@ export class AccessKiosk implements OnInit, OnDestroy {
         return;
       }
     }
-    playAccessWelcome(firstName, gender, last ? accessWelcomeHintsFromResponse(last) : null);
+    if (last && isStaffPerson(last)) {
+      playStaffAccessWelcome(gender);
+    } else {
+      playAccessWelcome(firstName, gender, last ? accessWelcomeHintsFromResponse(last) : null);
+    }
     this.showWelcomeAudioBtn.set(false);
   }
 
@@ -278,24 +284,31 @@ export class AccessKiosk implements OnInit, OnDestroy {
     }
 
     if (res.result === 'GRANTED') {
+      const staff = isStaffPerson(res);
       const firstName = firstNameFromFullName(res.memberName);
       const gender = res.gender ?? null;
-      this.welcomeTitle.set(welcomeHeadline(firstName, gender));
+      this.welcomeTitle.set(staff ? staffWelcomeHeadline(gender) : welcomeHeadline(firstName, gender));
       prepareWelcomeSpeech();
       if (isWelcomeAudioUnlocked()) {
-        const spoke = playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res));
+        const spoke = staff
+          ? playStaffAccessWelcome(gender)
+          : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res));
         this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
       } else {
         this.showWelcomeAudioBtn.set(this.audioSupported);
       }
-      const cedula = this.displayCedula(res);
-      this.statusLine.set(
-        firstName
-          ? `${welcomeHeadline(firstName, gender)}${cedula ? ` · Cédula ${cedula}` : ''} Pasa al torniquete.`
-          : cedula
-            ? `¡Ingreso autorizado! Cédula ${cedula}. Pasa al torniquete.`
-            : '¡Ingreso autorizado! Pasa al torniquete.',
-      );
+      if (staff) {
+        this.statusLine.set(`${staffWelcomeHeadline(gender)}. Pasa al torniquete.`);
+      } else {
+        const cedula = this.displayCedula(res);
+        this.statusLine.set(
+          firstName
+            ? `${welcomeHeadline(firstName, gender)}${cedula ? ` · Cédula ${cedula}` : ''} Pasa al torniquete.`
+            : cedula
+              ? `¡Ingreso autorizado! Cédula ${cedula}. Pasa al torniquete.`
+              : '¡Ingreso autorizado! Pasa al torniquete.',
+        );
+      }
       this.scheduleRelease(GRANTED_DISPLAY_MS);
     } else {
       this.welcomeTitle.set(null);

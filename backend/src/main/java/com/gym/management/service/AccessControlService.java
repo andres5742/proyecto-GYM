@@ -468,7 +468,7 @@ public class AccessControlService {
                 employee.getId(),
                 manual
                         ? "Apertura manual autorizada"
-                        : WelcomeMessageUtils.welcomeWithFirstName(null, employee.getFirstName()),
+                        : "¡" + WelcomeMessageUtils.welcomeWord(null) + "!",
                 null,
                 employee);
     }

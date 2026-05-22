@@ -1,5 +1,5 @@
 import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { UpcomingBirthday } from '../../core/models/dashboard.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -28,6 +28,14 @@ export class Dashboard implements OnInit {
   protected readonly apiStatus = signal('Comprobando...');
   protected readonly upcomingBirthdays = signal<UpcomingBirthday[]>([]);
   protected readonly birthdaysLoading = signal(true);
+  protected readonly showMemberBirthdays = signal(false);
+
+  protected readonly trainerBirthdays = computed(() =>
+    this.upcomingBirthdays().filter((b) => b.personType === 'EMPLOYEE'),
+  );
+  protected readonly memberBirthdays = computed(() =>
+    this.upcomingBirthdays().filter((b) => b.personType === 'MEMBER'),
+  );
   protected readonly memberCount = signal(0);
   protected readonly planCount = signal(0);
   protected readonly productCount = signal(0);
@@ -71,12 +79,31 @@ export class Dashboard implements OnInit {
     }
   }
 
-  protected birthdayHeadline(): string {
-    const count = this.upcomingBirthdays().length;
+  protected trainerBirthdayHeadline(): string {
+    const count = this.trainerBirthdays().length;
     if (count === 0) {
-      return 'Próximos cumpleaños';
+      return 'Cumpleaños del equipo';
     }
-    return count === 1 ? '1 cumpleaños en los próximos 7 días' : `${count} cumpleaños en los próximos 7 días`;
+    return count === 1
+      ? '1 entrenador cumple años pronto'
+      : `${count} entrenadores cumplen años pronto`;
+  }
+
+  protected memberBirthdaysToggleLabel(): string {
+    const count = this.memberBirthdays().length;
+    if (this.showMemberBirthdays()) {
+      return 'Ocultar cumpleaños de afiliados';
+    }
+    if (count === 0) {
+      return 'Ver cumpleaños próximos de afiliados';
+    }
+    return count === 1
+      ? 'Ver 1 cumpleaños próximo de afiliados'
+      : `Ver ${count} cumpleaños próximos de afiliados`;
+  }
+
+  protected toggleMemberBirthdays(): void {
+    this.showMemberBirthdays.update((open) => !open);
   }
 
   protected birthdayMessage(item: UpcomingBirthday): string {
