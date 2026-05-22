@@ -233,26 +233,55 @@ export function welcomeHeadline(firstName?: string | null, gender?: Gender | nul
   return name ? `¡${word}, ${name}!` : `¡${word}!`;
 }
 
-/** Solo «Bienvenido» / «Bienvenida» para entrenadores en torniquete. */
+/** Saludo de entrenador en torniquete e historial. */
 export function staffWelcomeHeadline(gender?: Gender | null): string {
-  return welcomeWord(gender);
+  const word = welcomeWord(gender);
+  return `¡${word}! Que tenga un excelente entreno.`;
 }
 
 function staffWelcomeSegments(gender?: Gender | null): SpeechSegment[] {
-  return [{ text: welcomeWord(gender), rate: 0.95, pitch: gender === 'FEMALE' ? 1.04 : 1 }];
+  const word = welcomeWord(gender);
+  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  return [
+    { text: `¡${word}!`, rate: 0.95, pitch },
+    {
+      text: 'Que tenga un excelente entreno.',
+      rate: 0.93,
+      pitch: 0.98,
+      pauseBeforeMs: 320,
+    },
+  ];
 }
 
-/** Voz mínima para entrenador: una sola palabra, sin nombre ni avisos. */
+function staffWelcomeSegmentsFromMessage(
+  logMessage?: string | null,
+  gender?: Gender | null,
+): SpeechSegment[] {
+  const base = welcomeBaseFromLogMessage(logMessage);
+  if (!base) {
+    return staffWelcomeSegments(gender);
+  }
+  const excelenteIdx = base.toLowerCase().indexOf('que tenga un excelente entreno');
+  if (excelenteIdx < 0) {
+    const pitch = gender === 'FEMALE' ? 1.04 : 1;
+    return [{ text: base, rate: 0.95, pitch }];
+  }
+  const intro = base.slice(0, excelenteIdx).trim();
+  const outro = base.slice(excelenteIdx).trim();
+  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  return [
+    { text: intro, rate: 0.95, pitch },
+    { text: outro, rate: 0.93, pitch: 0.98, pauseBeforeMs: 320 },
+  ];
+}
+
+/** Voz para entrenador: bienvenida + excelente entreno. */
 export function playStaffAccessWelcome(gender?: Gender | null, logMessage?: string | null): boolean {
   const speech = getSpeech();
   if (!speech) {
     return false;
   }
-  const headline = welcomeBaseFromLogMessage(logMessage) ?? staffWelcomeHeadline(gender);
-  const spoken = headline.replace(/[¡!]/g, '').trim() || staffWelcomeHeadline(gender);
-  speakSequence(speech, [
-    { text: spoken, rate: 0.95, pitch: gender === 'FEMALE' ? 1.04 : 1 },
-  ]);
+  speakSequence(speech, staffWelcomeSegmentsFromMessage(logMessage, gender));
   return true;
 }
 

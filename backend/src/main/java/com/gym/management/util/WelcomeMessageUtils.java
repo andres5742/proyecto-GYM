@@ -22,6 +22,11 @@ public final class WelcomeMessageUtils {
         return "¡" + welcomeWord(gender) + ", " + name + "!";
     }
 
+    /** Saludo en torniquete / historial para entrenadores. */
+    public static String staffWelcomeMessage(Gender gender) {
+        return "¡" + welcomeWord(gender) + "! Que tenga un excelente entreno.";
+    }
+
     /** Primer nombre para el saludo si el campo nombre viene vacío. */
     public static String resolveFirstName(String firstName, String lastName) {
         if (firstName != null && !firstName.isBlank()) {

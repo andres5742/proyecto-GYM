@@ -140,6 +140,15 @@ export function isStaffPerson(
     return true;
   }
   const msg = 'message' in row ? row.message?.trim() : '';
+  if (
+    msg &&
+    row.memberId == null &&
+    row.employeeId == null &&
+    /^¡Bienvenid[oa]!/i.test(msg) &&
+    /excelente entreno/i.test(msg)
+  ) {
+    return true;
+  }
   if (msg && row.memberId == null && row.employeeId == null && /^¡Bienvenid[oa]!$/i.test(msg)) {
     return true;
   }
