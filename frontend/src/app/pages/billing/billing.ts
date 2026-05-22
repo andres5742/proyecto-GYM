@@ -434,6 +434,19 @@ export class BillingPage implements OnInit, OnDestroy {
     (reg.sessionCashDayWorkout ?? 0) +
     (reg.sessionCashSportsDance ?? 0);
 
+  /** Solo efectivo de facturación (membresías, entrenos, bailes); sin Nequi ni productos de turno. */
+  protected billingCashInDrawer(reg: BillingCashRegister): number {
+    const billingCash = this.methodTotal(reg.sessionIncomeByMethod, 'CASH');
+    const cashOut = this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
+    return roundCop(reg.openingCashAmount + billingCash - cashOut);
+  }
+
+  protected sessionNonCashIncome(reg: BillingCashRegister): number {
+    return roundCop(
+      Math.max(0, (reg.sessionTotal ?? 0) - this.methodTotal(reg.sessionIncomeByMethod, 'CASH')),
+    );
+  }
+
   protected readonly closeBillTotal = computed(() =>
     this.billDenominations.reduce((sum, d) => sum + (this.closeCash()[d.key] || 0) * d.value, 0),
   );
@@ -460,12 +473,7 @@ export class BillingPage implements OnInit, OnDestroy {
     if (!reg) {
       return null;
     }
-    if (reg.cashInDrawer != null && reg.cashInDrawer !== undefined) {
-      return reg.cashInDrawer;
-    }
-    const billingCash = this.methodTotal(reg.sessionIncomeByMethod, 'CASH');
-    const cashOut = this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
-    return reg.openingCashAmount + (reg.dayProductSalesCash ?? 0) + billingCash - cashOut;
+    return this.billingCashInDrawer(reg);
   });
 
   protected readonly dayExpensesByMethod = computed(() => {
