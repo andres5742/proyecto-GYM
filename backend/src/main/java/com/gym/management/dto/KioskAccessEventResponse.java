@@ -18,4 +18,7 @@ public record KioskAccessEventResponse(
         boolean gateOpened,
         Instant createdAt,
         Gender gender,
-        String documentId) {}
+        String documentId,
+        Integer membershipDaysRemaining,
+        Integer tiqueteraEntriesRemainingAfter,
+        Boolean tiqueteraPlan) {}

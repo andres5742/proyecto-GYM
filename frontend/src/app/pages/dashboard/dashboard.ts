@@ -1,7 +1,9 @@
 import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { UpcomingBirthday } from '../../core/models/dashboard.model';
 import { AuthService } from '../../core/services/auth.service';
+import { DashboardService } from '../../core/services/dashboard.service';
 import { HealthService } from '../../core/services/health.service';
 import { MemberService } from '../../core/services/member.service';
 import { ModuleService } from '../../core/services/module.service';
@@ -21,8 +23,11 @@ export class Dashboard implements OnInit {
   private readonly memberService = inject(MemberService);
   private readonly planService = inject(PlanService);
   private readonly productService = inject(ProductService);
+  private readonly dashboardService = inject(DashboardService);
 
   protected readonly apiStatus = signal('Comprobando...');
+  protected readonly upcomingBirthdays = signal<UpcomingBirthday[]>([]);
+  protected readonly birthdaysLoading = signal(true);
   protected readonly memberCount = signal(0);
   protected readonly planCount = signal(0);
   protected readonly productCount = signal(0);
@@ -30,6 +35,14 @@ export class Dashboard implements OnInit {
   protected readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.dashboardService.upcomingBirthdays(7).subscribe({
+      next: (items) => {
+        this.upcomingBirthdays.set(items);
+        this.birthdaysLoading.set(false);
+      },
+      error: () => this.birthdaysLoading.set(false),
+    });
+
     this.healthService.check().subscribe({
       next: (res) => this.apiStatus.set(res.status),
       error: () => this.apiStatus.set('Sin conexión'),
@@ -56,5 +69,36 @@ export class Dashboard implements OnInit {
         },
       });
     }
+  }
+
+  protected birthdayHeadline(): string {
+    const count = this.upcomingBirthdays().length;
+    if (count === 0) {
+      return 'Próximos cumpleaños';
+    }
+    return count === 1 ? '1 cumpleaños en los próximos 7 días' : `${count} cumpleaños en los próximos 7 días`;
+  }
+
+  protected birthdayMessage(item: UpcomingBirthday): string {
+    const dateLabel = this.formatCelebrationDate(item.celebrationDate);
+    if (item.daysUntil === 0) {
+      return `Hoy cumple ${item.turningAge} años · ${dateLabel}`;
+    }
+    if (item.daysUntil === 1) {
+      return `Mañana cumple ${item.turningAge} años · ${dateLabel}`;
+    }
+    return `En ${item.daysUntil} días cumple ${item.turningAge} años · ${dateLabel}`;
+  }
+
+  protected formatCelebrationDate(iso: string): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) {
+      return iso;
+    }
+    return new Date(y, m - 1, d).toLocaleDateString('es-CO', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
   }
 }

@@ -42,6 +42,7 @@ export class Employees implements OnInit {
   protected readonly form = this.fb.nonNullable.group({
     firstName: ['', [Validators.required, Validators.maxLength(100)]],
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
+    birthDate: ['', Validators.required],
     phone: [''],
     username: [''],
     password: [''],
@@ -84,6 +85,7 @@ export class Employees implements OnInit {
     this.form.reset({
       firstName: '',
       lastName: '',
+      birthDate: '',
       phone: '',
       username: '',
       password: '',
@@ -100,6 +102,7 @@ export class Employees implements OnInit {
     this.form.patchValue({
       firstName: employee.firstName,
       lastName: employee.lastName,
+      birthDate: employee.birthDate ?? '',
       phone: employee.phone ?? '',
       username: employee.username ?? '',
       password: '',
@@ -126,6 +129,7 @@ export class Employees implements OnInit {
     const request: EmployeeRequest = {
       firstName: raw.firstName,
       lastName: raw.lastName,
+      birthDate: raw.birthDate,
       phone: raw.phone || undefined,
       username: raw.username || undefined,
       password: raw.password || undefined,
@@ -161,6 +165,21 @@ export class Employees implements OnInit {
         this.message.set(err?.error?.message ?? 'No se pudo guardar el entrenador');
         this.saving.set(false);
       },
+    });
+  }
+
+  protected formatBirthDate(value?: string | null): string {
+    if (!value) {
+      return '—';
+    }
+    const [y, m, d] = value.split('-').map(Number);
+    if (!y || !m || !d) {
+      return value;
+    }
+    return new Date(y, m - 1, d).toLocaleDateString('es-CO', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     });
   }
 

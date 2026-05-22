@@ -1,3 +1,85 @@
+.birthdays-panel {
+  margin-bottom: 1.5rem;
+  padding: 1.15rem 1.25rem;
+  border-left: 4px solid #e8a85c;
+  background: linear-gradient(135deg, var(--color-surface) 10%, rgb(232 168 92 / 12%) 100%);
+}
+
+.birthdays-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.birthdays-panel__icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.birthdays-panel__header h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+}
+
+.birthdays-panel__hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-text-soft);
+}
+
+.birthdays-panel__empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+}
+
+.birthdays-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.birthdays-list__item {
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 55%);
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.birthdays-list__item--today {
+  border-color: rgb(232 168 92 / 55%);
+  background: rgb(232 168 92 / 18%);
+}
+
+.birthdays-list__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.75rem;
+}
+
+.birthdays-list__main strong {
+  font-size: 1rem;
+}
+
+.birthdays-list__type {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.birthdays-list__detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--color-text-soft);
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

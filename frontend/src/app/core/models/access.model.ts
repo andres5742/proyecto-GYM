@@ -36,6 +36,11 @@ export interface AccessVerifyResponse {
   documentId?: string | null;
   /** ID en access_logs (evita duplicar evento en polling). */
   accessLogId?: number | null;
+  /** Días hasta vencimiento (1–5); voz y mensaje en torniquete. */
+  membershipDaysRemaining?: number | null;
+  /** Entrenos tiquetera tras este ingreso. */
+  tiqueteraEntriesRemainingAfter?: number | null;
+  tiqueteraPlan?: boolean | null;
 }
 
 export interface BiometricEnrollRequest {
@@ -91,6 +96,9 @@ export interface KioskAccessEvent {
   createdAt: string;
   gender?: Gender | null;
   documentId?: string | null;
+  membershipDaysRemaining?: number | null;
+  tiqueteraEntriesRemainingAfter?: number | null;
+  tiqueteraPlan?: boolean | null;
 }
 
 export interface AccessLogEntry {

@@ -7,6 +7,7 @@ import {
   firstNameFromFullName,
   isWelcomeAudioSupported,
   isWelcomeAudioUnlocked,
+  accessWelcomeHintsFromResponse,
   playAccessWelcome,
   prepareWelcomeSpeech,
   unlockWelcomeAudio,
@@ -47,7 +48,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
   private autoStartTimer: ReturnType<typeof setTimeout> | null = null;
   private audioUnlockAttempted = false;
 
-  protected readonly deviceUserId = signal('');
   protected readonly lastResult = signal<AccessVerifyResponse | null>(null);
   protected readonly clock = signal(new Date());
   protected readonly statusLine = signal('Iniciando pantalla de acceso…');
@@ -135,14 +135,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (!this.kioskReady() || this.configError()) {
       return;
     }
-    const target = event.target;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement
-    ) {
-      return;
-    }
     if (event.key === 'F2') {
       event.preventDefault();
       this.triggerShortcutGate('workout');
@@ -192,16 +184,8 @@ export class AccessKiosk implements OnInit, OnDestroy {
         return;
       }
     }
-    playAccessWelcome(firstName, gender);
+    playAccessWelcome(firstName, gender, last ? accessWelcomeHintsFromResponse(last) : null);
     this.showWelcomeAudioBtn.set(false);
-  }
-
-  onCedulaInput(value: string): void {
-    this.deviceUserId.set(value);
-  }
-
-  protected cedulaDigitCount(value: string): number {
-    return value.replace(/\D/g, '').length;
   }
 
   private triggerShortcutGate(reason: 'workout' | 'sports-dance'): void {
@@ -222,34 +206,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
           deviceUserId: reason === 'sports-dance' ? 'F3' : 'F2',
           credentialType: 'CARD',
         });
-        this.scheduleRelease(DENIED_DISPLAY_MS);
-      },
-    });
-  }
-
-  simulateScan(): void {
-    const id = this.deviceUserId().trim();
-    if (!id || !this.kioskReady()) {
-      return;
-    }
-    this.accessService.zktEvent(id).subscribe({
-      next: (res) => {
-        this.applyVerifyResponse(res);
-      },
-      error: (err: HttpErrorResponse) => {
-        const msg =
-          typeof err.error === 'object' && err.error?.message
-            ? String(err.error.message)
-            : 'No se pudo validar el acceso. Revise la cédula o la conexión.';
-        this.statusLine.set(msg);
-        this.lastResult.set({
-          result: 'DENIED',
-          gateOpened: false,
-          message: msg,
-          deviceUserId: id,
-          credentialType: 'CARD',
-        });
-        this.welcomeTitle.set(null);
         this.scheduleRelease(DENIED_DISPLAY_MS);
       },
     });
@@ -302,6 +258,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
       credentialType: event.credentialType,
       gender: event.gender ?? null,
       documentId: event.documentId ?? null,
+      membershipDaysRemaining: event.membershipDaysRemaining ?? null,
+      tiqueteraEntriesRemainingAfter: event.tiqueteraEntriesRemainingAfter ?? null,
+      tiqueteraPlan: event.tiqueteraPlan ?? null,
     });
   }
 
@@ -324,7 +283,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.welcomeTitle.set(welcomeHeadline(firstName, gender));
       prepareWelcomeSpeech();
       if (isWelcomeAudioUnlocked()) {
-        const spoke = playAccessWelcome(firstName, gender);
+        const spoke = playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res));
         this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
       } else {
         this.showWelcomeAudioBtn.set(this.audioSupported);

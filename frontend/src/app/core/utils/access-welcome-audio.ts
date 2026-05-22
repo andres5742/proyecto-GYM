@@ -1,6 +1,15 @@
+import type { AccessVerifyResponse } from '../models/access.model';
 import type { Gender } from '../models/member.model';
 
 const GYM_NAME = 'Sport Gym R.10';
+const MEMBERSHIP_WARNING_DAYS = 5;
+const TIQUETERA_LOW_ENTRIES = 3;
+
+export interface AccessWelcomeAudioHints {
+  membershipDaysRemaining?: number | null;
+  tiqueteraEntriesRemainingAfter?: number | null;
+  tiqueteraPlan?: boolean | null;
+}
 
 /** "Bienvenida" solo para FEMALE; en los demás casos "Bienvenido". */
 export function welcomeWord(gender?: Gender | null): string {
@@ -177,7 +186,10 @@ export function unlockWelcomeAudio(): boolean {
     return false;
   }
 
-  speakSequence(speech, [{ text: 'Listo. Bienvenida con voz activada.', rate: 0.95 }]);
+  speakSequence(speech, [
+    { text: 'Sistema activado.', rate: 0.95 },
+    { text: 'Que tenga un excelente día.', rate: 0.93, pauseBeforeMs: 400 },
+  ]);
   audioUnlocked = true;
   return true;
 }
@@ -224,29 +236,95 @@ export function welcomeHeadline(firstName?: string | null, gender?: Gender | nul
   return name ? `¡${word}, ${name}!` : `¡${word}!`;
 }
 
-function welcomeSegments(firstName?: string | null, gender?: Gender | null): SpeechSegment[] {
+function membershipDaysPhrase(days: number): string {
+  if (days === 1) {
+    return 'Te queda un día de entreno antes de que venza tu membresía.';
+  }
+  return `Te quedan ${days} días de entreno antes de que venza tu membresía.`;
+}
+
+function tiqueteraEntriesPhrase(left: number): string {
+  if (left === 0) {
+    return 'Este era tu último entreno de la tiquetera.';
+  }
+  if (left === 1) {
+    return 'Te queda un entreno en tu tiquetera.';
+  }
+  return `Te quedan ${left} entrenos en tu tiquetera.`;
+}
+
+function welcomeSegments(
+  firstName?: string | null,
+  gender?: Gender | null,
+  hints?: AccessWelcomeAudioHints | null,
+): SpeechSegment[] {
   const word = welcomeWord(gender);
   const name = formatNameForSpeech(firstName ?? '');
+  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const segments: SpeechSegment[] = [];
+
   if (name) {
-    return [
-      { text: `¡Hola! ${word} a ${GYM_NAME}.`, rate: 0.96, pitch: gender === 'FEMALE' ? 1.04 : 1 },
-      { text: name, rate: 0.86, pitch: 1.06, pauseBeforeMs: 220 },
-      { text: 'Que tengas un excelente entrenamiento.', rate: 0.93, pitch: 0.98, pauseBeforeMs: 180 },
-    ];
+    segments.push({ text: `¡${word}, ${name}!`, rate: 0.95, pitch });
+  } else {
+    segments.push({ text: `¡${word}!`, rate: 0.95, pitch });
   }
-  return [
-    { text: `¡Hola! ${word} a ${GYM_NAME}.`, rate: 0.96, pitch: gender === 'FEMALE' ? 1.04 : 1 },
-    { text: 'Que tengas un excelente entrenamiento.', rate: 0.93, pitch: 0.98, pauseBeforeMs: 200 },
-  ];
+
+  const days = hints?.membershipDaysRemaining;
+  if (days != null && days > 0 && days <= MEMBERSHIP_WARNING_DAYS) {
+    segments.push({
+      text: membershipDaysPhrase(days),
+      rate: 0.92,
+      pitch: 0.98,
+      pauseBeforeMs: 380,
+    });
+  }
+
+  if (hints?.tiqueteraPlan) {
+    const left = hints.tiqueteraEntriesRemainingAfter;
+    if (left != null && left >= 0 && left < TIQUETERA_LOW_ENTRIES) {
+      segments.push({
+        text: tiqueteraEntriesPhrase(left),
+        rate: 0.91,
+        pitch: 0.98,
+        pauseBeforeMs: 360,
+      });
+    }
+  }
+
+  segments.push({
+    text: 'Que tenga un excelente día.',
+    rate: 0.93,
+    pitch: 0.98,
+    pauseBeforeMs: 320,
+  });
+
+  return segments;
+}
+
+export function accessWelcomeHintsFromResponse(
+  res: Pick<
+    AccessVerifyResponse,
+    'membershipDaysRemaining' | 'tiqueteraEntriesRemainingAfter' | 'tiqueteraPlan'
+  >,
+): AccessWelcomeAudioHints {
+  return {
+    membershipDaysRemaining: res.membershipDaysRemaining ?? null,
+    tiqueteraEntriesRemainingAfter: res.tiqueteraEntriesRemainingAfter ?? null,
+    tiqueteraPlan: res.tiqueteraPlan ?? null,
+  };
 }
 
 /** Mensaje de bienvenida con nombre — llamar desde clic/toque, sin await antes. */
-export function playAccessWelcome(firstName?: string | null, gender?: Gender | null): boolean {
+export function playAccessWelcome(
+  firstName?: string | null,
+  gender?: Gender | null,
+  hints?: AccessWelcomeAudioHints | null,
+): boolean {
   const speech = getSpeech();
   if (!speech) {
     return false;
   }
-  speakSequence(speech, welcomeSegments(firstName, gender));
+  speakSequence(speech, welcomeSegments(firstName, gender, hints));
   return true;
 }
 

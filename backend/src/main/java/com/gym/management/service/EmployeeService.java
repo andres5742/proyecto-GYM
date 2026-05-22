@@ -10,6 +10,8 @@ import com.gym.management.model.UserRole;
 import com.gym.management.repository.EmployeeRepository;
 import com.gym.management.security.AuthenticatedUser;
 import com.gym.management.security.SecurityUtils;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
+
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
@@ -47,9 +51,11 @@ public class EmployeeService {
         ensureCanManageTeam();
         validatePaymentInfo(request);
         validateAccessFields(request, null);
+        validateBirthDate(request.birthDate());
         Employee employee = Employee.builder()
                 .firstName(request.firstName())
                 .lastName(request.lastName())
+                .birthDate(request.birthDate())
                 .phone(blankToNull(request.phone()))
                 .username(blankToNull(request.username()))
                 .passwordHash(encodePassword(request.password()))
@@ -76,8 +82,10 @@ public class EmployeeService {
                 coalescePayment(blankToNull(request.bankAccountNumber()), employee.getBankAccountNumber());
         validatePaymentInfo(nequi, bankName, bankAccount);
         validateAccessFields(request, id);
+        validateBirthDate(request.birthDate());
         employee.setFirstName(request.firstName());
         employee.setLastName(request.lastName());
+        employee.setBirthDate(request.birthDate());
         employee.setPhone(blankToNull(request.phone()));
         employee.setUsername(blankToNull(request.username()));
         if (request.password() != null && !request.password().isBlank()) {
@@ -174,6 +182,19 @@ public class EmployeeService {
         return value.trim();
     }
 
+    private void validateBirthDate(LocalDate birthDate) {
+        if (birthDate == null) {
+            throw new BusinessException("La fecha de nacimiento es obligatoria");
+        }
+        LocalDate today = LocalDate.now(GYM_ZONE);
+        if (birthDate.isAfter(today)) {
+            throw new BusinessException("La fecha de nacimiento no puede ser futura");
+        }
+        if (birthDate.isBefore(today.minusYears(100))) {
+            throw new BusinessException("La fecha de nacimiento no es válida");
+        }
+    }
+
     @Transactional
     public void delete(Long id) {
         ensureCanManageTeam();
@@ -207,8 +228,10 @@ public class EmployeeService {
                 coalescePayment(blankToNull(request.bankAccountNumber()), employee.getBankAccountNumber());
         validatePaymentInfo(nequi, bankName, bankAccount);
         validateAccessFields(request, employee.getId());
+        validateBirthDate(request.birthDate());
         employee.setFirstName(request.firstName());
         employee.setLastName(request.lastName());
+        employee.setBirthDate(request.birthDate());
         employee.setPhone(blankToNull(request.phone()));
         employee.setUsername(blankToNull(request.username()));
         if (request.password() != null && !request.password().isBlank()) {

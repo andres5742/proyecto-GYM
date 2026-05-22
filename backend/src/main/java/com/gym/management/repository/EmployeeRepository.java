@@ -17,4 +17,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     boolean existsByUsernameIgnoreCase(String username);
 
     boolean existsByUsernameIgnoreCaseAndIdNot(String username, Long id);
+
+    List<Employee> findByBirthDateNotNullAndActiveTrue();
 }

@@ -16,6 +16,34 @@
   </p>
 }
 
+<section class="birthdays-panel panel" aria-live="polite">
+  <header class="birthdays-panel__header">
+    <span class="birthdays-panel__icon" aria-hidden="true">🎂</span>
+    <div>
+      <h3>{{ birthdayHeadline() }}</h3>
+      <p class="birthdays-panel__hint">Afiliados y entrenadores que cumplen años en los próximos 7 días</p>
+    </div>
+  </header>
+
+  @if (birthdaysLoading()) {
+    <p class="birthdays-panel__empty">Cargando cumpleaños…</p>
+  } @else if (upcomingBirthdays().length === 0) {
+    <p class="birthdays-panel__empty">Nadie cumple años en los próximos 7 días.</p>
+  } @else {
+    <ul class="birthdays-list">
+      @for (item of upcomingBirthdays(); track item.personType + '-' + item.personId) {
+        <li class="birthdays-list__item" [class.birthdays-list__item--today]="item.daysUntil === 0">
+          <div class="birthdays-list__main">
+            <strong>{{ item.fullName }}</strong>
+            <span class="birthdays-list__type">{{ item.personTypeLabel }}</span>
+          </div>
+          <p class="birthdays-list__detail">{{ birthdayMessage(item) }}</p>
+        </li>
+      }
+    </ul>
+  }
+</section>
+
 <section class="quick-actions">
   <h3>¿Qué quieres hacer ahora?</h3>
   <p>Elige una acción. Solo te llevará un momento.</p>

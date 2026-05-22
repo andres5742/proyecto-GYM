@@ -45,4 +45,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
             AND m.membershipEnd < :today
             """)
     int markExpiredActiveMembers(@Param("today") LocalDate today);
+
+    List<Member> findByBirthDateNotNull();
 }

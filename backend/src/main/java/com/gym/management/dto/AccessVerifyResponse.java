@@ -20,7 +20,12 @@ public record AccessVerifyResponse(
         /** Cédula del afiliado cuando aplica (ingreso por documento o afiliado identificado). */
         String documentId,
         /** ID del registro en access_logs (pantalla /acceso). */
-        Long accessLogId) {
+        Long accessLogId,
+        /** Días hasta vencimiento (1–5); null si no aplica. */
+        Integer membershipDaysRemaining,
+        /** Entrenos tiquetera tras este ingreso; null si no es tiquetera. */
+        Integer tiqueteraEntriesRemainingAfter,
+        Boolean tiqueteraPlan) {
 
     public AccessVerifyResponse(
             AccessResult result,
@@ -33,7 +38,22 @@ public record AccessVerifyResponse(
             String deviceUserId,
             BiometricCredentialType credentialType,
             Gender gender) {
-        this(result, gateOpened, message, memberId, employeeId, personType, memberName, deviceUserId, credentialType, gender, null, null);
+        this(
+                result,
+                gateOpened,
+                message,
+                memberId,
+                employeeId,
+                personType,
+                memberName,
+                deviceUserId,
+                credentialType,
+                gender,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     public AccessVerifyResponse {

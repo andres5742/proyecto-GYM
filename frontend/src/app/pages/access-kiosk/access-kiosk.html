@@ -54,31 +54,6 @@
               </div>
             </div>
           }
-
-          <section class="cedula-test" aria-label="Ingreso con cédula">
-            <p class="cedula-test__hint">Digite su número de documento</p>
-            <div class="cedula-test__row">
-              <label class="cedula-test__label" for="kiosk-cedula-input">Cédula</label>
-              <input
-                id="kiosk-cedula-input"
-                class="cedula-test__input"
-                type="text"
-                inputmode="numeric"
-                autocomplete="off"
-                spellcheck="false"
-                [value]="deviceUserId()"
-                (input)="onCedulaInput($any($event.target).value)"
-                placeholder="Número"
-                (keyup.enter)="simulateScan()"
-              />
-              <button type="button" class="btn btn-primary cedula-test__btn" (click)="simulateScan()">
-                OK
-              </button>
-            </div>
-            @if (deviceUserId(); as typed) {
-              <p class="cedula-test__meta" aria-live="polite">{{ cedulaDigitCount(typed) }} dígitos</p>
-            }
-          </section>
         </section>
       } @else {
         <section class="kiosk-center kiosk-center--boot">

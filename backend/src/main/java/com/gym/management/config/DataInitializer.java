@@ -204,6 +204,21 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureEmployeeBirthDateColumn(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE employees
+                        ADD COLUMN IF NOT EXISTS birth_date DATE
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner ensureMembershipPlanTiqueteraColumns(JdbcTemplate jdbc) {
         return args -> {
             try {

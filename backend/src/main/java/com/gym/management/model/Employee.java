@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -38,6 +39,8 @@ public class Employee {
 
     @Column(length = 20)
     private String phone;
+
+    private LocalDate birthDate;
 
     /** Número Nequi donde se consigna el pago de nómina. */
     @Column(length = 20)

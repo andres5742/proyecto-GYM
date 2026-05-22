@@ -3,6 +3,7 @@ package com.gym.management.service;
 import com.gym.management.dto.AccessLogResponse;
 import com.gym.management.dto.AccessVerifyRequest;
 import com.gym.management.dto.AccessVerifyResponse;
+import com.gym.management.dto.AccessVoiceHints;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.dto.KioskAccessEventResponse;
@@ -304,7 +305,10 @@ public class AccessControlService {
                 BiometricCredentialType.CARD,
                 null,
                 null,
-                logId);
+                logId,
+                null,
+                null,
+                null);
     }
 
     @Transactional
@@ -411,23 +415,32 @@ public class AccessControlService {
 
     private String buildMemberWelcomeMessage(Member member, MembershipPlan plan) {
         String base = WelcomeMessageUtils.welcomeWithFirstName(member.getGender(), member.getFirstName());
-        if (!TicketBookAccessRules.isTiqueteraPlan(plan)) {
-            return base;
+        AccessVoiceHints hints =
+                AccessVoiceHintsBuilder.forMember(member, accessLogRepository, GYM_ZONE, false);
+        StringBuilder msg = new StringBuilder(base);
+        if (hints.membershipDaysRemaining() != null) {
+            int days = hints.membershipDaysRemaining();
+            msg.append(" Te quedan ")
+                    .append(days)
+                    .append(" día")
+                    .append(days == 1 ? "" : "s")
+                    .append(" de entreno antes de que venza tu membresía.");
         }
-        int remainingAfter =
-                TicketBookAccessRules.remainingEntries(member, accessLogRepository, GYM_ZONE) - 1;
-        if (remainingAfter < 0) {
-            return base;
+        if (hints.tiqueteraPlan() && hints.tiqueteraEntriesRemainingAfter() != null) {
+            int left = hints.tiqueteraEntriesRemainingAfter();
+            if (left < AccessVoiceHints.TIQUETERA_LOW_ENTRIES_THRESHOLD) {
+                if (left == 0) {
+                    msg.append(" Este era tu último entreno de la tiquetera.");
+                } else {
+                    msg.append(" Te quedan ")
+                            .append(left)
+                            .append(" entreno")
+                            .append(left == 1 ? "" : "s")
+                            .append(" en tu tiquetera.");
+                }
+            }
         }
-        if (remainingAfter == 0) {
-            return base + " Este era tu último entreno de la tiquetera.";
-        }
-        return base
-                + " Te quedan "
-                + remainingAfter
-                + " entreno"
-                + (remainingAfter == 1 ? "" : "s")
-                + " en tu tiquetera.";
+        return msg.toString();
     }
 
     private AccessVerifyResponse evaluateStaff(
@@ -478,6 +491,8 @@ public class AccessControlService {
         } else {
             logId = saveMemberLog(deviceUserId, type, member, AccessResult.GRANTED, message, opened);
         }
+        AccessVoiceHints voiceHints =
+                AccessVoiceHintsBuilder.forMember(member, accessLogRepository, GYM_ZONE, true);
         return new AccessVerifyResponse(
                 AccessResult.GRANTED,
                 opened,
@@ -490,7 +505,10 @@ public class AccessControlService {
                 type,
                 member != null ? member.getGender() : null,
                 memberDocumentId(member),
-                logId);
+                logId,
+                voiceHints.membershipDaysRemaining(),
+                voiceHints.tiqueteraEntriesRemainingAfter(),
+                voiceHints.tiqueteraPlan() ? Boolean.TRUE : null);
     }
 
     private AccessVerifyResponse deny(
@@ -520,7 +538,10 @@ public class AccessControlService {
                 type,
                 member != null ? member.getGender() : null,
                 memberDocumentId(member),
-                logId);
+                logId,
+                null,
+                null,
+                null);
     }
 
     private Long saveMemberLog(
@@ -602,6 +623,9 @@ public class AccessControlService {
                 ? log.getCredentialType()
                 : BiometricCredentialType.FINGERPRINT;
         String documentId = log.getMember() != null ? log.getMember().getDocumentId() : null;
+        AccessVoiceHints voiceHints = log.getResult() == AccessResult.GRANTED && log.getMember() != null
+                ? AccessVoiceHintsBuilder.forMember(log.getMember(), accessLogRepository, GYM_ZONE, true)
+                : AccessVoiceHints.none();
         return new KioskAccessEventResponse(
                 log.getId(),
                 log.getFingerprintUserId(),
@@ -614,7 +638,10 @@ public class AccessControlService {
                 log.isGateOpened(),
                 log.getCreatedAt(),
                 gender,
-                documentId);
+                documentId,
+                voiceHints.membershipDaysRemaining(),
+                voiceHints.tiqueteraEntriesRemainingAfter(),
+                voiceHints.tiqueteraPlan() ? Boolean.TRUE : null);
     }
 
     private AccessLogResponse toLogResponse(AccessLog log) {

@@ -31,6 +31,10 @@
       Teléfono
       <input formControlName="phone" placeholder="Opcional" />
     </label>
+    <label>
+      Fecha de nacimiento
+      <input type="date" formControlName="birthDate" required />
+    </label>
 
     <p class="form-section-title">Acceso al sistema</p>
 
@@ -121,6 +125,7 @@
                 <th>Usuario</th>
                 <th>Rol</th>
                 <th>Teléfono</th>
+                <th>Nacimiento</th>
                 <th>Nequi</th>
                 <th>Banco</th>
                 <th>Cuenta</th>
@@ -135,6 +140,7 @@
                   <td>{{ emp.username || '—' }}</td>
                   <td>{{ emp.roleLabel || '—' }}</td>
                   <td>{{ emp.phone || '—' }}</td>
+                  <td>{{ formatBirthDate(emp.birthDate) }}</td>
                   <td class="col-payment">{{ emp.nequiNumber || '—' }}</td>
                   <td>{{ emp.bankName || '—' }}</td>
                   <td class="col-payment">{{ emp.bankAccountNumber || '—' }}</td>

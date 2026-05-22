@@ -5,6 +5,7 @@ export interface Employee {
   firstName: string;
   lastName: string;
   fullName: string;
+  birthDate?: string | null;
   phone?: string;
   username?: string;
   role?: UserRole;
@@ -20,6 +21,7 @@ export interface Employee {
 export interface EmployeeRequest {
   firstName: string;
   lastName: string;
+  birthDate: string;
   phone?: string;
   username?: string;
   password?: string;
