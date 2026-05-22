@@ -434,11 +434,12 @@ export class BillingPage implements OnInit, OnDestroy {
     (reg.sessionCashDayWorkout ?? 0) +
     (reg.sessionCashSportsDance ?? 0);
 
-  /** Solo efectivo de facturación (membresías, entrenos, bailes); sin Nequi ni productos de turno. */
+  /** Efectivo físico en caja: facturación + productos del día; sin Nequi ni otros digitales. */
   protected billingCashInDrawer(reg: BillingCashRegister): number {
     const billingCash = this.methodTotal(reg.sessionIncomeByMethod, 'CASH');
     const cashOut = this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
-    return roundCop(reg.openingCashAmount + billingCash - cashOut);
+    const productCash = reg.dayProductSalesCash ?? 0;
+    return roundCop(reg.openingCashAmount + billingCash + productCash - cashOut);
   }
 
   protected sessionNonCashIncome(reg: BillingCashRegister): number {

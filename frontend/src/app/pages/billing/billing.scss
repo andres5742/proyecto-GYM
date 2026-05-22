@@ -276,6 +276,12 @@
     &--detail {
       margin-top: 0.1rem;
     }
+
+    &--aside {
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      color: var(--color-text-muted);
+    }
   }
 
   &--cash {
@@ -324,6 +330,28 @@
   .method-chips--kpi {
     margin-top: auto;
     padding-top: 0.5rem;
+  }
+}
+
+.kpi-cash-breakdown {
+  margin: 0.45rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.76rem;
+  line-height: 1.45;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.12rem 0;
+    color: var(--color-text-muted);
+
+    strong {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--color-text);
+    }
   }
 }
 

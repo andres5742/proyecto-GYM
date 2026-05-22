@@ -231,9 +231,8 @@ public class BillingCashRegisterService {
     }
 
     /**
-     * Efectivo en caja de facturación: inicio + cobros de membresías/entrenos/bailes en efectivo − gastos
-     * en efectivo. No incluye Nequi ni otros medios digitales. Las ventas de productos del turno se
-     * contabilizan en la entrega de turno (Ventas), no aquí.
+     * Efectivo físico en caja del día: inicio + facturación en efectivo + ventas de productos en efectivo
+     * (todos los turnos) − gastos en efectivo. No incluye Nequi ni otros medios digitales.
      */
     @Transactional(readOnly = true)
     public BigDecimal cashInDrawerForToday() {
@@ -253,7 +252,15 @@ public class BillingCashRegisterService {
                         expenseRepository.sumByPaymentMethodByCashRegisterId(id));
         BigDecimal billingCashIn = incomeByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal cashOut = expensesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
-        return MoneyUtil.roundPesos(register.getOpeningCashAmount().add(billingCashIn).subtract(cashOut));
+        BigDecimal productCash = saleRepository.sumCashAmountByShiftDate(register.getRegisterDate());
+        if (productCash == null) {
+            productCash = BigDecimal.ZERO;
+        }
+        return MoneyUtil.roundPesos(
+                register.getOpeningCashAmount()
+                        .add(billingCashIn)
+                        .add(productCash)
+                        .subtract(cashOut));
     }
 
     private BillingCashRegisterResponse toResponseWithTotals(BillingCashRegister register) {

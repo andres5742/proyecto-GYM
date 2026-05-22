@@ -153,7 +153,7 @@ export interface BillingCashRegister {
   sessionCashMembership: number;
   sessionCashDayWorkout: number;
   sessionCashSportsDance: number;
-  /** Inicio + facturación en efectivo − gastos efectivo (sin Nequi ni ventas de turno). */
+  /** Inicio + facturación efectivo + productos efectivo − gastos (sin Nequi ni digitales). */
   cashInDrawer: number;
 }
 

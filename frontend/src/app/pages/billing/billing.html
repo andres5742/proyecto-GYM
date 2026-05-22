@@ -127,7 +127,7 @@
           <span class="kpi-card__label">Productos vendidos</span>
           <strong class="kpi-card__value">{{ reg.dayProductSalesTotal | cop }}</strong>
           <span class="kpi-card__sub">
-            Turno Ventas (no entra en caja de facturación)
+            Efectivo de turno Ventas (suma a caja del día)
             @if (reg.dayProductSalesShiftCount > 0) {
               · {{ reg.dayProductSalesShiftCount }}
               {{ reg.dayProductSalesShiftCount === 1 ? 'turno' : 'turnos' }}
@@ -178,21 +178,33 @@
       @if (efectivoEnCaja(); as neto) {
         <article class="kpi-card kpi-card--net">
           <div class="kpi-card__body">
-            <span class="kpi-card__label">Efectivo en caja (facturación)</span>
+            <span class="kpi-card__label">Efectivo en caja</span>
             <strong class="kpi-card__value">{{ neto | cop }}</strong>
-            <span class="kpi-card__sub kpi-card__sub--formula">
-              {{ reg.openingCashAmount | cop }} inicio + {{ sessionCashBillingTotal(reg) | cop }}
-              facturación
-              @if (closeRegisterCashExpenses(reg) > 0) {
-                − {{ closeRegisterCashExpenses(reg) | cop }} gastos
+            <ul class="kpi-cash-breakdown" aria-label="Desglose efectivo en caja">
+              <li>
+                <span>Inicio</span>
+                <strong>+ {{ reg.openingCashAmount | cop }}</strong>
+              </li>
+              <li>
+                <span>Facturación (efectivo)</span>
+                <strong>+ {{ sessionCashBillingTotal(reg) | cop }}</strong>
+              </li>
+              @if (reg.dayProductSalesCash > 0) {
+                <li>
+                  <span>Productos (efectivo)</span>
+                  <strong>+ {{ reg.dayProductSalesCash | cop }}</strong>
+                </li>
               }
-            </span>
+              @if (closeRegisterCashExpenses(reg) > 0) {
+                <li>
+                  <span>Gastos (efectivo)</span>
+                  <strong>− {{ closeRegisterCashExpenses(reg) | cop }}</strong>
+                </li>
+              }
+            </ul>
             @if (sessionNonCashIncome(reg) > 0) {
               <span class="kpi-card__sub kpi-card__sub--aside">
-                Sin Nequi/digital ({{ sessionNonCashIncome(reg) | cop }}) ni ventas de turno ({{
-                  reg.dayProductSalesCash | cop
-                }}
-                efectivo en productos).
+                No incluye cobros digitales (Nequi, etc.): {{ sessionNonCashIncome(reg) | cop }}.
               </span>
             }
           </div>
@@ -918,9 +930,9 @@
                 <dd>+ {{ reg.openingCashAmount | cop }}</dd>
               </div>
               @if (reg.dayProductSalesCash > 0) {
-                <div class="close-caja-breakdown__row close-caja-breakdown__row--info">
-                  <dt>Ventas de productos (turno)</dt>
-                  <dd class="muted">{{ reg.dayProductSalesCash | cop }} — se cuenta en entrega de turno</dd>
+                <div class="close-caja-breakdown__row">
+                  <dt>Productos vendidos (efectivo, turnos del día)</dt>
+                  <dd>+ {{ reg.dayProductSalesCash | cop }}</dd>
                 </div>
               }
               <div class="close-caja-breakdown__row close-caja-breakdown__row--group">
