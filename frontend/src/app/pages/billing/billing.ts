@@ -1,9 +1,8 @@
 import { DatePipe, formatCurrency, formatDate, getCurrencySymbol } from '@angular/common';
-import { Component, computed, effect, inject, OnInit, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataTableComponent } from '../../components/data-table/data-table';
 import { DataTableColumn } from '../../components/data-table/data-table.model';
-import { FaceWebcamCaptureComponent } from '../../components/face-webcam-capture/face-webcam-capture';
 import { MemberSearchSelectComponent } from '../../components/member-search-select/member-search-select';
 import { APP_CURRENCY, APP_LOCALE } from '../../core/constants/currency';
 import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
@@ -38,6 +37,7 @@ import {
 import { BILLING_PAYMENT_METHODS, PaymentMethod } from '../../core/models/sale.model';
 import { AuthService } from '../../core/services/auth.service';
 import { BillingContextService } from '../../core/services/billing-context.service';
+import { AccessService } from '../../core/services/access.service';
 import { BillingService } from '../../core/services/billing.service';
 import { MemberService } from '../../core/services/member.service';
 import { PlanService } from '../../core/services/plan.service';
@@ -46,6 +46,7 @@ import Swal from 'sweetalert2';
 
 const PAYMENT_TIME_LOCALE = 'es-CO';
 const PAYMENT_TIME_TZ = 'America/Bogota';
+const CARD_CAPTURE_POLL_MS = 1000;
 
 function formatPaymentTime(value: string): string {
   try {
@@ -111,14 +112,14 @@ const MONTH_SHORT = [
     DatePipe,
     CopCurrencyPipe,
     MemberSearchSelectComponent,
-    FaceWebcamCaptureComponent,
     DataTableComponent,
   ],
   templateUrl: './billing.html',
   styleUrls: ['./billing.scss', './billing-monthly.scss'],
 })
-export class BillingPage implements OnInit {
+export class BillingPage implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
+  private readonly accessService = inject(AccessService);
   private readonly billingService = inject(BillingService);
   private readonly billingContext = inject(BillingContextService);
   private readonly memberService = inject(MemberService);
@@ -197,10 +198,13 @@ export class BillingPage implements OnInit {
   protected readonly newMemberDocumentId = signal('');
   protected readonly newMemberPhone = signal('');
   protected readonly newMemberGender = signal<Gender | ''>('');
-  protected readonly accessKind = signal<'FINGERPRINT' | 'FACE' | 'SKIP'>('SKIP');
-  protected readonly fingerprintDeviceId = signal('');
-  protected readonly fingerprintDeviceLabel = signal('');
-  protected readonly billingFaceStatus = signal('Opcional: registra huella o rostro para el ingreso.');
+  protected readonly cardDeviceId = signal('');
+  protected readonly cardDeviceLabel = signal('');
+  protected readonly lastCapturedCardPin = signal<string | null>(null);
+  protected readonly cardCaptureWaiting = signal(false);
+  private cardCapturePollTimer: ReturnType<typeof setInterval> | null = null;
+  private cardCaptureSinceIso = new Date().toISOString();
+  private lastCardCaptureLogId = 0;
   protected readonly membershipPlanId = signal<number | null>(null);
   protected readonly membershipMonthsPaid = signal(1);
   protected readonly membershipPaymentMethod = signal<PaymentMethod>('CASH');
@@ -243,10 +247,6 @@ export class BillingPage implements OnInit {
       return null;
     }
     return Math.max(0, total - pay);
-  });
-
-  private readonly billingFaceCapture = viewChild('billingFaceCapture', {
-    read: FaceWebcamCaptureComponent,
   });
 
   protected readonly genders: { value: Gender | ''; label: string }[] = [
@@ -793,11 +793,50 @@ export class BillingPage implements OnInit {
     this.membershipFlow.set(flow);
     if (flow === 'new') {
       this.membershipMemberId.set(null);
+      this.startCardCapturePolling();
     } else {
-      this.accessKind.set('SKIP');
-      this.fingerprintDeviceId.set('');
-      this.fingerprintDeviceLabel.set('');
+      this.stopCardCapturePolling();
+      this.cardDeviceId.set('');
+      this.cardDeviceLabel.set('');
+      this.lastCapturedCardPin.set(null);
     }
+  }
+
+  ngOnDestroy(): void {
+    this.stopCardCapturePolling();
+  }
+
+  private startCardCapturePolling(): void {
+    this.stopCardCapturePolling();
+    this.cardCaptureSinceIso = new Date().toISOString();
+    this.lastCardCaptureLogId = 0;
+    this.lastCapturedCardPin.set(null);
+    this.cardCaptureWaiting.set(true);
+    void this.pollCardRead();
+    this.cardCapturePollTimer = setInterval(() => void this.pollCardRead(), CARD_CAPTURE_POLL_MS);
+  }
+
+  private stopCardCapturePolling(): void {
+    if (this.cardCapturePollTimer) {
+      clearInterval(this.cardCapturePollTimer);
+      this.cardCapturePollTimer = null;
+    }
+    this.cardCaptureWaiting.set(false);
+  }
+
+  private pollCardRead(): void {
+    this.accessService.lastDeviceRead(this.cardCaptureSinceIso).subscribe({
+      next: (read) => {
+        if (!read?.pin?.trim() || read.logId <= this.lastCardCaptureLogId) {
+          return;
+        }
+        this.lastCardCaptureLogId = read.logId;
+        const pin = read.pin.trim();
+        this.lastCapturedCardPin.set(pin);
+        this.cardDeviceId.set(pin);
+        this.cardCaptureWaiting.set(false);
+      },
+    });
   }
 
   onMembershipMemberChange(memberId: number | null): void {
@@ -851,10 +890,6 @@ export class BillingPage implements OnInit {
     }
   }
 
-  onBillingFaceStatus(status: string): void {
-    this.billingFaceStatus.set(status);
-  }
-
   private resetMembershipForm(): void {
     this.membershipMemberId.set(null);
     this.membershipFlow.set('existing');
@@ -863,10 +898,10 @@ export class BillingPage implements OnInit {
     this.newMemberDocumentId.set('');
     this.newMemberPhone.set('');
     this.newMemberGender.set('');
-    this.accessKind.set('SKIP');
-    this.fingerprintDeviceId.set('');
-    this.fingerprintDeviceLabel.set('');
-    this.billingFaceStatus.set('Opcional: registra huella o rostro para el ingreso.');
+    this.cardDeviceId.set('');
+    this.cardDeviceLabel.set('');
+    this.lastCapturedCardPin.set(null);
+    this.stopCardCapturePolling();
     this.membershipPlanId.set(null);
     this.membershipMonthsPaid.set(1);
     this.membershipPaymentMethod.set('CASH');
@@ -940,34 +975,17 @@ export class BillingPage implements OnInit {
     }
 
     let access: MembershipOnboardingRequest['access'] = null;
-    if (flow !== 'new') {
-      access = null;
-    } else {
-    const accessKind = this.accessKind();
-    if (accessKind === 'FINGERPRINT') {
-      const deviceUserId = this.fingerprintDeviceId().trim();
+    if (flow === 'new') {
+      const deviceUserId = this.cardDeviceId().trim();
       if (!deviceUserId) {
-        this.message.set('Indica el ID de huella del lector biométrico');
+        this.message.set('Pase la tarjeta en el lector o escriba el número de tarjeta / Pin ZKTeco');
         return;
       }
       access = {
-        kind: 'FINGERPRINT' as AccessOnboardingKind,
+        kind: 'CARD' as AccessOnboardingKind,
         deviceUserId,
-        deviceLabel: this.fingerprintDeviceLabel().trim() || undefined,
+        deviceLabel: this.cardDeviceLabel().trim() || undefined,
       };
-    } else if (accessKind === 'FACE') {
-      const capture = this.billingFaceCapture();
-      if (!capture) {
-        this.message.set('Prepara la cámara para capturar el rostro');
-        return;
-      }
-      const descriptor = await capture.captureDescriptor();
-      if (!descriptor || descriptor.length !== 128) {
-        this.message.set('Mira la cámara hasta que el rostro quede encuadrado y vuelve a intentar');
-        return;
-      }
-      access = { kind: 'FACE' as AccessOnboardingKind, faceDescriptor: descriptor };
-    }
     }
 
     const request: MembershipOnboardingRequest = {
@@ -994,7 +1012,7 @@ export class BillingPage implements OnInit {
         this.section.set('summary');
         const accessNote = res.accessRegistered
           ? res.accessMessage
-          : 'Puede registrar huella o rostro después en Acceso biométrico.';
+          : 'Puede vincular la tarjeta después en Acceso biométrico.';
         const title =
           res.balanceRemaining > 0 ? 'Abono registrado — puede ingresar' : 'Membresía al día';
         void Swal.fire({

@@ -388,6 +388,18 @@ public class BillingService {
                     access.deviceLabel()));
             return new AccessEnrollmentResult(true, "Huella vinculada correctamente");
         }
+        if (access.kind() == AccessOnboardingKind.CARD) {
+            if (access.deviceUserId() == null || access.deviceUserId().isBlank()) {
+                throw new BusinessException("Indica el número de tarjeta del lector");
+            }
+            accessControlService.enroll(new BiometricEnrollRequest(
+                    memberId,
+                    null,
+                    access.deviceUserId().trim(),
+                    BiometricCredentialType.CARD,
+                    access.deviceLabel()));
+            return new AccessEnrollmentResult(true, "Tarjeta vinculada correctamente");
+        }
         if (access.kind() == AccessOnboardingKind.FACE) {
             if (access.faceDescriptor() == null || access.faceDescriptor().size() != 128) {
                 throw new BusinessException("Captura el rostro antes de guardar");

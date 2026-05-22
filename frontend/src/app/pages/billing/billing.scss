@@ -745,6 +745,41 @@
   color: var(--color-text-muted);
 }
 
+.membership-access__lead {
+  margin: 0 0 0.75rem;
+}
+
+.reader-capture {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  background: linear-gradient(145deg, rgb(232 168 92 / 18%), rgb(255 255 255 / 6%));
+  border: 1px solid rgb(232 168 92 / 45%);
+  border-radius: var(--radius-sm);
+
+  &__title {
+    margin: 0 0 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  &__pin {
+    margin: 0;
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    color: var(--color-trust);
+    word-break: break-all;
+  }
+
+  &__hint,
+  &__wait {
+    margin: 0.35rem 0 0;
+  }
+}
+
 .membership-payment-grid {
   display: grid;
   grid-template-columns: 1fr minmax(5.5rem, 7rem);

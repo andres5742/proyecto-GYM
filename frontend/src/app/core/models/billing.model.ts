@@ -71,7 +71,7 @@ export interface MembershipPaymentOutcome {
   message: string;
 }
 
-export type AccessOnboardingKind = 'FINGERPRINT' | 'FACE';
+export type AccessOnboardingKind = 'FINGERPRINT' | 'FACE' | 'CARD';
 
 export interface NewMemberOnboardingData {
   firstName: string;

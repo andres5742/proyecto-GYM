@@ -332,72 +332,42 @@
 
         @if (membershipFlow() === 'new') {
           <section class="membership-block membership-block--access membership-access">
-            <h4 class="membership-block__title">2. Acceso al gimnasio</h4>
+            <h4 class="membership-block__title">2. Tarjeta de acceso</h4>
             <div class="membership-block__body">
-              <div class="membership-access__options">
-                <label class="membership-access__option">
+              <p class="membership-access__lead muted small">
+                Pase la tarjeta en el lector ZKTeco: el número aparecerá aquí para vincularla al afiliado nuevo.
+              </p>
+              <div class="reader-capture">
+                <p class="reader-capture__title">Pase la tarjeta en el lector</p>
+                @if (lastCapturedCardPin(); as pin) {
+                  <p class="reader-capture__pin" aria-live="polite">{{ pin }}</p>
+                  <p class="reader-capture__hint muted small">Código capturado — ya está en el campo de abajo.</p>
+                } @else if (cardCaptureWaiting()) {
+                  <p class="reader-capture__wait muted small">
+                    Esperando lectura… (el lector debe enviar eventos al servidor)
+                  </p>
+                }
+              </div>
+              <div class="membership-access__fields">
+                <label class="field">
+                  <span class="field__label">Nº tarjeta / Pin en ZKTeco</span>
                   <input
-                    type="radio"
-                    name="accessKind"
-                    value="SKIP"
-                    [checked]="accessKind() === 'SKIP'"
-                    (change)="accessKind.set('SKIP')"
+                    type="text"
+                    [ngModel]="cardDeviceId()"
+                    (ngModelChange)="cardDeviceId.set($event)"
+                    placeholder="Ej: 10042 o número de tarjeta"
                   />
-                  <span>Registrar después</span>
                 </label>
-                <label class="membership-access__option">
+                <label class="field">
+                  <span class="field__label">Nota (opcional)</span>
                   <input
-                    type="radio"
-                    name="accessKind"
-                    value="FINGERPRINT"
-                    [checked]="accessKind() === 'FINGERPRINT'"
-                    (change)="accessKind.set('FINGERPRINT')"
+                    type="text"
+                    [ngModel]="cardDeviceLabel()"
+                    (ngModelChange)="cardDeviceLabel.set($event)"
+                    placeholder="Ej: Tarjeta recepción"
                   />
-                  <span>👆 Huella</span>
-                </label>
-                <label class="membership-access__option">
-                  <input
-                    type="radio"
-                    name="accessKind"
-                    value="FACE"
-                    [checked]="accessKind() === 'FACE'"
-                    (change)="accessKind.set('FACE')"
-                  />
-                  <span>🙂 Rostro</span>
                 </label>
               </div>
-
-              @if (accessKind() === 'FINGERPRINT') {
-                <div class="membership-access__fields">
-                  <label class="field">
-                    <span class="field__label">ID de huella en el lector</span>
-                    <input
-                      type="text"
-                      [ngModel]="fingerprintDeviceId()"
-                      (ngModelChange)="fingerprintDeviceId.set($event)"
-                      placeholder="Ej: 10042"
-                    />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Nota (opcional)</span>
-                    <input
-                      type="text"
-                      [ngModel]="fingerprintDeviceLabel()"
-                      (ngModelChange)="fingerprintDeviceLabel.set($event)"
-                    />
-                  </label>
-                </div>
-              }
-
-              @if (accessKind() === 'FACE') {
-                <p class="membership-access__status">{{ billingFaceStatus() }}</p>
-                <app-face-webcam-capture
-                  #billingFaceCapture
-                  [compact]="true"
-                  [allowCameraSwitch]="true"
-                  (statusChange)="onBillingFaceStatus($event)"
-                />
-              }
             </div>
           </section>
         }
