@@ -1,5 +1,5 @@
 import { formatDate } from '@angular/common';
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -287,10 +287,35 @@ export class AccessControlPage implements OnInit, OnDestroy {
     deviceLabel: [''],
   });
 
+  constructor() {
+    effect(() => {
+      if (this.registerAudience() !== 'members') {
+        return;
+      }
+      const credType: BiometricCredentialType =
+        this.registerMethod() === 'card' ? 'CARD' : 'FINGERPRINT';
+      const current = this.enrollForm.getRawValue().credentialType;
+      if (current !== credType) {
+        this.enrollForm.patchValue({ credentialType: credType }, { emitEvent: false });
+      }
+    });
+  }
+
   ngOnInit(): void {
+    this.syncMemberEnrollCredentialType();
     this.loadAll();
     this.syncCapturePolling();
     this.syncLogsPolling();
+  }
+
+  private syncMemberEnrollCredentialType(): void {
+    const credType: BiometricCredentialType =
+      this.registerMethod() === 'card' ? 'CARD' : 'FINGERPRINT';
+    this.enrollForm.patchValue({ credentialType: credType }, { emitEvent: false });
+  }
+
+  private memberEnrollCredentialType(): BiometricCredentialType {
+    return this.registerMethod() === 'card' ? 'CARD' : 'FINGERPRINT';
   }
 
   ngOnDestroy(): void {
@@ -331,11 +356,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
 
   setRegisterMethod(method: 'fingerprint' | 'card'): void {
     this.registerMethod.set(method);
-    if (method === 'card') {
-      this.enrollForm.patchValue({ credentialType: 'CARD' });
-    } else if (method === 'fingerprint') {
-      this.enrollForm.patchValue({ credentialType: 'FINGERPRINT' });
-    }
+    this.syncMemberEnrollCredentialType();
     this.syncCapturePolling();
   }
 
@@ -486,10 +507,8 @@ export class AccessControlPage implements OnInit, OnDestroy {
           this.setRegisterMethod('card');
         }
         if (this.registerAudience() === 'members') {
-          this.enrollForm.patchValue({
-            deviceUserId: pin,
-            credentialType: isSpecialPass ? this.enrollForm.getRawValue().credentialType : 'CARD',
-          });
+          this.syncMemberEnrollCredentialType();
+          this.enrollForm.patchValue({ deviceUserId: pin });
         } else {
           this.staffEnrollForm.patchValue({ deviceUserId: pin });
         }
@@ -562,23 +581,25 @@ export class AccessControlPage implements OnInit, OnDestroy {
     if (raw.memberId == null) {
       return;
     }
+    const credType = this.memberEnrollCredentialType();
+    this.enrollForm.patchValue({ credentialType: credType }, { emitEvent: false });
     this.saving.set(true);
     this.accessService
       .enroll({
         memberId: raw.memberId,
         deviceUserId: raw.deviceUserId,
-        credentialType: raw.credentialType,
+        credentialType: credType,
         deviceLabel: raw.deviceLabel || undefined,
       })
       .subscribe({
         next: () => {
           this.saving.set(false);
           this.loadAll();
-          if (raw.credentialType === 'CARD') {
+          if (credType === 'CARD') {
             this.resetMemberLinkForm();
             this.showLinkSuccessSwal();
           } else {
-            const label = this.typeLabels[raw.credentialType];
+            const label = this.typeLabels[credType];
             this.message.set(`${label} vinculado al afiliado correctamente`);
             this.enrollForm.patchValue({ deviceUserId: '', deviceLabel: '' });
           }
