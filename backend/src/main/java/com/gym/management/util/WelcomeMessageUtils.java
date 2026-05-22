@@ -16,6 +16,21 @@ public final class WelcomeMessageUtils {
         if (name.isEmpty()) {
             return "¡" + welcomeWord(gender) + "!";
         }
+        if (name.length() > 1) {
+            name = name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase();
+        }
         return "¡" + welcomeWord(gender) + ", " + name + "!";
+    }
+
+    /** Primer nombre para el saludo si el campo nombre viene vacío. */
+    public static String resolveFirstName(String firstName, String lastName) {
+        if (firstName != null && !firstName.isBlank()) {
+            return firstName.trim();
+        }
+        if (lastName == null || lastName.isBlank()) {
+            return "";
+        }
+        String[] parts = lastName.trim().split("\\s+");
+        return parts.length > 0 ? parts[0] : "";
     }
 }

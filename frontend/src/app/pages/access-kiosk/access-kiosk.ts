@@ -11,9 +11,9 @@ import {
   playAccessWelcome,
   playStaffAccessWelcome,
   prepareWelcomeSpeech,
-  staffWelcomeHeadline,
+  resolveMemberWelcomeText,
+  resolveStaffWelcomeText,
   unlockWelcomeAudio,
-  welcomeHeadline,
 } from '../../core/utils/access-welcome-audio';
 
 const KIOSK_MOTIVATIONAL_PHRASES = [
@@ -187,9 +187,14 @@ export class AccessKiosk implements OnInit, OnDestroy {
       }
     }
     if (last && isStaffPerson(last)) {
-      playStaffAccessWelcome(gender);
+      playStaffAccessWelcome(gender, last?.message);
     } else {
-      playAccessWelcome(firstName, gender, last ? accessWelcomeHintsFromResponse(last) : null);
+      playAccessWelcome(
+        firstName,
+        gender,
+        last ? accessWelcomeHintsFromResponse(last) : null,
+        last?.message,
+      );
     }
     this.showWelcomeAudioBtn.set(false);
   }
@@ -259,11 +264,14 @@ export class AccessKiosk implements OnInit, OnDestroy {
       gateOpened: event.gateOpened,
       message: event.message,
       memberId: event.memberId,
+      employeeId: event.employeeId,
+      personType: event.personType,
       memberName: event.memberName,
       deviceUserId: event.deviceUserId,
       credentialType: event.credentialType,
       gender: event.gender ?? null,
       documentId: event.documentId ?? null,
+      accessLogId: event.id,
       membershipDaysRemaining: event.membershipDaysRemaining ?? null,
       tiqueteraEntriesRemainingAfter: event.tiqueteraEntriesRemainingAfter ?? null,
       tiqueteraPlan: event.tiqueteraPlan ?? null,
@@ -287,26 +295,27 @@ export class AccessKiosk implements OnInit, OnDestroy {
       const staff = isStaffPerson(res);
       const firstName = firstNameFromFullName(res.memberName);
       const gender = res.gender ?? null;
-      this.welcomeTitle.set(staff ? staffWelcomeHeadline(gender) : welcomeHeadline(firstName, gender));
+      const welcomeText = staff
+        ? resolveStaffWelcomeText(res.message, gender)
+        : resolveMemberWelcomeText(res.message, firstName, gender);
+      this.welcomeTitle.set(welcomeText);
       prepareWelcomeSpeech();
       if (isWelcomeAudioUnlocked()) {
         const spoke = staff
-          ? playStaffAccessWelcome(gender)
-          : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res));
+          ? playStaffAccessWelcome(gender, res.message)
+          : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
         this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
       } else {
         this.showWelcomeAudioBtn.set(this.audioSupported);
       }
       if (staff) {
-        this.statusLine.set(`${staffWelcomeHeadline(gender)}. Pasa al torniquete.`);
+        this.statusLine.set(`${welcomeText}. Pasa al torniquete.`);
       } else {
         const cedula = this.displayCedula(res);
         this.statusLine.set(
-          firstName
-            ? `${welcomeHeadline(firstName, gender)}${cedula ? ` · Cédula ${cedula}` : ''} Pasa al torniquete.`
-            : cedula
-              ? `¡Ingreso autorizado! Cédula ${cedula}. Pasa al torniquete.`
-              : '¡Ingreso autorizado! Pasa al torniquete.',
+          cedula
+            ? `${welcomeText} · Cédula ${cedula}. Pasa al torniquete.`
+            : `${welcomeText}. Pasa al torniquete.`,
         );
       }
       this.scheduleRelease(GRANTED_DISPLAY_MS);

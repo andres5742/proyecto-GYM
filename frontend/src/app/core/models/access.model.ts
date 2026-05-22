@@ -89,6 +89,8 @@ export interface KioskAccessEvent {
   credentialType: BiometricCredentialType;
   credentialTypeLabel: string;
   memberId?: number | null;
+  employeeId?: number | null;
+  personType?: AccessPersonType;
   memberName?: string | null;
   result: AccessResult;
   message: string;
@@ -129,9 +131,19 @@ export const ACCESS_KIOSK_MODE_LABELS: Record<AccessKioskMode, string> = {
 };
 
 export function isStaffPerson(
-  row: Pick<BiometricEnrollResponse | FaceWebcamEnrollResponse, 'personType' | 'employeeId'>,
+  row: Pick<
+    BiometricEnrollResponse | FaceWebcamEnrollResponse | AccessVerifyResponse,
+    'personType' | 'employeeId' | 'memberId'
+  > & { message?: string | null },
 ): boolean {
-  return row.personType === 'STAFF' || row.employeeId != null;
+  if (row.personType === 'STAFF' || row.employeeId != null) {
+    return true;
+  }
+  const msg = 'message' in row ? row.message?.trim() : '';
+  if (msg && row.memberId == null && row.employeeId == null && /^¡Bienvenid[oa]!$/i.test(msg)) {
+    return true;
+  }
+  return false;
 }
 
 export function isMemberPerson(

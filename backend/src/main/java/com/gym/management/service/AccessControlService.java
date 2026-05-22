@@ -414,7 +414,9 @@ public class AccessControlService {
     }
 
     private String buildMemberWelcomeMessage(Member member, MembershipPlan plan) {
-        String base = WelcomeMessageUtils.welcomeWithFirstName(member.getGender(), member.getFirstName());
+        String firstName =
+                WelcomeMessageUtils.resolveFirstName(member.getFirstName(), member.getLastName());
+        String base = WelcomeMessageUtils.welcomeWithFirstName(member.getGender(), firstName);
         AccessVoiceHints hints =
                 AccessVoiceHintsBuilder.forMember(member, accessLogRepository, GYM_ZONE, false);
         StringBuilder msg = new StringBuilder(base);
@@ -491,8 +493,9 @@ public class AccessControlService {
         } else {
             logId = saveMemberLog(deviceUserId, type, member, AccessResult.GRANTED, message, opened);
         }
-        AccessVoiceHints voiceHints =
-                AccessVoiceHintsBuilder.forMember(member, accessLogRepository, GYM_ZONE, true);
+        AccessVoiceHints voiceHints = employee != null
+                ? AccessVoiceHints.none()
+                : AccessVoiceHintsBuilder.forMember(member, accessLogRepository, GYM_ZONE, true);
         return new AccessVerifyResponse(
                 AccessResult.GRANTED,
                 opened,
@@ -612,12 +615,17 @@ public class AccessControlService {
         String personName = null;
         com.gym.management.model.Gender gender = null;
         Long memberId = null;
+        Long employeeId = null;
+        AccessPersonType personType = AccessPersonType.MEMBER;
         if (log.getMember() != null) {
             personName = log.getMember().getFirstName() + " " + log.getMember().getLastName();
             gender = log.getMember().getGender();
             memberId = log.getMember().getId();
+            personType = AccessPersonType.MEMBER;
         } else if (log.getEmployee() != null) {
             personName = log.getEmployee().getFirstName() + " " + log.getEmployee().getLastName();
+            employeeId = log.getEmployee().getId();
+            personType = AccessPersonType.STAFF;
         }
         BiometricCredentialType type = log.getCredentialType() != null
                 ? log.getCredentialType()
@@ -632,6 +640,8 @@ public class AccessControlService {
                 type,
                 type.displayLabel(),
                 memberId,
+                employeeId,
+                personType,
                 personName,
                 log.getResult(),
                 log.getMessage(),

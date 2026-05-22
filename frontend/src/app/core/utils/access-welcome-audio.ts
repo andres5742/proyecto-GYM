@@ -186,10 +186,7 @@ export function unlockWelcomeAudio(): boolean {
     return false;
   }
 
-  speakSequence(speech, [
-    { text: 'Sistema activado.', rate: 0.95 },
-    { text: 'Que tenga un excelente día.', rate: 0.93, pauseBeforeMs: 400 },
-  ]);
+  speakSequence(speech, [{ text: 'Sistema activado.', rate: 0.95 }]);
   audioUnlocked = true;
   return true;
 }
@@ -246,13 +243,24 @@ function staffWelcomeSegments(gender?: Gender | null): SpeechSegment[] {
 }
 
 /** Voz mínima para entrenador: una sola palabra, sin nombre ni avisos. */
-export function playStaffAccessWelcome(gender?: Gender | null): boolean {
+export function playStaffAccessWelcome(gender?: Gender | null, logMessage?: string | null): boolean {
   const speech = getSpeech();
   if (!speech) {
     return false;
   }
-  speakSequence(speech, staffWelcomeSegments(gender));
+  const headline = welcomeBaseFromLogMessage(logMessage) ?? staffWelcomeHeadline(gender);
+  const spoken = headline.replace(/[¡!]/g, '').trim() || staffWelcomeHeadline(gender);
+  speakSequence(speech, [
+    { text: spoken, rate: 0.95, pitch: gender === 'FEMALE' ? 1.04 : 1 },
+  ]);
   return true;
+}
+
+export function resolveStaffWelcomeText(
+  message: string | null | undefined,
+  gender?: Gender | null,
+): string {
+  return welcomeBaseFromLogMessage(message) ?? staffWelcomeHeadline(gender);
 }
 
 function membershipDaysPhrase(days: number): string {
@@ -310,12 +318,47 @@ function welcomeSegments(
     }
   }
 
-  segments.push({
-    text: 'Que tenga un excelente día.',
-    rate: 0.93,
-    pitch: 0.98,
-    pauseBeforeMs: 320,
-  });
+  return segments;
+}
+
+/** Misma frase base que guarda el backend en el historial de ingresos. */
+export function welcomeBaseFromLogMessage(message?: string | null): string | null {
+  if (!message?.trim()) {
+    return null;
+  }
+  const cut = message.trim().split(/\s+Te quedan|\s+Este era/)[0]?.trim();
+  return cut || null;
+}
+
+function welcomeSegmentsWithHeadline(
+  headline: string,
+  hints?: AccessWelcomeAudioHints | null,
+  gender?: Gender | null,
+): SpeechSegment[] {
+  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const segments: SpeechSegment[] = [{ text: headline, rate: 0.95, pitch }];
+
+  const days = hints?.membershipDaysRemaining;
+  if (days != null && days > 0 && days <= MEMBERSHIP_WARNING_DAYS) {
+    segments.push({
+      text: membershipDaysPhrase(days),
+      rate: 0.92,
+      pitch: 0.98,
+      pauseBeforeMs: 380,
+    });
+  }
+
+  if (hints?.tiqueteraPlan) {
+    const left = hints.tiqueteraEntriesRemainingAfter;
+    if (left != null && left >= 0 && left < TIQUETERA_LOW_ENTRIES) {
+      segments.push({
+        text: tiqueteraEntriesPhrase(left),
+        rate: 0.91,
+        pitch: 0.98,
+        pauseBeforeMs: 360,
+      });
+    }
+  }
 
   return segments;
 }
@@ -338,13 +381,27 @@ export function playAccessWelcome(
   firstName?: string | null,
   gender?: Gender | null,
   hints?: AccessWelcomeAudioHints | null,
+  logMessage?: string | null,
 ): boolean {
   const speech = getSpeech();
   if (!speech) {
     return false;
   }
-  speakSequence(speech, welcomeSegments(firstName, gender, hints));
+  const fromLog = welcomeBaseFromLogMessage(logMessage);
+  const segments = fromLog
+    ? welcomeSegmentsWithHeadline(fromLog, hints, gender)
+    : welcomeSegments(firstName, gender, hints);
+  speakSequence(speech, segments);
   return true;
+}
+
+/** Texto visible y hablado alineado con el historial de ingresos. */
+export function resolveMemberWelcomeText(
+  message: string | null | undefined,
+  firstName?: string | null,
+  gender?: Gender | null,
+): string {
+  return welcomeBaseFromLogMessage(message) ?? welcomeHeadline(firstName, gender);
 }
 
 /** Anuncio corto (ej. último ticket en recepción). */
