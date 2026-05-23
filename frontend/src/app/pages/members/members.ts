@@ -125,6 +125,7 @@ export class Members implements OnInit {
     documentId: ['', Validators.required],
     planId: ['' as string],
     membershipEnd: [''],
+    status: ['ACTIVE' as MembershipStatus],
   });
 
   ngOnInit(): void {
@@ -210,6 +211,7 @@ export class Members implements OnInit {
       documentId: '',
       planId: '',
       membershipEnd: '',
+      status: 'ACTIVE',
     });
   }
 
@@ -229,6 +231,7 @@ export class Members implements OnInit {
       documentId: '',
       planId: '',
       membershipEnd: '',
+      status: 'ACTIVE',
     });
   }
 
@@ -245,6 +248,7 @@ export class Members implements OnInit {
       documentId: member.documentId ?? '',
       planId: member.planId != null ? String(member.planId) : '',
       membershipEnd: member.membershipEnd ?? '',
+      status: member.status,
     });
   }
 
@@ -269,7 +273,7 @@ export class Members implements OnInit {
         phone: raw.phone || undefined,
         documentId: raw.documentId.trim(),
         planId,
-        status: 'ACTIVE',
+        status: this.canEditMembershipEnd() ? raw.status : 'ACTIVE',
         membershipEnd: this.canEditMembershipEnd() ? membershipEnd : undefined,
       };
       this.saving.set(true);
@@ -301,7 +305,7 @@ export class Members implements OnInit {
       phone: raw.phone || undefined,
       documentId: raw.documentId || undefined,
       planId: this.canEditMembershipEnd() ? planId : (existing?.planId ?? null),
-      status: existing?.status ?? 'ACTIVE',
+      status: this.canEditMembershipEnd() ? raw.status : (existing?.status ?? 'ACTIVE'),
       membershipStart: existing?.membershipStart,
       membershipEnd: this.canEditMembershipEnd() ? membershipEnd : existing?.membershipEnd,
     };
@@ -316,6 +320,44 @@ export class Members implements OnInit {
       error: (err) => {
         this.message.set(err?.error?.message ?? 'No se pudo guardar el afiliado');
         this.saving.set(false);
+      },
+    });
+  }
+
+  toggleMemberStatus(member: Member): void {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
+    const next: MembershipStatus = member.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE';
+    const label = next === 'ACTIVE' ? 'activar' : 'inactivar';
+    if (
+      !confirm(
+        `¿${label.charAt(0).toUpperCase() + label.slice(1)} a ${member.firstName} ${member.lastName}?`,
+      )
+    ) {
+      return;
+    }
+    const request: MemberRequest = {
+      firstName: member.firstName,
+      lastName: member.lastName,
+      gender: member.gender ?? null,
+      phone: member.phone ?? undefined,
+      documentId: member.documentId ?? undefined,
+      planId: member.planId ?? null,
+      status: next,
+      membershipStart: member.membershipStart,
+      membershipEnd: member.membershipEnd,
+    };
+    this.saving.set(true);
+    this.memberService.update(member.id, request).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.message.set(next === 'ACTIVE' ? 'Afiliado activado' : 'Afiliado inactivado');
+        this.loadData();
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.message.set(err?.error?.message ?? 'No se pudo cambiar el estado');
       },
     });
   }

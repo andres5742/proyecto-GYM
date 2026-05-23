@@ -113,8 +113,17 @@
           Fecha de vencimiento
           <input type="date" formControlName="membershipEnd" />
         </label>
+        <label>
+          Estado del afiliado
+          <select formControlName="status">
+            <option value="ACTIVE">Activo</option>
+            <option value="EXPIRED">Inactivo</option>
+            <option value="SUSPENDED">Suspendido</option>
+          </select>
+        </label>
         <p class="field-note">
-          Solo el super administrador puede definir o cambiar la fecha de vencimiento desde este módulo.
+          Solo el super administrador puede activar o inactivar afiliados, cambiar la vencimiento y el plan.
+          Para ingreso al gimnasio, «Activo» requiere además una fecha de vencimiento vigente.
         </p>
       } @else if (editingMember(); as em) {
         <dl class="membership-readonly">
@@ -366,6 +375,27 @@
                 </td>
                 <td class="row-actions" data-label="Acciones">
                   <button type="button" class="link" (click)="startEdit(member)">Editar</button>
+                  @if (isSuperAdmin() && !member.membershipFrozen) {
+                    @if (member.status === 'ACTIVE') {
+                      <button
+                        type="button"
+                        class="link warn"
+                        [disabled]="saving()"
+                        (click)="toggleMemberStatus(member)"
+                      >
+                        Inactivar
+                      </button>
+                    } @else if (member.status === 'EXPIRED' || member.status === 'SUSPENDED') {
+                      <button
+                        type="button"
+                        class="link"
+                        [disabled]="saving()"
+                        (click)="toggleMemberStatus(member)"
+                      >
+                        Activar
+                      </button>
+                    }
+                  }
                   @if (member.membershipFrozen) {
                     <button
                       type="button"

@@ -97,6 +97,7 @@ public class MemberService {
         LocalDate previousMembershipEnd = member.getMembershipEnd();
         LocalDate previousMembershipStart = member.getMembershipStart();
         MembershipPlan previousPlan = member.getPlan();
+        MembershipStatus previousStatus = member.getStatus();
         boolean wasFrozen = MembershipFreezeService.isFrozen(member);
         Integer frozenDays = member.getFrozenRemainingDays();
         String email = resolveEmail(request, member);
@@ -108,6 +109,9 @@ public class MemberService {
             member.setMembershipEnd(previousMembershipEnd);
             member.setMembershipStart(previousMembershipStart);
             member.setPlan(previousPlan);
+            member.setStatus(previousStatus);
+        } else if (request.status() != null) {
+            member.setStatus(request.status());
         }
         if (wasFrozen) {
             member.setMembershipFrozen(true);
