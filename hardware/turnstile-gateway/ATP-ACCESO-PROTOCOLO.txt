@@ -12,9 +12,9 @@ COMANDOS (un caracter por olecontrol2.Output)
   b = error documento o clave
   e, c, i = otros estados
   CONFIRMADO en gym (COM3 @ 19200, probar-letras-com3.bat):
-    BLOQUEAR seguro (fisico):  b   c   d   e
-    DESBLOQUEAR (pasar):       a   (y letras que no bloquean: f,g,h,i,l...)
-  Sport Gym: LOCK_CHAR=d  UNLOCK_CHAR=a
+    BLOQUEAR seguro (fisico):  h   i
+    DESBLOQUEAR (pasar):       a
+  Sport Gym: LOCK_CHARS=hi  UNLOCK_CHAR=a
   a = inicio / bienvenida pantalla
 
 BASE DE DATOS
@@ -30,8 +30,8 @@ CONFIG Sport Gym (turnstile-gate.env)
   TURNSTILE_GATE_PROTOCOL=atp-acceso
   TURNSTILE_GATE_PORT=COM3
   TURNSTILE_GATE_BAUD=19200
-  TURNSTILE_LOCK_CHAR=d
-  TURNSTILE_UNLOCK_CHAR=h
+  TURNSTILE_LOCK_CHARS=hi
+  TURNSTILE_UNLOCK_CHAR=a
 
 PRUEBA
   Cerrar ATP-ACCESO 4.0.exe y iniciar-lector-tarjeta.bat
@@ -42,5 +42,5 @@ IMPORTANTE
   Cierre ATP-ACCESO antes de Sport Gym lector.
 
 PRUEBA FINAL
-  b,c,d,e = bloqueo fisico en ESTE gym. a = desbloqueo. Empujar al liberar.
+  h,i = bloqueo fisico en ESTE gym. a = desbloqueo. Empujar al liberar.
   Si cambia de placa, ejecute probar-letras-com3.bat de nuevo.

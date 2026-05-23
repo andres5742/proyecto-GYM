@@ -102,13 +102,13 @@ public class MembershipObligationService {
                 .build();
         obligation = obligationRepository.save(obligation);
 
-        applyMembershipToMember(member, plan, dates);
+        applyMembershipToMember(member, plan, dates, MembershipObligationMapper.balanceOf(obligation));
         memberRepository.save(member);
 
         BillingPayment billing = saveMembershipBillingPayment(
                 member, plan, monthsPaid, paymentMethod, paymentAmount, cashRegister, employee, obligation, kind, dates);
 
-        return buildOutcome(billing, obligation, true);
+        return buildOutcome(billing, obligation);
     }
 
     private MembershipPaymentOutcomeResponse applyPaymentToObligation(
@@ -156,7 +156,7 @@ public class MembershipObligationService {
             obligation.setStatus(MembershipObligationStatus.PAID);
             obligation.setAmountPaid(obligation.getTotalAmount());
         }
-        applyMembershipToMember(member, plan, dates);
+        applyMembershipToMember(member, plan, dates, newBalance);
         obligationRepository.save(obligation);
         memberRepository.save(member);
 
@@ -172,7 +172,7 @@ public class MembershipObligationService {
                 kind,
                 dates);
 
-        return buildOutcome(billing, obligation, true);
+        return buildOutcome(billing, obligation);
     }
 
     @Transactional
@@ -214,18 +214,22 @@ public class MembershipObligationService {
     }
 
     private MembershipPaymentOutcomeResponse buildOutcome(
-            BillingPayment billing,
-            MembershipObligation obligation,
-            boolean activated) {
+            BillingPayment billing, MembershipObligation obligation) {
         MembershipObligationResponse obligationResponse = MembershipObligationMapper.toResponse(obligation);
         long balance = obligationResponse.balance();
+        BigDecimal balanceAmount = BigDecimal.valueOf(balance);
+        Member member = obligation.getMember();
+        boolean activated = balance <= 0
+                || !MembershipInstallmentAccessRules.mustStayInactive(member, balanceAmount, GYM_ZONE);
         String message;
         if (balance <= 0) {
             message = "Pago completo registrado. Membresía al día.";
         } else {
-            message = "Abono registrado. Ya puede ingresar al gym. Saldo pendiente de $"
+            message = "Abono registrado. Saldo pendiente de $"
                     + MoneyUtil.formatPesos(BigDecimal.valueOf(balance))
-                    + ".";
+                    + ". Debe pagar todo antes de los "
+                    + MembershipInstallmentAccessRules.INSTALLMENT_DEADLINE_DAYS
+                    + " días al vencimiento; después no podrá ingresar hasta liquidar.";
         }
         return new MembershipPaymentOutcomeResponse(
                 com.gym.management.mapper.BillingPaymentMapper.toResponse(billing),
@@ -277,13 +281,18 @@ public class MembershipObligationService {
                 .build());
     }
 
-    private void applyMembershipToMember(Member member, MembershipPlan plan, MembershipDates dates) {
+    private void applyMembershipToMember(
+            Member member, MembershipPlan plan, MembershipDates dates, BigDecimal installmentBalance) {
         member.setPlan(plan);
         if (member.getMembershipStart() == null) {
             member.setMembershipStart(dates.start());
         }
         member.setMembershipEnd(dates.end());
-        member.setStatus(MembershipStatus.ACTIVE);
+        if (MembershipInstallmentAccessRules.mustStayInactive(member, installmentBalance, GYM_ZONE)) {
+            member.setStatus(MembershipStatus.EXPIRED);
+        } else {
+            member.setStatus(MembershipStatus.ACTIVE);
+        }
         member.setMembershipFrozen(false);
         member.setFrozenRemainingDays(null);
     }

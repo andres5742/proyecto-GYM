@@ -333,7 +333,12 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.releaseTimer = null;
     }
 
-    window.sportGymDesktop?.syncAccessResult?.(res.result, Boolean(res.gateOpened));
+    window.sportGymDesktop?.syncAccessResult?.({
+      result: res.result,
+      gateOpened: Boolean(res.gateOpened),
+      deviceUserId: res.deviceUserId,
+      credentialType: res.credentialType,
+    });
 
     this.lastResult.set(res);
     if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {

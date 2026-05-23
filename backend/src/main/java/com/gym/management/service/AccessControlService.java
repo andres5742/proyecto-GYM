@@ -27,6 +27,7 @@ import com.gym.management.repository.EmployeeBiometricCredentialRepository;
 import com.gym.management.repository.EmployeeRepository;
 import com.gym.management.repository.MemberBiometricCredentialRepository;
 import com.gym.management.repository.MemberRepository;
+import com.gym.management.repository.MembershipObligationRepository;
 import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.CardCredentialKeys;
 import com.gym.management.util.CardSelectionJson;
@@ -54,6 +55,7 @@ public class AccessControlService {
     private final EmployeeBiometricCredentialRepository employeeCredentialRepository;
     private final AccessLogRepository accessLogRepository;
     private final TurnstileGatewayService turnstileGatewayService;
+    private final MembershipObligationRepository membershipObligationRepository;
 
     @Transactional
     public AccessVerifyResponse verifyAndOpen(AccessVerifyRequest request) {
@@ -515,6 +517,12 @@ public class AccessControlService {
                             + " guardados. Descongela en recepción para ingresar.");
         }
 
+        var installmentDeny = MembershipInstallmentAccessRules.denyReasonIfUnpaidInstallmentDue(
+                member, membershipObligationRepository, GYM_ZONE);
+        if (installmentDeny.isPresent()) {
+            return deny(deviceUserId, type, member, null, installmentDeny.get());
+        }
+
         MembershipStatus status = MemberMembershipRules.effectiveStatus(member);
         if (status != MembershipStatus.ACTIVE) {
             String message = status == MembershipStatus.SUSPENDED
@@ -701,15 +709,17 @@ public class AccessControlService {
             Member member,
             Employee employee,
             String message) {
+        String displayName = member != null
+                ? member.getFirstName() + " " + member.getLastName()
+                : employee != null ? employee.getFirstName() + " " + employee.getLastName() : null;
+        Long gatePersonId = member != null ? member.getId() : employee != null ? employee.getId() : null;
+        turnstileGatewayService.lockGate(displayName, gatePersonId);
         Long logId;
         if (employee != null) {
             logId = saveStaffLog(deviceUserId, type, employee, AccessResult.DENIED, message, false);
         } else {
             logId = saveMemberLog(deviceUserId, type, member, AccessResult.DENIED, message, false);
         }
-        String displayName = member != null
-                ? member.getFirstName() + " " + member.getLastName()
-                : employee != null ? employee.getFirstName() + " " + employee.getLastName() : null;
         return new AccessVerifyResponse(
                 AccessResult.DENIED,
                 false,

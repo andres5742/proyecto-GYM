@@ -20,19 +20,39 @@ public class TurnstileGatewayService {
     }
 
     public boolean openGate(String memberName, Long memberId) {
+        return sendGateAction("open", memberName, memberId);
+    }
+
+    /** Refuerza el bloqueo del torniquete cuando el acceso es denegado. */
+    public boolean lockGate(String memberName, Long memberId) {
+        return sendGateAction("lock", memberName, memberId);
+    }
+
+    private boolean sendGateAction(String action, String memberName, Long memberId) {
         if (webhookUrl.isEmpty()) {
-            log.info("TORNIQUETE ABIERTO (simulado) — afiliado: {} (id={})", memberName, memberId);
+            if ("open".equals(action)) {
+                log.info("TORNIQUETE ABIERTO (simulado) — afiliado: {} (id={})", memberName, memberId);
+            } else {
+                log.info("TORNIQUETE BLOQUEADO (simulado) — afiliado: {} (id={})", memberName, memberId);
+            }
             return true;
         }
         try {
-            var body = java.util.Map.of("action", "open", "memberId", memberId, "memberName", memberName);
+            var body = new java.util.HashMap<String, Object>();
+            body.put("action", action);
+            if (memberId != null) {
+                body.put("memberId", memberId);
+            }
+            if (memberName != null && !memberName.isBlank()) {
+                body.put("memberName", memberName);
+            }
             var headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             restTemplate.postForEntity(webhookUrl, new HttpEntity<>(body, headers), String.class);
-            log.info("Señal de apertura enviada al torniquete para {}", memberName);
+            log.info("Señal {} enviada al torniquete para {}", action, memberName);
             return true;
         } catch (Exception ex) {
-            log.warn("No se pudo activar el torniquete vía webhook: {}", ex.getMessage());
+            log.warn("No se pudo enviar señal {} al torniquete vía webhook: {}", action, ex.getMessage());
             return false;
         }
     }

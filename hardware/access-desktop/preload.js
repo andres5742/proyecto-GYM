@@ -4,6 +4,11 @@ contextBridge.exposeInMainWorld('sportGymDesktop', {
   isDesktopApp: true,
   requestClose: () => ipcRenderer.send('app-request-quit'),
   /** Pone o quita el seguro del torniquete según resultado del API. */
-  syncAccessResult: (result, gateOpened) =>
-    ipcRenderer.send('gate-sync', { result, gateOpened }),
+  syncAccessResult: (payload) => {
+    if (payload && typeof payload === 'object') {
+      ipcRenderer.send('gate-sync', payload);
+      return;
+    }
+    ipcRenderer.send('gate-sync', { result: payload, gateOpened: false });
+  },
 });

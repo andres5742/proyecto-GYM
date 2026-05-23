@@ -105,9 +105,12 @@ function syncGateFromPayload(payload) {
   const isCardFromReader =
     payload && payload.credentialType === 'CARD' && !isShortcut;
 
-  // Con lector activo, el seguro lo maneja serial_card_reader (after_api_response).
-  // Si Electron tambien encola unlock al hacer polling, anula el bloqueo (l).
+  // Con lector activo, unlock lo maneja serial_card_reader (after_api_response).
+  // Solo omitimos unlock duplicado; DENIED siempre debe encolar lock por si el lector falló.
   if (config.spawnCardReader && isCardFromReader) {
+    if (!shouldUnlock) {
+      queueGateCommand('lock');
+    }
     return;
   }
 

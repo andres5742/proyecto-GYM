@@ -2,6 +2,7 @@ package com.gym.management.repository;
 
 import com.gym.management.model.MembershipObligation;
 import com.gym.management.model.MembershipObligationStatus;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -31,4 +32,13 @@ public interface MembershipObligationRepository extends JpaRepository<Membership
             """)
     Optional<MembershipObligation> findOpenByMemberIdWithDetails(
             @Param("memberId") Long memberId, @Param("status") MembershipObligationStatus status);
+
+    @Query(
+            """
+            SELECT o FROM MembershipObligation o
+            JOIN FETCH o.member
+            JOIN FETCH o.plan
+            WHERE o.status = :status
+            """)
+    List<MembershipObligation> findAllOpenWithDetails(@Param("status") MembershipObligationStatus status);
 }

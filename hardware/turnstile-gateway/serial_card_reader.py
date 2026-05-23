@@ -104,6 +104,13 @@ def handle_frame(data: bytes) -> None:
 
 
 def post_pin(pin: str) -> None:
+    try:
+        from turnstile_gate import lock_gate
+
+        lock_gate()
+    except ImportError:
+        pass
+
     body = json.dumps({"pin": pin}).encode()
     req = urllib.request.Request(
         API,

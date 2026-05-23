@@ -10,7 +10,7 @@ Comportamiento deseado:
 Configure turnstile-gate.env (copie turnstile-gate.env.example) o iniciar-lector-tarjeta.bat:
   TURNSTILE_GATE_MODE=serial|http|none
   TURNSTILE_GATE_PORT=COMx          (solo si la placa CAFÉ tiene serial al PC; NO COM3 lector)
-  ATP gym: LOCK_CHAR=d (b,c,e tambien)  UNLOCK_CHAR=a  BAUD=19200
+  ATP gym: LOCK_CHARS=hi (bloqueo)  UNLOCK_CHAR=a (liberar)  BAUD=19200
   TURNSTILE_UNLOCK_MS=8000          (tiempo libre para pasar empujando)
 """
 from __future__ import annotations
@@ -68,8 +68,19 @@ def _hex_bytes(name: str) -> bytes:
     return bytes.fromhex(raw)
 
 
+def _parse_lock_bytes() -> list[bytes]:
+    """Letras de bloqueo ATP. TURNSTILE_LOCK_CHARS=hi envia h e i."""
+    multi = os.environ.get("TURNSTILE_LOCK_CHARS", "").strip()
+    if multi:
+        return [ch.encode("ascii")[:1] for ch in multi if ch.strip()]
+    single = os.environ.get("TURNSTILE_LOCK_CHAR", "").strip()
+    if single:
+        return [single.encode("ascii")[:1]]
+    return [ch.encode("ascii")[:1] for ch in "hi"]
+
+
 def _read_config() -> None:
-    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, UNLOCK_BYTES, UNLOCK_MS, HTTP_LOCK, HTTP_UNLOCK
+    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, UNLOCK_BYTES, UNLOCK_MS, HTTP_LOCK, HTTP_UNLOCK
     global GATE_PROTOCOL, READER_BAUD
     _load_gate_env_file()
     MODE = os.environ.get("TURNSTILE_GATE_MODE", "none").lower().strip()
@@ -82,17 +93,21 @@ def _read_config() -> None:
 
     if GATE_PROTOCOL in ("atp", "atp-acceso", "atp4", "atp-acceso-4"):
         GATE_BAUD = int(os.environ.get("TURNSTILE_GATE_BAUD", "19200"))
-        lock_ch = os.environ.get("TURNSTILE_LOCK_CHAR", "d").strip() or "d"
-        unlock_ch = os.environ.get("TURNSTILE_UNLOCK_CHAR", "h").strip() or "h"
-        LOCK_BYTES = lock_ch.encode("ascii")[:1]
+        LOCK_BYTES_LIST = _parse_lock_bytes()
+        LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b"h"
+        unlock_ch = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").strip() or "a"
         UNLOCK_BYTES = unlock_ch.encode("ascii")[:1]
     else:
-        LOCK_BYTES = _hex_bytes("TURNSTILE_LOCK_BYTES")
+        LOCK_BYTES_LIST = _parse_lock_bytes()
+        LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b""
+        LOCK_BYTES = _hex_bytes("TURNSTILE_LOCK_BYTES") or LOCK_BYTES
+        if LOCK_BYTES and not LOCK_BYTES_LIST:
+            LOCK_BYTES_LIST = [LOCK_BYTES]
         UNLOCK_BYTES = _hex_bytes("TURNSTILE_UNLOCK_BYTES")
-        if not LOCK_BYTES and os.environ.get("TURNSTILE_LOCK_CHAR", "").strip():
-            LOCK_BYTES = os.environ.get("TURNSTILE_LOCK_CHAR", "d").encode("ascii")[:1]
         if not UNLOCK_BYTES and os.environ.get("TURNSTILE_UNLOCK_CHAR", "").strip():
-            UNLOCK_BYTES = os.environ.get("TURNSTILE_UNLOCK_CHAR", "h").encode("ascii")[:1]
+            UNLOCK_BYTES = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").encode("ascii")[:1]
+        if not LOCK_BYTES_LIST and LOCK_BYTES:
+            LOCK_BYTES_LIST = [LOCK_BYTES]
 
     UNLOCK_MS = int(os.environ.get("TURNSTILE_UNLOCK_MS", "8000"))
     HTTP_LOCK = os.environ.get("TURNSTILE_HTTP_LOCK", "").strip()
@@ -102,6 +117,7 @@ def _read_config() -> None:
 _read_config()
 GATE_PROTOCOL = ""
 READER_BAUD = 9600
+LOCK_BYTES_LIST: list[bytes] = []
 
 
 def _payload_label(payload: bytes) -> str:
@@ -178,12 +194,17 @@ def lock_gate() -> None:
         _relock_timer.cancel()
         _relock_timer = None
     if MODE == "serial":
-        if LOCK_BYTES:
-            _send_serial(LOCK_BYTES, "PONER seguro")
+        payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
+        if payloads:
+            for index, payload in enumerate(payloads):
+                label = "PONER seguro" if index == 0 else f"PONER seguro ({chr(payload[0])})"
+                _send_serial(payload, label)
+                if index < len(payloads) - 1:
+                    time.sleep(0.12)
         elif UNLOCK_BYTES:
-            _log("Configure TURNSTILE_LOCK_BYTES (comando para bloquear)")
+            _log("Configure TURNSTILE_LOCK_CHARS o TURNSTILE_LOCK_CHAR")
         else:
-            _log("Configure TURNSTILE_LOCK_BYTES y TURNSTILE_UNLOCK_BYTES")
+            _log("Configure TURNSTILE_LOCK_CHARS y TURNSTILE_UNLOCK_CHAR")
         return
     if MODE == "http":
         _post_http(HTTP_LOCK, "PONER seguro")
@@ -268,6 +289,7 @@ def consume_pending_gate() -> bool:
 
 def after_api_response(body: str) -> None:
     """Interpreta respuesta JSON del API y aplica seguro."""
+    _read_config()
     try:
         data = json.loads(body)
     except json.JSONDecodeError:

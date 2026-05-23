@@ -1046,8 +1046,7 @@ export class BillingPage implements OnInit, OnDestroy {
         const accessNote = res.accessRegistered
           ? res.accessMessage
           : 'Puede vincular la tarjeta después en Acceso biométrico.';
-        const title =
-          res.balanceRemaining > 0 ? 'Abono registrado — puede ingresar' : 'Membresía al día';
+        const title = res.paymentMessage || (res.balanceRemaining > 0 ? 'Abono registrado' : 'Membresía al día');
         void Swal.fire({
           icon: 'success',
           title,
