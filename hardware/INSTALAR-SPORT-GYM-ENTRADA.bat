@@ -1,89 +1,90 @@
 @echo off
 setlocal EnableDelayedExpansion
 title Instalar Sport Gym Acceso
-cd /d "%~dp0"
+REM ============================================================
+REM  SOLO COPIE ESTE ARCHIVO al PC del torniquete y ejecutelo.
+REM  Descarga e instala todo: app .exe + lector COM3 + acceso directo.
+REM  Pantalla desde sportgymr10.com - cierre y abra para actualizar.
+REM ============================================================
 set "DEST=C:\SportGym"
 set "LOG=%DEST%\INSTALAR-LOG.txt"
 set "SETUP_NAME=SportGym-Acceso-Setup-1.0.0-win32.exe"
 set "SETUP_URL=https://sportgymr10.com/downloads/%SETUP_NAME%"
+set "GITHUB=https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/turnstile-gateway"
 
 mkdir "%DEST%" 2>nul
-echo [%date% %time%] Inicio >> "%LOG%"
+echo [%date% %time%] Inicio instalador >> "%LOG%"
 
 echo ========================================
 echo  Sport Gym Acceso - Instalador
 echo ========================================
 echo.
-echo Instala la app .exe con logo del gym.
-echo Pantalla desde sportgymr10.com - cierre y abra para actualizar.
+echo Solo necesita ESTE archivo e internet.
+echo Instala la app con logo del gym + lector de tarjeta COM3.
+echo.
+echo Cierre ATP-ACCESO 4.0.exe antes de continuar.
 echo.
 pause
 
-REM --- Lector COM3: copiar local o descargar desde GitHub ---
+REM --- 1. Lector y torniquete desde GitHub ---
+echo.
+echo [1/3] Descargando lector y torniquete...
 mkdir "%DEST%\turnstile-gateway" 2>nul
-if exist "%~dp0turnstile-gateway\iniciar-lector-tarjeta.bat" (
-  echo Copiando lector desde git...
-  xcopy /E /I /Y /Q "%~dp0turnstile-gateway\*" "%DEST%\turnstile-gateway\"
-) else (
-  echo Descargando lector desde GitHub...
-  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$base='https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/turnstile-gateway/';" ^
-    "$dir='%DEST%\turnstile-gateway';" ^
-    "New-Item -ItemType Directory -Force -Path $dir | Out-Null;" ^
-    "$files=@('serial_card_reader.py','turnstile_gate.py','turnstile-gate.env','turnstile-gate.env.example','iniciar-lector-tarjeta.bat','detener-lector-tarjeta.bat','SportGym-Acceso-App.bat','SportGym-Acceso-Kiosk.bat','descargar-lector-recepcion.bat','probar-letras-com3.bat','poner-seguro.bat','quitar-seguro.bat');" ^
-    "foreach($f in $files){ try { Invoke-WebRequest -Uri ($base+$f) -OutFile (Join-Path $dir $f) -UseBasicParsing; Write-Host ('OK '+$f) } catch { Write-Host ('ERROR '+$f) -ForegroundColor Red } }"
-)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$base='%GITHUB%/'; $dir='%DEST%\turnstile-gateway';" ^
+  "$files=@('serial_card_reader.py','turnstile_gate.py','turnstile-gate.env','turnstile-gate.env.example','sniff_gate_port.py','diagnostico_puerto.py','probar-diagnostico-com.bat','iniciar-lector-tarjeta.bat','detener-lector-tarjeta.bat','escuchar-puerta-com.bat','probar-seguro-com3.bat','probar-letras-com3.bat','poner-seguro.bat','quitar-seguro.bat','verificar-archivos.bat','SportGym-Acceso-App.bat','SportGym-Acceso-Kiosk.bat','iniciar-puesto-acceso.bat','iniciar-lector-debug.bat','iniciar-lector-115200.bat','requirements-serial.txt','LEEME-RECEPCION.txt','OPERACION-GYM.txt','ATP-ACCESO-PROTOCOLO.txt');" ^
+  "$ok=0; foreach($f in $files){ try { Invoke-WebRequest -Uri ($base+'/'+$f) -OutFile (Join-Path $dir $f) -UseBasicParsing; Write-Host ('  OK '+$f); if($f -eq 'iniciar-lector-tarjeta.bat'){$ok=1} } catch { Write-Host ('  ERROR '+$f) -ForegroundColor Red } }; if(-not $ok){exit 1}"
+
 if not exist "%DEST%\turnstile-gateway\iniciar-lector-tarjeta.bat" (
-  echo ERROR: no se pudo obtener el lector. Revise internet o git pull.
+  echo.
+  echo ERROR: no se pudo descargar el lector. Revise internet.
   pause
   exit /b 1
 )
 echo Lector OK >> "%LOG%"
 
-REM --- Buscar Setup.exe local ---
+REM --- 2. App .exe: local junto al bat, cache, o descarga del servidor ---
+echo.
+echo [2/3] Obteniendo Sport Gym Acceso.exe...
 set "SETUP="
-if exist "%~dp0%SETUP_NAME%" set "SETUP=%~dp0%SETUP_NAME%"
-if not defined SETUP if exist "%~dp0access-desktop\dist-release\%SETUP_NAME%" (
-  set "SETUP=%~dp0access-desktop\dist-release\%SETUP_NAME%"
-)
-if not defined SETUP (
-  for /f "delims=" %%D in ('dir /b /ad "%~dp0access-desktop\dist-release*" 2^>nul') do (
-    if exist "%~dp0access-desktop\%%D\%SETUP_NAME%" set "SETUP=%~dp0access-desktop\%%D\%SETUP_NAME%"
-  )
-)
-if not defined SETUP if exist "%DEST%\%SETUP_NAME%" set "SETUP=%DEST%\%SETUP_NAME%"
 
-REM --- Descargar Setup desde sportgymr10.com ---
+if exist "%~dp0%SETUP_NAME%" (
+  set "SETUP=%~dp0%SETUP_NAME%"
+  echo Usando instalador junto a este .bat
+)
+if not defined SETUP if exist "%DEST%\%SETUP_NAME%" (
+  for %%A in ("%DEST%\%SETUP_NAME%") do if %%~zA GTR 5000000 set "SETUP=%DEST%\%SETUP_NAME%"
+  if defined SETUP echo Usando instalador en cache
+)
+
 if not defined SETUP (
-  echo.
-  echo Descargando instalador desde el servidor...
+  echo Descargando desde sportgymr10.com ...
   echo   %SETUP_URL%
   echo Puede tardar varios minutos...
   powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "try { Invoke-WebRequest -Uri '%SETUP_URL%' -OutFile '%DEST%\%SETUP_NAME%' -UseBasicParsing; exit 0 } catch { Write-Host $_.Exception.Message; exit 1 }"
+    "try { $p='%DEST%\%SETUP_NAME%'; Invoke-WebRequest -Uri '%SETUP_URL%' -OutFile $p -UseBasicParsing; if((Get-Item $p).Length -lt 5000000){ Remove-Item $p -Force; throw 'Archivo muy pequeno - no esta publicado en el servidor' }; exit 0 } catch { Write-Host $_.Exception.Message -ForegroundColor Red; exit 1 }"
   if exist "%DEST%\%SETUP_NAME%" set "SETUP=%DEST%\%SETUP_NAME%"
 )
 
 if not defined SETUP (
   echo.
-  echo ERROR: no hay instalador local ni en el servidor.
+  echo ERROR: no se pudo obtener el instalador.
+  echo El administrador debe ejecutar una vez en la PC de desarrollo:
+  echo   SUBIR-SETUP-AL-SERVIDOR.bat
   echo.
-  echo En la PC de desarrollo:
-  echo   1. hardware\COMPILAR-Y-PREPARAR-INSTALADOR.bat
-  echo   2. hardware\SUBIR-SETUP-AL-SERVIDOR.bat
-  echo Luego vuelva a ejecutar este instalador en la PC del torniquete.
+  echo O copie SportGym-Acceso-Setup-1.0.0-win32.exe junto a este .bat
   pause
   exit /b 1
 )
 
+REM --- 3. Instalar app ---
 echo.
-echo Instalando Sport Gym Acceso.exe...
-echo   !SETUP!
+echo [3/3] Instalando Sport Gym Acceso...
 echo Setup: !SETUP! >> "%LOG%"
 start /wait "" "!SETUP!"
+if errorlevel 1 echo Instalador termino con codigo de error >> "%LOG%"
 
-REM --- Acceso directo ---
-echo Creando acceso directo...
+REM --- Acceso directo en escritorio ---
 set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
 set "TARGET="
 set "WORKDIR="
@@ -107,15 +108,23 @@ if defined TARGET (
   echo.
   echo ========================================
   echo  LISTO
+  echo.
   echo  Escritorio: Sport Gym Acceso
-  echo  App: !TARGET!
-  echo  Lector: %DEST%\turnstile-gateway
-  echo  Pantalla: sportgymr10.com
+  echo  Programa:   !TARGET!
+  echo  Lector:     %DEST%\turnstile-gateway
+  echo  Pantalla:   sportgymr10.com
+  echo.
+  echo  Abra Sport Gym Acceso del escritorio.
+  echo  Para actualizar pantalla: cierre y abra la app.
   echo ========================================
+  echo.
+  set /p ABRIR="Abrir Sport Gym Acceso ahora? S/N: "
+  if /i "!ABRIR!"=="S" start "" "!TARGET!"
 ) else (
   echo.
-  echo AVISO: complete la instalacion del Setup si la cancelo.
-  echo Vuelva a ejecutar este .bat.
+  echo AVISO: no se detecto la app instalada.
+  echo Si cancelo el instalador, ejecute este .bat de nuevo
+  echo y complete los pasos del Setup.exe.
 )
 
 pause
