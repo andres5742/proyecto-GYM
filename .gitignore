@@ -13,6 +13,7 @@ hardware/access-desktop/dist/
 hardware/access-desktop/dist-build/
 hardware/access-desktop/dist-release/
 hardware/access-desktop/dist-release-*/
+hardware/access-desktop/ultima-compilacion.txt
 hardware/SportGym-Acceso-Setup-*.exe
 downloads/*.exe
 downloads/*.zip
