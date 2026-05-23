@@ -34,6 +34,18 @@ export function normalizeDocumentDigits(documentId: string | null | undefined): 
   return documentId.replace(/\D/g, '');
 }
 
+/** UID del chip (ej. A5214A48): único por tarjeta física; no requiere cédula en la clave. */
+export function isChipCardUid(cardPin: string | null | undefined): boolean {
+  const card = normalizeCardPin(cardPin);
+  if (card.length < 8) {
+    return false;
+  }
+  if (/[A-Z]/.test(card)) {
+    return true;
+  }
+  return card.length >= 10;
+}
+
 export function composeMemberCardKey(cardPin: string, documentId: string | null | undefined): string | null {
   const card = normalizeCardPin(cardPin);
   const doc = normalizeDocumentDigits(documentId);
@@ -43,10 +55,35 @@ export function composeMemberCardKey(cardPin: string, documentId: string | null 
   return `${card}${CARD_CREDENTIAL_SEP}${doc}`;
 }
 
+export function resolveMemberCardKey(
+  cardPin: string,
+  documentId: string | null | undefined,
+): string | null {
+  const card = normalizeCardPin(cardPin);
+  if (!card) {
+    return null;
+  }
+  if (isChipCardUid(card)) {
+    return card;
+  }
+  return composeMemberCardKey(cardPin, documentId);
+}
+
 export function composeStaffCardKey(cardPin: string, employeeId: number): string | null {
   const card = normalizeCardPin(cardPin);
   if (!card || employeeId == null) {
     return null;
   }
   return `${card}${CARD_CREDENTIAL_SEP}E${employeeId}`;
+}
+
+export function resolveStaffCardKey(cardPin: string, employeeId: number): string | null {
+  const card = normalizeCardPin(cardPin);
+  if (!card || employeeId == null) {
+    return null;
+  }
+  if (isChipCardUid(card)) {
+    return card;
+  }
+  return composeStaffCardKey(cardPin, employeeId);
 }

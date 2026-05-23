@@ -3,10 +3,15 @@ package com.gym.management.util;
 import com.gym.management.exception.BusinessException;
 import java.util.Locale;
 
-/** Clave de tarjeta en BD: {@code codigoLector|cedula} (afiliado) o {@code codigoLector|E{id}} (staff). */
+/**
+ * Clave de tarjeta en BD: UID del chip ({@code A5214A48}) o, si el código es corto/repetible,
+ * {@code codigo|cedula} / {@code codigo|Eid} (staff).
+ */
 public final class CardCredentialKeys {
 
     public static final String SEPARATOR = "|";
+    private static final int MIN_CHIP_UID_LENGTH = 8;
+    private static final int MIN_NUMERIC_CHIP_UID_LENGTH = 10;
     private static final int MAX_LENGTH = 64;
 
     private CardCredentialKeys() {}
@@ -53,6 +58,43 @@ public final class CardCredentialKeys {
 
     public static boolean isComposite(String deviceUserId) {
         return deviceUserId != null && deviceUserId.contains(SEPARATOR);
+    }
+
+    /**
+     * UID único del chip (lo que envía ZKTeco al pasar la tarjeta), p. ej. {@code A5214A48}.
+     * No hace falta añadir cédula: dos tarjetas físicas distintas no comparten este valor.
+     */
+    public static boolean isChipCardUid(String normalizedCardPin) {
+        if (normalizedCardPin == null || normalizedCardPin.length() < MIN_CHIP_UID_LENGTH) {
+            return false;
+        }
+        if (normalizedCardPin.matches(".*[A-Z].*")) {
+            return true;
+        }
+        return normalizedCardPin.length() >= MIN_NUMERIC_CHIP_UID_LENGTH;
+    }
+
+    /** Clave final a guardar: UID del lector tal cual, o código corto + cédula. */
+    public static String resolveMemberCardStorage(String cardPinFromReader, String memberDocumentId) {
+        String card = normalizeCardPin(cardPinFromReader);
+        if (card.isEmpty()) {
+            throw new BusinessException("Falta el código de la tarjeta leída");
+        }
+        if (isChipCardUid(card)) {
+            return ensureMaxLength(card);
+        }
+        return composeMemberCard(cardPinFromReader, memberDocumentId);
+    }
+
+    public static String resolveStaffCardStorage(String cardPinFromReader, Long employeeId) {
+        String card = normalizeCardPin(cardPinFromReader);
+        if (card.isEmpty()) {
+            throw new BusinessException("Falta el código de la tarjeta leída");
+        }
+        if (isChipCardUid(card)) {
+            return ensureMaxLength(card);
+        }
+        return composeStaffCard(cardPinFromReader, employeeId);
     }
 
     public static String composeMemberCard(String cardPinFromReader, String memberDocumentId) {

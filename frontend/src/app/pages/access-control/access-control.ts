@@ -22,7 +22,8 @@ import { EmployeeService } from '../../core/services/employee.service';
 import { MemberService } from '../../core/services/member.service';
 import { buildMemberAccessMap } from '../../core/utils/member-access-status';
 import {
-  composeMemberCardKey,
+  resolveMemberCardKey,
+  resolveStaffCardKey,
   composeStaffCardKey,
   extractCardPin,
 } from '../../core/utils/card-credential-key';
@@ -123,7 +124,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
     },
     {
       id: 'device',
-      header: 'Clave (lector|cédula)',
+      header: 'Clave en sistema',
       sortable: true,
       sortValue: (r) => r.deviceUserId,
       cell: (r) => this.formatStoredCardKey(r.deviceUserId),
@@ -152,7 +153,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
     },
     {
       id: 'device',
-      header: 'Clave (lector|cédula)',
+      header: 'Clave en sistema',
       sortable: true,
       sortValue: (r) => r.deviceUserId,
       cell: (r) => this.formatStoredCardKey(r.deviceUserId),
@@ -395,7 +396,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
       return null;
     }
     const member = this.members().find((m) => m.id === memberId);
-    return composeMemberCardKey(raw, member?.documentId);
+    return resolveMemberCardKey(raw, member?.documentId);
   }
 
   protected previewStaffCardKey(): string | null {
@@ -404,7 +405,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
     if (employeeId == null) {
       return null;
     }
-    return composeStaffCardKey(raw, employeeId);
+    return resolveStaffCardKey(raw, employeeId);
   }
 
   migrateExistingCards(): void {

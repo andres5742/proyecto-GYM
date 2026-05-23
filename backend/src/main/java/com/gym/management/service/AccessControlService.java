@@ -199,7 +199,7 @@ public class AccessControlService {
                 .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado: " + memberId));
 
         if (type == BiometricCredentialType.CARD) {
-            deviceUserId = CardCredentialKeys.composeMemberCard(deviceUserId, member.getDocumentId());
+            deviceUserId = CardCredentialKeys.resolveMemberCardStorage(deviceUserId, member.getDocumentId());
         }
 
         credentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
@@ -231,7 +231,7 @@ public class AccessControlService {
                 .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado: " + employeeId));
 
         if (type == BiometricCredentialType.CARD) {
-            deviceUserId = CardCredentialKeys.composeStaffCard(deviceUserId, employeeId);
+            deviceUserId = CardCredentialKeys.resolveStaffCardStorage(deviceUserId, employeeId);
         }
 
         employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
@@ -295,6 +295,11 @@ public class AccessControlService {
                 membersSkipped++;
                 continue;
             }
+            String pin = CardCredentialKeys.normalizeCardPin(credential.getDeviceUserId());
+            if (CardCredentialKeys.isChipCardUid(pin)) {
+                membersSkipped++;
+                continue;
+            }
             String composite = CardCredentialKeys.composeMemberCard(credential.getDeviceUserId(), documentId);
             if (composite.equals(credential.getDeviceUserId())) {
                 membersSkipped++;
@@ -316,6 +321,11 @@ public class AccessControlService {
                 continue;
             }
             Employee employee = credential.getEmployee();
+            String pin = CardCredentialKeys.normalizeCardPin(credential.getDeviceUserId());
+            if (CardCredentialKeys.isChipCardUid(pin)) {
+                staffSkipped++;
+                continue;
+            }
             String composite = CardCredentialKeys.composeStaffCard(credential.getDeviceUserId(), employee.getId());
             if (composite.equals(credential.getDeviceUserId())) {
                 staffSkipped++;
