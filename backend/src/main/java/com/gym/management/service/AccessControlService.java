@@ -129,7 +129,7 @@ public class AccessControlService {
         }
         List<MemberBiometricCredential> memberMatches = credentialRepository.findMemberCardsByReaderPin(pin);
         if (memberMatches.size() > 1) {
-            return Optional.of(cardSelectionRequired(pin, memberMatches));
+            return Optional.of(resolveSharedCardPin(readerPin, memberMatches));
         }
         if (memberMatches.size() == 1) {
             MemberBiometricCredential cred = memberMatches.get(0);
@@ -670,6 +670,30 @@ public class AccessControlService {
                 null);
     }
 
+    /**
+     * Varias tarjetas distintas leen el mismo código (UID). Primer ingreso del día: teclado 1/2/3.
+     * Si uno ya entró hoy y llega otra lectura con el mismo código, se asume el otro afiliado pendiente.
+     */
+    private AccessVerifyResponse resolveSharedCardPin(String readerPin, List<MemberBiometricCredential> matches) {
+        List<MemberBiometricCredential> pendingToday = matches.stream()
+                .filter(c -> !alreadyEnteredToday(c.getMember()))
+                .toList();
+        if (pendingToday.size() == 1) {
+            MemberBiometricCredential cred = pendingToday.get(0);
+            return evaluateMember(cred, cred.getDeviceUserId(), BiometricCredentialType.CARD, false);
+        }
+        if (pendingToday.isEmpty()) {
+            Member member = matches.get(0).getMember();
+            return deny(
+                    readerPin,
+                    BiometricCredentialType.CARD,
+                    member,
+                    null,
+                    "Los afiliados con este código ya ingresaron hoy.");
+        }
+        return cardSelectionRequired(readerPin, pendingToday);
+    }
+
     private AccessVerifyResponse cardSelectionRequired(String readerPin, List<MemberBiometricCredential> matches) {
         List<CardSelectionCandidate> candidates = new ArrayList<>();
         int index = 1;
@@ -682,7 +706,9 @@ public class AccessControlService {
                     member.getDocumentId()));
         }
         String message =
-                "Varias personas comparten esta tarjeta. Pulse 1-" + candidates.size() + " en el teclado para elegir.";
+                "Varias personas comparten este código. Primer ingreso del día: pulse 1-"
+                        + candidates.size()
+                        + " en el teclado para indicar quién entra.";
         Long logId = saveSelectionLog(readerPin, message, CardSelectionJson.write(candidates));
         return new AccessVerifyResponse(
                 AccessResult.SELECT_MEMBER,
