@@ -303,6 +303,32 @@ public class BillingCashRegisterService {
                 .orElse(BigDecimal.ZERO);
     }
 
+    /**
+     * Base de caja para entrega de turno: apertura + cobros de facturación en efectivo − gastos en efectivo.
+     * Sin ventas de productos ni fiado (esos se suman por turno en {@link ShiftHandoverService}).
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal billingCashExpectedForHandover() {
+        return cashRegisterRepository
+                .findFirstByRegisterDateOrderByOpenedAtDesc(today())
+                .map(this::computeBillingCashForHandover)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private BigDecimal computeBillingCashForHandover(BillingCashRegister register) {
+        Long id = register.getId();
+        Map<PaymentMethod, BigDecimal> incomeByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        billingPaymentRepository.sumByPaymentMethodByCashRegisterId(id));
+        Map<PaymentMethod, BigDecimal> expensesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        expenseRepository.sumByPaymentMethodByCashRegisterId(id));
+        BigDecimal billingCashIn = incomeByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        BigDecimal cashOut = expensesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        return MoneyUtil.roundPesos(
+                register.getOpeningCashAmount().add(billingCashIn).subtract(cashOut));
+    }
+
     private BigDecimal computeCashInDrawer(BillingCashRegister register) {
         return computeCashInDrawer(register, true);
     }

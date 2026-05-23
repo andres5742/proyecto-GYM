@@ -136,7 +136,7 @@
           [class.cash-diff]="!cashMatchesDeclared()"
         >
           <p class="cash-expected__line">
-            Facturación del día (membresías e ingresos en efectivo):
+            Caja del día (apertura + facturación en efectivo − gastos):
             <strong>{{ billingCashExpected() | cop }}</strong>
           </p>
           @if (previousShiftSalesCash() > 0 || previousShiftShortfallsDeducted() > 0 || previousShiftName()) {
@@ -249,9 +249,9 @@
         </tbody>
       </table>
       <p class="compare-hint">
-        El dinero contado debe igualar la facturación del día (membresías e ingresos en efectivo) más
-        las ventas en efectivo de todos los turnos anteriores del día (si hubo) y del turno que
-        entregas. Diferencia 0 = cuadra.
+        El dinero contado debe igualar la caja del día (apertura + facturación en efectivo − gastos) más
+        las ventas en efectivo de todos los turnos del día y los cobros fiado en efectivo.
+        Diferencia 0 = cuadra.
       </p>
     </section>
   </div>

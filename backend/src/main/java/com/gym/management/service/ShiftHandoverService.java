@@ -261,7 +261,7 @@ public class ShiftHandoverService {
     }
 
     private ExpectedCashTotals computeExpectedCash(Long handoverShiftId, SalesSummaryResponse sales) {
-        BigDecimal billing = billingCashRegisterService.cashInDrawerForToday();
+        BigDecimal billing = billingCashRegisterService.billingCashExpectedForHandover();
         BigDecimal handoverShiftCash =
                 sales.amountByPaymentMethod().getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal creditCash = productCreditService.sumCashPaymentsForShift(handoverShiftId);
