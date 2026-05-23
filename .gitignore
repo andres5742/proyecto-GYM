@@ -10,6 +10,12 @@ frontend/.angular/
 # Access desktop (Electron)
 hardware/access-desktop/node_modules/
 hardware/access-desktop/dist/
+hardware/access-desktop/dist-build/
+hardware/access-desktop/dist-release/
+hardware/access-desktop/dist-release-*/
+hardware/SportGym-Acceso-Setup-*.exe
+downloads/*.exe
+downloads/*.zip
 hardware/access-desktop/config.json
 hardware/access-desktop/build/_logo_resize.py
 hardware/access-desktop/build/logo-256.png
