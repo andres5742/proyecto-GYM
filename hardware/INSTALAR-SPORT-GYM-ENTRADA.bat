@@ -1,83 +1,101 @@
 @echo off
 title Instalar Sport Gym Acceso
 cd /d "%~dp0"
+set "DEST=C:\SportGym"
 
 echo ========================================
 echo  Sport Gym Acceso - Instalador
 echo ========================================
 echo.
-echo La app carga la pantalla desde el SERVIDOR:
+echo La pantalla carga del SERVIDOR:
 echo   https://sportgymr10.com/acceso
-echo En este PC solo queda el lector COM3 + torniquete.
+echo En este PC: lector COM3 + torniquete (Python).
 echo.
-echo Requisitos en el PC de entrada:
+echo Requisitos:
 echo   - Internet
-echo   - Python (Add to PATH) para lector de tarjeta
-echo   - Cierre ATP-ACCESO 4.0.exe antes de usar
+echo   - Python en PATH
+echo   - Cierre ATP-ACCESO 4.0.exe
 echo.
 pause
 
-REM --- Opcion 1: instalador NSIS (recomendado) ---
-if exist "access-desktop\dist-release\SportGym-Acceso-Setup-1.0.0-win32.exe" (
-  echo Ejecutando instalador...
-  start /wait "" "access-desktop\dist-release\SportGym-Acceso-Setup-1.0.0-win32.exe"
-  goto :shortcut
-)
-
-for /d %%D in ("access-desktop\dist-release*") do (
-  if exist "%%~D\SportGym-Acceso-Setup-1.0.0-win32.exe" (
-    echo Ejecutando instalador en %%~D ...
-    start /wait "" "%%~D\SportGym-Acceso-Setup-1.0.0-win32.exe"
-    goto :shortcut
-  )
-)
-
-REM --- Opcion 2: copiar carpeta ya compilada (sin asistente) ---
-set DEST=C:\SportGym
-set SRC=
-
-if exist "access-desktop\dist-release\win-ia32-unpacked\Sport Gym Acceso.exe" (
-  set SRC=access-desktop\dist-release\win-ia32-unpacked
-)
-if not defined SRC (
-  for /d %%D in ("access-desktop\dist-release*") do (
-    if exist "%%~D\win-ia32-unpacked\Sport Gym Acceso.exe" (
-      set SRC=%%~D\win-ia32-unpacked
-      goto :copy
-    )
-  )
-)
-if exist "access-desktop\dist-build\win-ia32-unpacked\Sport Gym Acceso.exe" (
-  set SRC=access-desktop\dist-build\win-ia32-unpacked
-)
-
-:copy
-if not defined SRC (
-  echo.
-  echo No se encontro el instalador ni la carpeta compilada.
-  echo Primero ejecute en access-desktop:
-  echo   compilar-instalador-win32.bat
-  echo.
+if not exist "%~dp0turnstile-gateway\iniciar-lector-tarjeta.bat" (
+  echo ERROR: Falta carpeta turnstile-gateway junto a este .bat
   pause
   exit /b 1
 )
 
-echo Copiando app a %DEST% ...
+echo Copiando lector y torniquete a %DEST% ...
 mkdir "%DEST%" 2>nul
-xcopy /E /I /Y /Q "%SRC%\*" "%DEST%\"
+mkdir "%DEST%\turnstile-gateway" 2>nul
+xcopy /E /I /Y /Q "%~dp0turnstile-gateway\*" "%DEST%\turnstile-gateway\"
 
-if not exist "%DEST%\turnstile-gateway\iniciar-lector-tarjeta.bat" (
-  if exist "turnstile-gateway\iniciar-lector-tarjeta.bat" (
-    xcopy /E /I /Y /Q "turnstile-gateway\*" "%DEST%\turnstile-gateway\"
+REM --- Instalador NSIS (si copio el Setup.exe aqui) ---
+set "SETUP="
+if exist "%~dp0SportGym-Acceso-Setup-1.0.0-win32.exe" set "SETUP=%~dp0SportGym-Acceso-Setup-1.0.0-win32.exe"
+if not defined SETUP if exist "%~dp0access-desktop\dist-release\SportGym-Acceso-Setup-1.0.0-win32.exe" (
+  set "SETUP=%~dp0access-desktop\dist-release\SportGym-Acceso-Setup-1.0.0-win32.exe"
+)
+if not defined SETUP (
+  for /d %%D in ("%~dp0access-desktop\dist-release*") do (
+    if exist "%%~D\SportGym-Acceso-Setup-1.0.0-win32.exe" set "SETUP=%%~D\SportGym-Acceso-Setup-1.0.0-win32.exe"
   )
 )
 
-:shortcut
+if defined SETUP (
+  echo Ejecutando instalador Electron...
+  start /wait "" "%SETUP%"
+  goto :shortcut_electron
+)
+
+REM --- Carpeta Electron ya compilada ---
+set "SRC="
+if exist "%~dp0access-desktop\dist-release\win-ia32-unpacked\Sport Gym Acceso.exe" (
+  set "SRC=%~dp0access-desktop\dist-release\win-ia32-unpacked"
+)
+if not defined SRC (
+  for /d %%D in ("%~dp0access-desktop\dist-release*") do (
+    if exist "%%~D\win-ia32-unpacked\Sport Gym Acceso.exe" set "SRC=%%~D\win-ia32-unpacked"
+  )
+)
+if not defined SRC if exist "%~dp0access-desktop\dist-build\win-ia32-unpacked\Sport Gym Acceso.exe" (
+  set "SRC=%~dp0access-desktop\dist-build\win-ia32-unpacked"
+)
+
+if defined SRC (
+  echo Copiando Sport Gym Acceso.exe ...
+  xcopy /E /I /Y /Q "%SRC%\*" "%DEST%\"
+  goto :shortcut_electron
+)
+
+REM --- Sin .exe: modo navegador (misma pantalla del servidor) ---
 echo.
-echo Creando acceso directo en el escritorio...
+echo No hay .exe Electron en esta carpeta.
+echo Instalando MODO NAVEGADOR + lector (funciona igual con el servidor).
+echo.
+copy /Y "%~dp0turnstile-gateway\SportGym-Acceso-App.bat" "%DEST%\SportGym-Acceso-App.bat" >nul
+copy /Y "%~dp0turnstile-gateway\SportGym-Acceso-Kiosk.bat" "%DEST%\SportGym-Acceso-Kiosk.bat" >nul
+
+set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
+powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell;$s=$w.CreateShortcut('%LINK%');$s.TargetPath='%DEST%\SportGym-Acceso-App.bat';$s.WorkingDirectory='%DEST%';$s.Description='Ingreso gym';$s.Save()" 2>nul
+
+echo.
+echo ========================================
+echo  LISTO en %DEST%
+echo  Escritorio: Sport Gym Acceso
+echo  Abre https://sportgymr10.com/acceso + lector COM3
+echo.
+echo  Para .exe Electron: copie junto a este .bat:
+echo    SportGym-Acceso-Setup-1.0.0-win32.exe
+echo  y vuelva a ejecutar este instalador.
+echo ========================================
+pause
+exit /b 0
+
+:shortcut_electron
+echo Creando acceso directo...
 set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
 set "TARGET="
-if exist "C:\SportGym\Sport Gym Acceso.exe" set "TARGET=C:\SportGym\Sport Gym Acceso.exe" & set "WORKDIR=C:\SportGym"
+if exist "%DEST%\Sport Gym Acceso.exe" set "TARGET=%DEST%\Sport Gym Acceso.exe" & set "WORKDIR=%DEST%"
 if not defined TARGET if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" (
   set "TARGET=%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe"
   set "WORKDIR=%LOCALAPPDATA%\Programs\Sport Gym Acceso"
@@ -93,8 +111,6 @@ if defined TARGET (
 echo.
 echo ========================================
 echo  LISTO
-echo  Abra "Sport Gym Acceso" en el escritorio.
-echo  Debe cargar https://sportgymr10.com/acceso
+echo  Abra Sport Gym Acceso en el escritorio.
 echo ========================================
-echo.
 pause
