@@ -2,6 +2,7 @@ package com.gym.management.service;
 
 import com.gym.management.dto.MembershipObligationResponse;
 import com.gym.management.dto.MembershipPaymentOutcomeResponse;
+import com.gym.management.dto.PaymentSplitLine;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.MembershipObligationMapper;
@@ -23,6 +24,7 @@ import com.gym.management.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -52,15 +54,21 @@ public class MembershipObligationService {
             int monthsPaid,
             PaymentMethod paymentMethod,
             Long amountPesos,
+            List<PaymentSplitLine> paymentSplits,
             BillingCashRegister cashRegister,
             Employee employee,
             Long existingObligationId) {
 
-        BillingPaymentMethodRules.requireAllowed(paymentMethod);
-        BigDecimal paymentAmount = requirePositivePesos(amountPesos);
+        List<PaymentSplitLine> splits = resolvePaymentSplits(paymentMethod, amountPesos, paymentSplits);
+        PaymentMethod primaryMethod = splits.get(0).paymentMethod();
+        BillingPaymentMethodRules.requireAllowed(primaryMethod);
+        BigDecimal paymentAmount = splits.stream()
+                .map(line -> requirePositivePesos(line.amount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (existingObligationId != null) {
-            return applyPaymentToObligation(existingObligationId, member.getId(), paymentAmount, paymentMethod, cashRegister, employee);
+            return applyPaymentToObligation(
+                    existingObligationId, member.getId(), paymentAmount, splits, cashRegister, employee);
         }
 
         if (obligationRepository.existsByMemberIdAndStatus(member.getId(), MembershipObligationStatus.OPEN)) {
@@ -77,6 +85,7 @@ public class MembershipObligationService {
         }
 
         BigDecimal total = MoneyUtil.roundPesos(plan.getPrice().multiply(BigDecimal.valueOf(monthsPaid)));
+        requireSplitAllowedForFullPayment(paymentSplits, paymentAmount, total, existingObligationId);
         if (paymentAmount.compareTo(total) > 0) {
             throw new BusinessException(
                     "El abono ($"
@@ -105,8 +114,8 @@ public class MembershipObligationService {
         applyMembershipToMember(member, plan, dates, MembershipObligationMapper.balanceOf(obligation));
         memberRepository.save(member);
 
-        BillingPayment billing = saveMembershipBillingPayment(
-                member, plan, monthsPaid, paymentMethod, paymentAmount, cashRegister, employee, obligation, kind, dates);
+        BillingPayment billing = saveMembershipBillingPayments(
+                member, plan, monthsPaid, splits, cashRegister, employee, obligation, kind, dates);
 
         return buildOutcome(billing, obligation);
     }
@@ -115,7 +124,7 @@ public class MembershipObligationService {
             Long obligationId,
             Long memberId,
             BigDecimal paymentAmount,
-            PaymentMethod paymentMethod,
+            List<PaymentSplitLine> splits,
             BillingCashRegister cashRegister,
             Employee employee) {
 
@@ -160,12 +169,11 @@ public class MembershipObligationService {
         obligationRepository.save(obligation);
         memberRepository.save(member);
 
-        BillingPayment billing = saveMembershipBillingPayment(
+        BillingPayment billing = saveMembershipBillingPayments(
                 member,
                 plan,
                 obligation.getMonthsPaid(),
-                paymentMethod,
-                paymentAmount,
+                splits,
                 cashRegister,
                 employee,
                 obligation,
@@ -279,6 +287,96 @@ public class MembershipObligationService {
                 .membershipPaymentKind(kind)
                 .notes(notes)
                 .build());
+    }
+
+    private BillingPayment saveMembershipBillingPayments(
+            Member member,
+            MembershipPlan plan,
+            int monthsPaid,
+            List<PaymentSplitLine> splits,
+            BillingCashRegister cashRegister,
+            Employee employee,
+            MembershipObligation obligation,
+            MembershipPaymentKind kind,
+            MembershipDates dates) {
+
+        BillingPayment first = null;
+        for (PaymentSplitLine line : splits) {
+            BillingPayment saved = saveMembershipBillingPayment(
+                    member,
+                    plan,
+                    monthsPaid,
+                    line.paymentMethod(),
+                    BigDecimal.valueOf(line.amount()),
+                    cashRegister,
+                    employee,
+                    obligation,
+                    kind,
+                    dates);
+            if (first == null) {
+                first = saved;
+            }
+        }
+        return first;
+    }
+
+    private List<PaymentSplitLine> resolvePaymentSplits(
+            PaymentMethod paymentMethod, Long amountPesos, List<PaymentSplitLine> paymentSplits) {
+        BigDecimal expectedTotal = requirePositivePesos(amountPesos);
+        if (paymentSplits == null || paymentSplits.isEmpty()) {
+            BillingPaymentMethodRules.requireAllowed(paymentMethod);
+            return List.of(new PaymentSplitLine(paymentMethod, expectedTotal.longValue()));
+        }
+        if (paymentSplits.size() > 2) {
+            throw new BusinessException("Máximo dos medios de pago por cobro");
+        }
+        if (paymentSplits.size() == 1) {
+            PaymentSplitLine only = paymentSplits.get(0);
+            BillingPaymentMethodRules.requireAllowed(only.paymentMethod());
+            BigDecimal lineAmount = requirePositivePesos(only.amount());
+            if (lineAmount.compareTo(expectedTotal) != 0) {
+                throw new BusinessException(
+                        "El monto del medio de pago ($"
+                                + MoneyUtil.formatPesos(lineAmount)
+                                + ") debe igualar el total ($"
+                                + MoneyUtil.formatPesos(expectedTotal)
+                                + ")");
+            }
+            return List.of(only);
+        }
+        PaymentSplitLine first = paymentSplits.get(0);
+        PaymentSplitLine second = paymentSplits.get(1);
+        if (first.paymentMethod() == second.paymentMethod()) {
+            throw new BusinessException("Los dos medios de pago deben ser distintos");
+        }
+        BillingPaymentMethodRules.requireAllowed(first.paymentMethod());
+        BillingPaymentMethodRules.requireAllowed(second.paymentMethod());
+        BigDecimal sum = requirePositivePesos(first.amount()).add(requirePositivePesos(second.amount()));
+        if (sum.compareTo(expectedTotal) != 0) {
+            throw new BusinessException(
+                    "La suma de los dos medios ($"
+                            + MoneyUtil.formatPesos(sum)
+                            + ") debe igualar el total del plan ($"
+                            + MoneyUtil.formatPesos(expectedTotal)
+                            + ")");
+        }
+        return List.of(first, second);
+    }
+
+    private static void requireSplitAllowedForFullPayment(
+            List<PaymentSplitLine> paymentSplits,
+            BigDecimal paymentAmount,
+            BigDecimal planTotal,
+            Long existingObligationId) {
+        if (paymentSplits == null || paymentSplits.size() < 2) {
+            return;
+        }
+        if (existingObligationId != null) {
+            throw new BusinessException("Dividir en dos medios solo aplica al pago completo de una membresía nueva");
+        }
+        if (paymentAmount.compareTo(planTotal) < 0) {
+            throw new BusinessException("Dividir en dos medios solo aplica cuando paga el total del plan");
+        }
     }
 
     private void applyMembershipToMember(

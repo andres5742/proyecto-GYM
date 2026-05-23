@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 public record MembershipOnboardingRequest(
         Long memberId,
@@ -14,4 +15,5 @@ public record MembershipOnboardingRequest(
         @NotNull @Min(1) @Max(36) Integer monthsPaid,
         @NotNull @Min(1) Long amount,
         Long obligationId,
-        @Valid AccessOnboardingData access) {}
+        @Valid AccessOnboardingData access,
+        @Valid List<PaymentSplitLine> paymentSplits) {}

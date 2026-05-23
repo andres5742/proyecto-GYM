@@ -210,6 +210,11 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly membershipPaymentMethod = signal<PaymentMethod>('CASH');
   protected readonly membershipPaymentMode = signal<'full' | 'partial'>('full');
   protected readonly membershipAmountToday = signal<number | null>(null);
+  protected readonly membershipUseSplitPayment = signal(false);
+  protected readonly membershipSplitMethod1 = signal<PaymentMethod>('CASH');
+  protected readonly membershipSplitMethod2 = signal<PaymentMethod>('NEQUI');
+  protected readonly membershipSplitAmount1 = signal<number | null>(null);
+  protected readonly membershipSplitAmount2 = signal<number | null>(null);
   protected readonly openMembershipObligation = signal<MembershipObligation | null>(null);
 
   protected readonly membershipPayingDebt = computed(() => this.openMembershipObligation() != null);
@@ -248,6 +253,31 @@ export class BillingPage implements OnInit, OnDestroy {
     }
     return Math.max(0, total - pay);
   });
+
+  protected readonly membershipSplitSum = computed(() => {
+    const a1 = this.membershipSplitAmount1() ?? 0;
+    const a2 = this.membershipSplitAmount2() ?? 0;
+    return roundCop(a1 + a2);
+  });
+
+  protected readonly membershipSplitRemaining = computed(() => {
+    const total = this.membershipChargeTotal();
+    if (total == null) {
+      return null;
+    }
+    return roundCop(total - this.membershipSplitSum());
+  });
+
+  protected readonly canUseSplitPayment = computed(
+    () =>
+      !this.membershipPayingDebt() &&
+      this.membershipPaymentMode() === 'full' &&
+      this.membershipChargeTotal() != null,
+  );
+
+  protected paymentMethodLabel(method: PaymentMethod): string {
+    return this.paymentMethods.find((pm) => pm.value === method)?.label ?? method;
+  }
 
   protected readonly genders: { value: Gender | ''; label: string }[] = [
     { value: '', label: 'Sin especificar' },
@@ -810,6 +840,7 @@ export class BillingPage implements OnInit, OnDestroy {
       const total = this.membershipChargeTotal();
       if (total != null) {
         this.membershipAmountToday.set(total);
+        this.syncMembershipSplitFromTotal();
       }
     }
   }
@@ -898,6 +929,7 @@ export class BillingPage implements OnInit, OnDestroy {
       const months = this.membershipMonthsPaid();
       if (plan && months >= 1) {
         this.membershipAmountToday.set(roundCop(plan.price * months));
+        this.syncMembershipSplitFromTotal();
       }
     }
   }
@@ -907,12 +939,57 @@ export class BillingPage implements OnInit, OnDestroy {
       return;
     }
     this.membershipPaymentMode.set(mode);
+    if (mode === 'partial') {
+      this.membershipUseSplitPayment.set(false);
+    }
     const total = this.membershipChargeTotal();
     if (mode === 'full' && total != null) {
       this.membershipAmountToday.set(total);
+      this.syncMembershipSplitFromTotal();
     } else if (mode === 'partial') {
       this.membershipAmountToday.set(null);
     }
+  }
+
+  setMembershipUseSplitPayment(enabled: boolean): void {
+    this.membershipUseSplitPayment.set(enabled);
+    if (enabled) {
+      this.syncMembershipSplitFromTotal();
+    }
+  }
+
+  onMembershipSplitAmount1Change(raw: string | number | null): void {
+    const parsed = raw != null && raw !== '' ? roundCop(+raw) : null;
+    this.membershipSplitAmount1.set(parsed);
+    const total = this.membershipChargeTotal();
+    if (total == null || parsed == null) {
+      this.membershipSplitAmount2.set(null);
+      return;
+    }
+    const rest = roundCop(total - parsed);
+    this.membershipSplitAmount2.set(rest > 0 ? rest : null);
+  }
+
+  onMembershipSplitAmount2Change(raw: string | number | null): void {
+    const parsed = raw != null && raw !== '' ? roundCop(+raw) : null;
+    this.membershipSplitAmount2.set(parsed);
+    const total = this.membershipChargeTotal();
+    if (total == null || parsed == null) {
+      this.membershipSplitAmount1.set(null);
+      return;
+    }
+    const rest = roundCop(total - parsed);
+    this.membershipSplitAmount1.set(rest > 0 ? rest : null);
+  }
+
+  private syncMembershipSplitFromTotal(): void {
+    const total = this.membershipChargeTotal();
+    if (total == null || !this.membershipUseSplitPayment()) {
+      return;
+    }
+    const half = roundCop(Math.floor(total / 2));
+    this.membershipSplitAmount1.set(half);
+    this.membershipSplitAmount2.set(roundCop(total - half));
   }
 
   onRegisterNewMember(query: string): void {
@@ -940,6 +1017,11 @@ export class BillingPage implements OnInit, OnDestroy {
     this.membershipPaymentMethod.set('CASH');
     this.membershipPaymentMode.set('full');
     this.membershipAmountToday.set(null);
+    this.membershipUseSplitPayment.set(false);
+    this.membershipSplitMethod1.set('CASH');
+    this.membershipSplitMethod2.set('NEQUI');
+    this.membershipSplitAmount1.set(null);
+    this.membershipSplitAmount2.set(null);
     this.openMembershipObligation.set(null);
   }
 
@@ -970,6 +1052,38 @@ export class BillingPage implements OnInit, OnDestroy {
       this.message.set('Indique cuánto va a abonar hoy y el medio de pago (pesos, sin decimales)');
       return;
     }
+
+    const useSplit =
+      this.membershipUseSplitPayment() &&
+      this.canUseSplitPayment() &&
+      !this.membershipPayingDebt();
+    let paymentSplits: MembershipOnboardingRequest['paymentSplits'] = null;
+    if (useSplit) {
+      const total = this.membershipChargeTotal();
+      const a1 = this.membershipSplitAmount1();
+      const a2 = this.membershipSplitAmount2();
+      const m1 = this.membershipSplitMethod1();
+      const m2 = this.membershipSplitMethod2();
+      if (total == null || a1 == null || a2 == null || a1 < 1 || a2 < 1) {
+        this.message.set('Indique el monto de cada medio de pago');
+        return;
+      }
+      if (m1 === m2) {
+        this.message.set('Los dos medios de pago deben ser distintos');
+        return;
+      }
+      if (roundCop(a1 + a2) !== total) {
+        this.message.set(
+          `La suma de los dos medios ($${roundCop(a1 + a2).toLocaleString('es-CO')}) debe igualar el total del plan ($${total.toLocaleString('es-CO')})`,
+        );
+        return;
+      }
+      paymentSplits = [
+        { paymentMethod: m1, amount: roundCop(a1) },
+        { paymentMethod: m2, amount: roundCop(a2) },
+      ];
+    }
+
     const debt = this.openMembershipObligation();
     if (debt && amount > roundCop(debt.balance)) {
       this.message.set(`El abono no puede superar el saldo pendiente ($${roundCop(debt.balance).toLocaleString('es-CO')})`);
@@ -1025,11 +1139,12 @@ export class BillingPage implements OnInit, OnDestroy {
       memberId: flow === 'existing' ? memberId : null,
       newMember: flow === 'new' ? newMember : null,
       planId,
-      paymentMethod: this.membershipPaymentMethod(),
+      paymentMethod: useSplit ? this.membershipSplitMethod1() : this.membershipPaymentMethod(),
       monthsPaid,
       amount,
       obligationId: debt?.id ?? null,
       access,
+      paymentSplits,
     };
 
     this.saving.set(true);

@@ -302,6 +302,7 @@ public class BillingService {
                 request.monthsPaid(),
                 request.paymentMethod(),
                 request.amount(),
+                request.paymentSplits(),
                 cashRegister,
                 resolveRegisteringEmployee(),
                 request.obligationId());
@@ -340,6 +341,7 @@ public class BillingService {
                 request.monthsPaid(),
                 request.paymentMethod(),
                 request.amount(),
+                request.paymentSplits(),
                 cashRegister,
                 resolveRegisteringEmployee(),
                 request.obligationId());

@@ -54,6 +54,11 @@ export interface DayWorkoutRegisterResponse {
   payment: BillingPayment;
 }
 
+export interface PaymentSplitLine {
+  paymentMethod: PaymentMethod;
+  amount: number;
+}
+
 export interface MembershipPaymentRequest {
   memberId: number;
   planId: number;
@@ -61,6 +66,7 @@ export interface MembershipPaymentRequest {
   monthsPaid: number;
   amount: number;
   obligationId?: number | null;
+  paymentSplits?: PaymentSplitLine[] | null;
 }
 
 export interface MembershipPaymentOutcome {
@@ -97,6 +103,7 @@ export interface MembershipOnboardingRequest {
   amount: number;
   obligationId?: number | null;
   access?: AccessOnboardingData | null;
+  paymentSplits?: PaymentSplitLine[] | null;
 }
 
 export interface MembershipOnboardingResponse {

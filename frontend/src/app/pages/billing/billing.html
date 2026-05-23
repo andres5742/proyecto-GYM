@@ -496,40 +496,128 @@
                 }
               </div>
 
-              <div class="membership-checkout__row membership-checkout__row--pay">
-                <label class="field">
-                  <span class="field__label">{{
-                    membershipPayingDebt() ? 'Monto del abono hoy' : 'Monto a pagar hoy'
-                  }}</span>
+              @if (canUseSplitPayment()) {
+                <label class="membership-split-toggle">
                   <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    [ngModel]="membershipAmountToday()"
-                    (ngModelChange)="membershipAmountToday.set($event != null && $event !== '' ? roundCop(+$event) : null)"
-                    [placeholder]="
-                      membershipPayingDebt()
-                        ? 'Ej: ' + (openMembershipObligation()?.balance ?? '')
-                        : membershipPaymentMode() === 'full'
-                          ? 'Total del plan'
-                          : 'Cuánto abona hoy'
-                    "
+                    type="checkbox"
+                    [checked]="membershipUseSplitPayment()"
+                    (change)="setMembershipUseSplitPayment($any($event.target).checked)"
                   />
+                  <span>Dividir pago completo en dos medios</span>
                 </label>
+              }
 
-                <label class="field">
-                  <span class="field__label">Medio de pago</span>
-                  <select
-                    [ngModel]="membershipPaymentMethod()"
-                    (ngModelChange)="membershipPaymentMethod.set($event)"
-                  >
-                    @for (pm of paymentMethods; track pm.value) {
-                      <option [ngValue]="pm.value">{{ pm.label }}</option>
+              <div
+                class="membership-checkout__row membership-checkout__row--pay"
+                [class.membership-checkout__row--split]="canUseSplitPayment() && membershipUseSplitPayment()"
+              >
+                @if (canUseSplitPayment() && membershipUseSplitPayment()) {
+                  <div class="membership-split-pay">
+                    <p class="membership-split-pay__total">
+                      Total a cobrar:
+                      <strong>{{ membershipChargeTotal() | cop }}</strong>
+                    </p>
+                    <div class="membership-checkout__row membership-split-pay__line">
+                      <label class="field">
+                        <span class="field__label">Medio 1</span>
+                        <select
+                          [ngModel]="membershipSplitMethod1()"
+                          (ngModelChange)="membershipSplitMethod1.set($event)"
+                        >
+                          @for (pm of paymentMethods; track pm.value) {
+                            <option [ngValue]="pm.value">{{ pm.label }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span class="field__label">Monto medio 1</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputmode="numeric"
+                          pattern="[0-9]*"
+                          [ngModel]="membershipSplitAmount1()"
+                          (ngModelChange)="onMembershipSplitAmount1Change($event)"
+                        />
+                      </label>
+                    </div>
+                    <div class="membership-checkout__row membership-split-pay__line">
+                      <label class="field">
+                        <span class="field__label">Medio 2</span>
+                        <select
+                          [ngModel]="membershipSplitMethod2()"
+                          (ngModelChange)="membershipSplitMethod2.set($event)"
+                        >
+                          @for (pm of paymentMethods; track pm.value) {
+                            <option [ngValue]="pm.value">{{ pm.label }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span class="field__label">Monto medio 2</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputmode="numeric"
+                          pattern="[0-9]*"
+                          [ngModel]="membershipSplitAmount2()"
+                          (ngModelChange)="onMembershipSplitAmount2Change($event)"
+                        />
+                      </label>
+                    </div>
+                    @if (membershipSplitRemaining(); as diff) {
+                      <p
+                        class="membership-split-pay__hint"
+                        [class.membership-split-pay__hint--ok]="diff === 0"
+                        [class.membership-split-pay__hint--warn]="diff !== 0"
+                      >
+                        {{
+                          diff === 0
+                            ? 'La suma coincide con el total del plan.'
+                            : diff > 0
+                              ? 'Faltan $' + diff.toLocaleString('es-CO') + ' para completar el total.'
+                              : 'Sobran $' + Math.abs(diff).toLocaleString('es-CO') + ' respecto al total.'
+                        }}
+                      </p>
                     }
-                  </select>
-                </label>
+                  </div>
+                } @else {
+                  <label class="field">
+                    <span class="field__label">{{
+                      membershipPayingDebt() ? 'Monto del abono hoy' : 'Monto a pagar hoy'
+                    }}</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      [ngModel]="membershipAmountToday()"
+                      (ngModelChange)="membershipAmountToday.set($event != null && $event !== '' ? roundCop(+$event) : null)"
+                      [placeholder]="
+                        membershipPayingDebt()
+                          ? 'Ej: ' + (openMembershipObligation()?.balance ?? '')
+                          : membershipPaymentMode() === 'full'
+                            ? 'Total del plan'
+                            : 'Cuánto abona hoy'
+                      "
+                    />
+                  </label>
+
+                  <label class="field">
+                    <span class="field__label">Medio de pago</span>
+                    <select
+                      [ngModel]="membershipPaymentMethod()"
+                      (ngModelChange)="membershipPaymentMethod.set($event)"
+                    >
+                      @for (pm of paymentMethods; track pm.value) {
+                        <option [ngValue]="pm.value">{{ pm.label }}</option>
+                      }
+                    </select>
+                  </label>
+                }
               </div>
             </div>
 
