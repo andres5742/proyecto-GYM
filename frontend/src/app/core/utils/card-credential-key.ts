@@ -10,18 +10,21 @@ export function extractCardPin(storedOrRaw: string | null | undefined): string {
   return sep >= 0 ? trimmed.slice(0, sep).trim() : trimmed;
 }
 
-/** Solo dígitos, sin ceros a la izquierda (0000035979 y 000,35979 → 35979). */
+/** Numérico: sin ceros a la izquierda. Alfanumérico (AA1): mayúsculas. */
 export function normalizeCardPin(storedOrRaw: string | null | undefined): string {
   const raw = extractCardPin(storedOrRaw);
   if (!raw) {
     return '';
   }
-  const digits = raw.replace(/\D/g, '');
-  if (!digits) {
+  const alphanumeric = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (!alphanumeric) {
     return raw;
   }
-  const trimmed = digits.replace(/^0+/, '');
-  return trimmed || '0';
+  if (/^\d+$/.test(alphanumeric)) {
+    const trimmed = alphanumeric.replace(/^0+/, '');
+    return trimmed || '0';
+  }
+  return alphanumeric;
 }
 
 export function normalizeDocumentDigits(documentId: string | null | undefined): string {

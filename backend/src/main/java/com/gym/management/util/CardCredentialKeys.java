@@ -1,6 +1,7 @@
 package com.gym.management.util;
 
 import com.gym.management.exception.BusinessException;
+import java.util.Locale;
 
 /** Clave de tarjeta en BD: {@code codigoLector|cedula} (afiliado) o {@code codigoLector|E{id}} (staff). */
 public final class CardCredentialKeys {
@@ -24,20 +25,23 @@ public final class CardCredentialKeys {
     }
 
     /**
-     * Código de tarjeta canónico: solo dígitos, sin ceros a la izquierda.
-     * Acepta el impreso en la tarjeta ({@code 0000035979}, {@code 000,35979}) o lo que envíe el lector.
+     * Código de tarjeta canónico. Numérico: sin ceros a la izquierda ({@code 0000035979} → {@code 35979}).
+     * Alfanumérico: mayúsculas ({@code AA1} → {@code AA1}).
      */
     public static String normalizeCardPin(String storedOrRaw) {
         String raw = extractCardPin(storedOrRaw);
         if (raw.isEmpty()) {
             return "";
         }
-        String digits = raw.replaceAll("\\D", "");
-        if (digits.isEmpty()) {
-            return raw;
+        String alphanumeric = raw.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+        if (alphanumeric.isEmpty()) {
+            return raw.trim();
         }
-        String withoutLeadingZeros = digits.replaceFirst("^0+", "");
-        return withoutLeadingZeros.isEmpty() ? "0" : withoutLeadingZeros;
+        if (alphanumeric.matches("\\d+")) {
+            String withoutLeadingZeros = alphanumeric.replaceFirst("^0+", "");
+            return withoutLeadingZeros.isEmpty() ? "0" : withoutLeadingZeros;
+        }
+        return alphanumeric;
     }
 
     public static String normalizeDocumentDigits(String documentId) {
