@@ -17,7 +17,7 @@ LETTERS = list("abcdefghil")
 def main() -> None:
     print(f"Puerto {PORT} @ {BAUD}")
     print("Letras:", " ".join(LETTERS))
-    print("BLOQUEAN: h i l  |  DESBLOQUEAN: a b c d e f g\n")
+    print("BLOQUEAN (probado gym): b c d e  |  RESTO: pruebe desbloqueo\n")
     for ch in LETTERS:
         input(f"Enter = enviar '{ch}' ...")
         try:

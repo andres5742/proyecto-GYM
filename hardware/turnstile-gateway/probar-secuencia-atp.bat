@@ -12,6 +12,6 @@ echo Prueba: l=bloquear, a=liberar, l=bloquear de nuevo
 echo Cierre ATP-ACCESO antes. Empuje al mandar a.
 pause
 
-python -c "import serial,time; s=serial.Serial('COM3',19200,timeout=1); s.write(b'l'); s.flush(); time.sleep(2); s.write(b'a'); s.flush(); print('l bloqueo, a libera — EMPUJE 8 s'); time.sleep(8); s.write(b'l'); s.flush(); print('l bloqueo otra vez'); s.close()"
+python -c "import serial,time; s=serial.Serial('COM3',19200,timeout=1); s.write(b'd'); s.flush(); time.sleep(2); s.write(b'a'); s.flush(); print('d bloqueo, a libera — EMPUJE 8 s'); time.sleep(8); s.write(b'd'); s.flush(); print('d bloqueo otra vez'); s.close()"
 
 pause

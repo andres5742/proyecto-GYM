@@ -10,7 +10,7 @@ Comportamiento deseado:
 Configure turnstile-gate.env (copie turnstile-gate.env.example) o iniciar-lector-tarjeta.bat:
   TURNSTILE_GATE_MODE=serial|http|none
   TURNSTILE_GATE_PORT=COMx          (solo si la placa CAFÉ tiene serial al PC; NO COM3 lector)
-  ATP gym: LOCK_CHAR=l (o h,i)  UNLOCK_CHAR=a (o b,c,d,e,f,g)  BAUD=19200
+  ATP gym: LOCK_CHAR=d (b,c,e tambien)  UNLOCK_CHAR=a  BAUD=19200
   TURNSTILE_UNLOCK_MS=8000          (tiempo libre para pasar empujando)
 """
 from __future__ import annotations

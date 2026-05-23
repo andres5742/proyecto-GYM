@@ -19,7 +19,7 @@ if not exist "turnstile_gate.py" (
 
 echo.
 echo PROTOCOLO gym (confirmado):
-echo   COM3 @ 19200 — BLOQUEAR: l (o h,i)  LIBERAR: a (o b,c,d,e,f,g)
+echo   COM3 @ 19200 — BLOQUEAR: d (o b,c,e)  LIBERAR: a
 echo.
 echo CIERRE ATP-ACCESO 4.0.exe e iniciar-lector-tarjeta.bat antes de probar.
 echo.
@@ -29,11 +29,11 @@ set TURNSTILE_GATE_MODE=serial
 set TURNSTILE_GATE_PROTOCOL=atp-acceso
 set TURNSTILE_GATE_PORT=COM3
 set TURNSTILE_GATE_BAUD=19200
-set TURNSTILE_LOCK_CHAR=l
+set TURNSTILE_LOCK_CHAR=d
 set TURNSTILE_UNLOCK_CHAR=a
 set TURNSTILE_UNLOCK_MS=8000
 
-echo --- PONER seguro (l) ---
+echo --- PONER seguro (d) ---
 python turnstile_gate.py lock
 timeout /t 3 >nul
 

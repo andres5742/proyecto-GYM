@@ -11,10 +11,10 @@ COMANDOS (un caracter por olecontrol2.Output)
   d = acceso denegado / restringido
   b = error documento o clave
   e, c, i = otros estados
-  CONFIRMADO en gym (COM3 @ 19200, un caracter):
-    BLOQUEAR seguro:  h   i   l
-    DESBLOQUEAR:      a b c d e f g  (y otras que no sean h,i,l)
-  Sport Gym: LOCK_CHAR=l  UNLOCK_CHAR=a
+  CONFIRMADO en gym (COM3 @ 19200, probar-letras-com3.bat):
+    BLOQUEAR seguro (fisico):  b   c   d   e
+    DESBLOQUEAR (pasar):       a   (y letras que no bloquean: f,g,h,i,l...)
+  Sport Gym: LOCK_CHAR=d  UNLOCK_CHAR=a
   a = inicio / bienvenida pantalla
 
 BASE DE DATOS
@@ -42,4 +42,5 @@ IMPORTANTE
   Cierre ATP-ACCESO antes de Sport Gym lector.
 
 PRUEBA FINAL
-  h,i,l = bloqueo fisico. a-g (resto) = desbloqueo. Empujar al liberar.
+  b,c,d,e = bloqueo fisico en ESTE gym. a = desbloqueo. Empujar al liberar.
+  Si cambia de placa, ejecute probar-letras-com3.bat de nuevo.

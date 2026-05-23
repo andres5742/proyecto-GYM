@@ -69,7 +69,7 @@ SIN MANUAL — como encontrar control del seguro:
   4. Si solo lector de pared -> el seguro lo mueve la cafe; Sport Gym solo valida en pantalla
 
 CONFIG LISTA (turnstile-gate.env en esta carpeta):
-  BLOQUEAR: l (o h,i)  LIBERAR: a (o b,c,d,e,f,g)  COM3 @ 19200
+  BLOQUEAR: d (o b,c,e)  LIBERAR: a  COM3 @ 19200
   Cierre ATP-ACCESO 4.0.exe antes de Sport Gym.
 
 PUERTA FISICA (seguro — placa CAFE, no la azul):

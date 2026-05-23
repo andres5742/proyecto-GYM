@@ -1,10 +1,10 @@
 @echo off
-title Sport Gym - Probar DESBLOQUEO tras bloqueo con l
+title Sport Gym - Probar DESBLOQUEO tras bloqueo con d
 cd /d "%~dp0"
 pip install pyserial -q
 
-echo 1) Enviando L para BLOQUEAR (confirmado en su gym)
-python -c "import serial,time; s=serial.Serial('COM3',19200,timeout=1); s.write(b'l'); s.flush(); print('Bloqueo l enviado'); time.sleep(2); s.close()"
+echo 1) Enviando D para BLOQUEAR (confirmado en su gym)
+python -c "import serial,time; s=serial.Serial('COM3',19200,timeout=1); s.write(b'd'); s.flush(); print('Bloqueo d enviado'); time.sleep(2); s.close()"
 
 echo.
 echo 2) Pruebe cada letra para DESBLOQUEAR (empuje el torniquete tras cada una):
@@ -14,7 +14,7 @@ pause
 
 for %%L in (a d m n g) do (
   echo --- Desbloqueo prueba: %%L ---
-  python -c "import serial,time; s=serial.Serial('COM3',19200,timeout=1); s.write(b'%%L'); s.flush(); print('Enviado %%L - empuje ahora'); time.sleep(6); s.write(b'l'); s.flush(); print('Re-bloqueo l'); s.close()"
+  python -c "import serial,time; s=serial.Serial('COM3',19200,timeout=1); s.write(b'%%L'); s.flush(); print('Enviado %%L - empuje ahora'); time.sleep(6); s.write(b'd'); s.flush(); print('Re-bloqueo d'); s.close()"
   pause
 )
 
