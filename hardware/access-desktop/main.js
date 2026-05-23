@@ -248,6 +248,9 @@ app.whenReady().then(async () => {
     callback({ requestHeaders: details.requestHeaders });
   });
   spawnCardReader();
+  if (!config.spawnCardReader) {
+    runGateCommand('lock');
+  }
   createWindow();
   registerExitShortcuts();
 });

@@ -143,14 +143,9 @@ def main() -> None:
         signal.signal(signal.SIGTERM, stop_handler)
     claim_port()
     try:
-        from turnstile_gate import (
-            check_auto_relock,
-            clear_active_serial,
-            lock_gate,
-            set_active_serial,
-        )
+        from turnstile_gate import clear_active_serial, lock_gate, set_active_serial
     except ImportError:
-        check_auto_relock = clear_active_serial = lock_gate = set_active_serial = None  # type: ignore
+        clear_active_serial = lock_gate = set_active_serial = None  # type: ignore
 
     print(f"Escuchando {PORT} @ {BAUD} baud → {API}")
     if DEBUG:
@@ -175,10 +170,8 @@ def main() -> None:
                     idle_since = None
                 else:
                     try:
-                        from turnstile_gate import check_auto_relock, consume_pending_gate
+                        from turnstile_gate import consume_pending_gate
 
-                        if check_auto_relock:
-                            check_auto_relock()
                         consume_pending_gate()
                     except ImportError:
                         pass
