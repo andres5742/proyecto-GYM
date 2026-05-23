@@ -7,6 +7,11 @@ if exist "C:\SportGym\SportGym-Acceso-App.bat" (
   exit /b 0
 )
 
+if exist "C:\SportGym\turnstile-gateway\SportGym-Acceso-App.bat" (
+  start "" "C:\SportGym\turnstile-gateway\SportGym-Acceso-App.bat"
+  exit /b 0
+)
+
 if exist "C:\SportGym\Sport Gym Acceso.exe" (
   start "" "C:\SportGym\Sport Gym Acceso.exe"
   exit /b 0
