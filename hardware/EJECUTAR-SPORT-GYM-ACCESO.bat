@@ -27,5 +27,5 @@ if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" (
   exit /b 0
 )
 
-echo No esta instalado. Ejecute primero: INSTALAR-SPORT-GYM-ENTRADA.bat
+echo No esta instalado. Ejecute: ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
 pause

@@ -1,20 +1,23 @@
-INSTALADOR PC DE ENTRADA (Windows 32 bits)
-==========================================
+INSTALADOR PC DEL TORNIQUETE — ver LEEME-TORNIQUETE.txt
+=======================================================
 
-ARCHIVO PARA EL GYM (USB):
+INSTALACION Y ACTUALIZACION (siempre igual):
 
-  SportGym-Entrada-Instalador-32bit.zip
+  ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
 
-En el PC Windows:
-  1. Descomprimir TODO el ZIP
-  2. Doble clic en INSTALAR.bat
-  3. Debe abrirse la pantalla de acceso (sportgymr10.com/acceso)
+  (Alias: INSTALAR-SPORT-GYM-ENTRADA.bat — es el mismo script)
 
-Si no instala / no abre ventana:
-  - Use INSTALAR.bat (no un .exe suelto)
-  - Pruebe ABRIR-SIN-INSTALAR.bat dentro de la carpeta descomprimida
-  - Compruebe internet
-  - Windows 32 bits (no 64)
+Descarga desde GitHub:
+  https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
 
-Regenerar el ZIP en Linux:
-  cd hardware && ./empacar-instalacion-32bit.sh
+Pasos en el PC del torniquete:
+  1. Copie solo ese .bat al PC (o descarguelo con el enlace de arriba)
+  2. Cierre ATP-ACCESO y Sport Gym Acceso
+  3. Doble clic en ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+  4. Use el acceso directo "Sport Gym Acceso" del escritorio
+
+Para publicar un .exe nuevo (solo desarrollo):
+  COMPILAR-Y-PREPARAR-INSTALADOR.bat  +  SUBIR-SETUP-AL-SERVIDOR.bat
+  Luego en torniquete: ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat otra vez.
+
+Detalle completo: hardware/LEEME-TORNIQUETE.txt

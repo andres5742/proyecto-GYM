@@ -43,7 +43,8 @@ echo   %~dp0SportGym-Acceso-Setup-1.0.0-win32.exe
 echo   origen: !SETUP_SRC!
 echo.
 echo Siguiente paso (una vez): SUBIR-SETUP-AL-SERVIDOR.bat
-echo En la PC del torniquete: INSTALAR-SPORT-GYM-ENTRADA.bat
+echo En la PC del torniquete (siempre): ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+echo   Ver hardware\LEEME-TORNIQUETE.txt
 echo.
 pause
 exit /b 0

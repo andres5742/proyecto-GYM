@@ -1,0 +1,60 @@
+SPORT GYM — PC DEL TORNIQUETE (instalacion oficial)
+===================================================
+
+REGLA UNICA (siempre igual)
+---------------------------
+En el PC del torniquete solo hace falta UN archivo:
+
+  ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+
+Copielo al escritorio (o descarguelo de GitHub) y ejecutelo.
+Sirve para INSTALAR la primera vez y para ACTUALIZAR despues.
+
+Descarga directa (GitHub):
+  https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+
+Que hace ese .bat (en orden)
+----------------------------
+  1. Lector COM3 + torniquete (archivos desde GitHub)
+  2. Icono SportGym.ico (logo del gym)
+  3. Sport Gym Acceso.exe (Setup desde sportgymr10.com/downloads/)
+  4. Acceso directo en escritorio con logo del gym
+  5. Lanzador C:\SportGym\INICIAR-ACCESO-COMPLETO.bat (lector + app)
+
+Antes de ejecutar
+-----------------
+  - Cierre ATP-ACCESO 4.0.exe
+  - Cierre Sport Gym Acceso si esta abierto
+  - Tenga internet
+
+Uso diario
+----------
+  Doble clic en el acceso directo "Sport Gym Acceso" del escritorio.
+  (Abre lector COM3 + pantalla https://sportgymr10.com/acceso)
+
+Alias (mismo script)
+--------------------
+  INSTALAR-SPORT-GYM-ENTRADA.bat  -> llama al mismo instalador
+
+DESARROLLO (solo PC del gym / quien compila)
+--------------------------------------------
+Cuando cambie la app Electron (.exe):
+
+  1. hardware\COMPILAR-Y-PREPARAR-INSTALADOR.bat
+  2. hardware\SUBIR-SETUP-AL-SERVIDOR.bat
+     (publica en https://sportgymr10.com/downloads/SportGym-Acceso-Setup-1.0.0-win32.exe)
+
+  3. git push (lector, .bat, turnstile-gate.env, etc.)
+
+En el torniquete: vuelva a ejecutar ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+
+VPS (pantalla /acceso y reglas de acceso)
+-----------------------------------------
+  ssh root@72.61.65.92
+  cd /apps/gym-app && git pull && ./deploy/actualizar-acceso-tarjetas.sh
+
+NO usar en el torniquete
+------------------------
+  - .exe suelto sin el .bat de instalacion
+  - ZIP viejo con INSTALAR.bat (empacar-instalacion-32bit.sh) salvo emergencia
+  - Copiar carpetas a mano (solo si no hay internet)

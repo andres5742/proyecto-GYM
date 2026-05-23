@@ -2,8 +2,11 @@
 title Sport Gym - Descargar archivos del lector
 cd /d "%~dp0"
 
-echo Descargando archivos del lector desde GitHub...
-echo Carpeta: %CD%
+echo Para INSTALAR o ACTUALIZAR todo (app .exe + lector + acceso directo):
+echo   Ejecute en el PC del torniquete: ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+echo   Ver hardware\LEEME-TORNIQUETE.txt
+echo.
+echo Este script solo descarga archivos del lector en ESTA carpeta.
 echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^

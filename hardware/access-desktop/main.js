@@ -136,7 +136,7 @@ function spawnCardReader() {
   if (!fs.existsSync(bat)) {
     const msg =
       'No se encontro el lector de tarjeta COM3.\n\n' +
-      'Ejecute de nuevo: INSTALAR-SPORT-GYM-ENTRADA.bat\n\n' +
+      'Ejecute: ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat\n\n' +
       'O abra manualmente:\n' +
       'C:\\SportGym\\turnstile-gateway\\iniciar-lector-tarjeta.bat';
     console.warn(msg, gwDir);

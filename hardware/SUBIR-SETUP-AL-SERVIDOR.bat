@@ -50,7 +50,8 @@ if errorlevel 1 (
 )
 
 echo.
-echo LISTO. En la PC del torniquete copie solo:
-echo   INSTALAR-SPORT-GYM-ENTRADA.bat
-echo y ejecutelo.
+echo LISTO. En la PC del torniquete copie y ejecute:
+echo   ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+echo (Descarga: GitHub + Setup + acceso directo con logo gym)
+echo Ver hardware\LEEME-TORNIQUETE.txt
 pause

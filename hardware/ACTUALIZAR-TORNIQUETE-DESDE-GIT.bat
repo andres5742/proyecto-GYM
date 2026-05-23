@@ -1,9 +1,13 @@
 @echo off
 setlocal EnableDelayedExpansion
-title Sport Gym - Actualizar torniquete desde GitHub
+title Sport Gym - Instalador oficial torniquete
 REM ============================================================
-REM  Copie SOLO este archivo al PC del torniquete y ejecutelo.
-REM  Descarga GitHub + Setup + acceso directo con LOGO del gym.
+REM  INSTALADOR OFICIAL — PC del torniquete (instalar y actualizar).
+REM  Copie SOLO este archivo al PC y ejecutelo con internet.
+REM  Descarga GitHub + Setup .exe + acceso directo logo gym.
+REM
+REM  GitHub:
+REM  https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
 REM ============================================================
 set "DEST=C:\SportGym"
 set "GW=%DEST%\turnstile-gateway"
@@ -68,6 +72,7 @@ echo Lector OK >> "%LOG%"
 REM --- 2. Icono y lanzadores ---
 echo.
 echo [2/4] Descargando icono y lanzadores...
+call :DownloadGit "%GIT_HW%" "%DEST%" "LEEME-TORNIQUETE.txt"
 call :DownloadGit "%GIT_HW%" "%DEST%" "SportGym.ico"
 call :DownloadGit "%GIT_HW%" "%DEST%" "INICIAR-ACCESO-COMPLETO.bat"
 if exist "%~dp0INICIAR-ACCESO-COMPLETO.bat" copy /Y "%~dp0INICIAR-ACCESO-COMPLETO.bat" "%DEST%\INICIAR-ACCESO-COMPLETO.bat" >nul 2>&1

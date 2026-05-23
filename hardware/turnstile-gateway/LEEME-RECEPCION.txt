@@ -42,14 +42,21 @@ Si el torniquete quedo LIBRE (sin seguro) y no vuelve a bloquearse:
   -> Reinicie iniciar-lector-tarjeta.bat o Sport Gym Acceso
   -> El script ahora re-pone seguro solo tras 8 s; si falla COM3, use poner-seguro.bat
 
-APP .EXE (Electron, con F2/F3 torniquete):
-  -> hardware/access-desktop/compilar-acceso-electron.bat
-  -> dist/SportGym-Acceso-1.0.0.exe
+INSTALACION OFICIAL PC DEL TORNIQUETE (app .exe + lector + acceso directo):
+  -> En el PC del torniquete ejecute SOLO:
+     ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+     (copielo desde hardware/ del repo o descargue de GitHub)
+  -> Ver hardware/LEEME-TORNIQUETE.txt
+  -> Instala Sport Gym Acceso.exe + lector + icono gym en escritorio
 
-APP EJECUTABLE (sin compilar Electron):
+APP .EXE (solo quien compila en desarrollo):
+  -> hardware/COMPILAR-Y-PREPARAR-INSTALADOR.bat
+  -> hardware/SUBIR-SETUP-AL-SERVIDOR.bat
+  -> Luego en torniquete: ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+
+APP sin Electron (emergencia):
   -> SportGym-Acceso-App.bat     ventana tipo app + lector
   -> SportGym-Acceso-Kiosk.bat   pantalla completa + lector
-  En Edge/Chrome: menu ... -> "Instalar Sport Gym — Acceso" (PWA)
 
 INICIO AUTOMATICO (al encender Windows):
   -> instalar-inicio-automatico.bat (usa SportGym-Acceso-App.bat)

@@ -7,7 +7,7 @@ set "GW=%DEST%\turnstile-gateway"
 
 if not exist "%GW%\iniciar-lector-tarjeta.bat" (
   echo ERROR: Falta %GW%
-  echo Ejecute primero INSTALAR-SPORT-GYM-ENTRADA.bat
+  echo Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
   pause
   exit /b 1
 )
