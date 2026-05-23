@@ -62,7 +62,7 @@ function runGateCommand(action) {
     console.warn('No se encontró turnstile_gate.py en', gwDir);
     return;
   }
-  const args = action === 'unlock' ? [script, 'unlock', '--wait'] : [script, action];
+  const args = action === 'unlock' ? [script, 'unlock'] : [script, action];
   const child = spawn('python', args, {
     cwd: gwDir,
     detached: false,
@@ -95,6 +95,17 @@ function syncGateFromPayload(payload) {
   const granted = result === 'GRANTED';
   const opened = payload && Boolean(payload.gateOpened);
   const shouldUnlock = granted && opened;
+  const deviceUserId = payload && String(payload.deviceUserId || '');
+  const isShortcut = deviceUserId.startsWith('F2') || deviceUserId.startsWith('F3');
+  const isCardFromReader =
+    payload && payload.credentialType === 'CARD' && !isShortcut;
+
+  // Con lector activo, el seguro lo maneja serial_card_reader (after_api_response).
+  // Si Electron tambien encola unlock al hacer polling, anula el bloqueo (l).
+  if (config.spawnCardReader && isCardFromReader) {
+    return;
+  }
+
   if (config.spawnCardReader) {
     if (shouldUnlock) {
       queueGateCommand('unlock');

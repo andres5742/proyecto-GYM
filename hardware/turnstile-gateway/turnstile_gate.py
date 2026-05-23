@@ -126,11 +126,14 @@ def _send_serial(payload: bytes, label: str) -> bool:
     if _active_ser is not None and getattr(_active_ser, "is_open", False):
         try:
             old_baud = _active_ser.baudrate
-            if GATE_BAUD != old_baud:
+            switched = GATE_BAUD != old_baud
+            if switched:
                 _active_ser.baudrate = GATE_BAUD
+                time.sleep(0.1)
             _active_ser.write(payload)
             _active_ser.flush()
-            if GATE_BAUD != old_baud:
+            time.sleep(0.15)
+            if switched:
                 _active_ser.baudrate = old_baud
             _log(f"{label} → {GATE_PORT} @ {GATE_BAUD} via lector ({_payload_label(payload)})")
             return True
@@ -212,7 +215,7 @@ def unlock_gate(ms: int | None = None) -> None:
         lock_gate()
 
     _relock_timer = threading.Timer(max(1, duration) / 1000.0, _relock)
-    _relock_timer.daemon = True
+    _relock_timer.daemon = False
     _relock_timer.start()
     _log(f"Re-seguro en {duration} ms")
 
