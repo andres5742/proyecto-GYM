@@ -578,7 +578,7 @@
                             ? 'La suma coincide con el total del plan.'
                             : diff > 0
                               ? 'Faltan $' + diff.toLocaleString('es-CO') + ' para completar el total.'
-                              : 'Sobran $' + Math.abs(diff).toLocaleString('es-CO') + ' respecto al total.'
+                              : 'Sobran $' + (-diff).toLocaleString('es-CO') + ' respecto al total.'
                         }}
                       </p>
                     }
