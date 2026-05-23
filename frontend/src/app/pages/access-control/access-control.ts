@@ -23,6 +23,7 @@ import { MemberService } from '../../core/services/member.service';
 import { CardPinInputDirective } from '../../core/directives/card-pin-input.directive';
 import { buildMemberAccessMap } from '../../core/utils/member-access-status';
 import {
+  normalizeCardPin,
   resolveMemberCardKey,
   resolveStaffCardKey,
   composeStaffCardKey,
@@ -79,8 +80,6 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly logs = signal<AccessLogEntry[]>([]);
   protected readonly lastCapturedPin = signal<string | null>(null);
   protected readonly captureWaiting = signal(false);
-  /** Evita que la lectura del lector sobrescriba mientras escribe a mano. */
-  protected readonly pinFieldFocused = signal(false);
 
   private capturePollTimer: ReturnType<typeof setInterval> | null = null;
   private logsPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -417,6 +416,60 @@ export class AccessControlPage implements OnInit, OnDestroy {
     return resolveStaffCardKey(raw, employeeId);
   }
 
+  /** Afiliados (u otro personal) que ya tienen este código de lector. */
+  protected memberCardPinOtherOwners(): string[] {
+    const pin = normalizeCardPin(this.enrollForm.getRawValue().deviceUserId);
+    if (!pin) {
+      return [];
+    }
+    const memberId = this.enrollForm.getRawValue().memberId;
+    return this.findEnrollmentsByReaderPin(pin)
+      .filter((e) => !(isMemberPerson(e) && memberId != null && e.memberId === memberId))
+      .map((e) => e.memberName);
+  }
+
+  protected staffCardPinOtherOwners(): string[] {
+    const pin = normalizeCardPin(this.staffEnrollForm.getRawValue().deviceUserId);
+    if (!pin) {
+      return [];
+    }
+    const employeeId = this.staffEnrollForm.getRawValue().employeeId;
+    return this.findEnrollmentsByReaderPin(pin)
+      .filter((e) => !(isStaffPerson(e) && employeeId != null && e.employeeId === employeeId))
+      .map((e) => e.memberName);
+  }
+
+  private findEnrollmentsByReaderPin(pin: string): BiometricEnrollResponse[] {
+    const normalized = normalizeCardPin(pin);
+    if (!normalized) {
+      return [];
+    }
+    return this.enrollments().filter(
+      (e) => e.credentialType === 'CARD' && normalizeCardPin(e.deviceUserId) === normalized,
+    );
+  }
+
+  private applyCapturedPin(pin: string, credentialTypeLabel: string): void {
+    if (this.registerAudience() === 'members') {
+      this.syncMemberEnrollCredentialType();
+      this.enrollForm.patchValue({ deviceUserId: pin });
+      const others = this.memberCardPinOtherOwners();
+      if (others.length > 0) {
+        this.message.set(`Tarjeta ${pin} capturada. Ya registrada a: ${others.join(', ')}`);
+      } else {
+        this.message.set(`Tarjeta capturada: ${pin} (${credentialTypeLabel})`);
+      }
+      return;
+    }
+    this.staffEnrollForm.patchValue({ deviceUserId: pin });
+    const others = this.staffCardPinOtherOwners();
+    if (others.length > 0) {
+      this.message.set(`Tarjeta ${pin} capturada. Ya registrada a: ${others.join(', ')}`);
+    } else {
+      this.message.set(`Tarjeta capturada: ${pin} (${credentialTypeLabel})`);
+    }
+  }
+
   migrateExistingCards(): void {
     if (
       !confirm(
@@ -575,10 +628,10 @@ export class AccessControlPage implements OnInit, OnDestroy {
           }
           this.setRegisterMethod('card');
         }
-        if (this.pinFieldFocused()) {
-          this.message.set(
-            `Lector detectó ${pin}. Termine de escribir o borre el campo y pase la tarjeta de nuevo.`,
-          );
+        if (isSpecialPass) {
+          // F2/F3: no rellenar formulario de tarjeta
+        } else if (this.registerMethod() === 'card') {
+          this.applyCapturedPin(pin, read.credentialTypeLabel);
         } else if (this.registerAudience() === 'members') {
           this.syncMemberEnrollCredentialType();
           this.enrollForm.patchValue({ deviceUserId: pin });

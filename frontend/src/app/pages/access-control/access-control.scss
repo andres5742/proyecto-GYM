@@ -638,3 +638,16 @@
     background: var(--color-warning-soft, #fffbeb);
   }
 }
+
+.card-pin-conflict {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+
+  &.warn {
+    color: #92400e;
+    background: var(--color-warning-soft, #fffbeb);
+    border-color: #fcd34d;
+  }
+}
