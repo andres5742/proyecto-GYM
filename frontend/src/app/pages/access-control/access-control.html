@@ -161,8 +161,9 @@
         <header class="register-workspace__head">
           <h3>Afiliado · tarjeta ZKTeco</h3>
           <p class="muted small">
-            Pase la tarjeta en el lector. Se guardará como <strong>código del lector + cédula</strong> del afiliado
-            (ej. 12345|1061778723) para que cada tarjeta sea única.
+            Use el <strong>número impreso en la tarjeta</strong> (ej. 0000035979 o 000,35979) o pase la tarjeta en el
+            lector. Se guardará como <strong>código + cédula</strong> (ej. 35979|1061778723). Los ceros a la
+            izquierda y la coma no importan.
           </p>
         </header>
         <div class="reader-capture">
@@ -183,7 +184,7 @@
             />
             <label>
               Nº tarjeta / Pin en ZKTeco
-              <input formControlName="deviceUserId" placeholder="Ej: 10042 o número de tarjeta" />
+              <input formControlName="deviceUserId" placeholder="Ej: 0000035979 (número impreso en la tarjeta)" />
             </label>
             @if (previewMemberCardKey(); as stored) {
               <p class="card-key-preview muted small">

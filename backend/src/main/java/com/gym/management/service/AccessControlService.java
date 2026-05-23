@@ -102,7 +102,7 @@ public class AccessControlService {
     }
 
     private Optional<AccessVerifyResponse> lookupCardByReaderPin(String readerPin) {
-        String pin = CardCredentialKeys.extractCardPin(readerPin);
+        String pin = CardCredentialKeys.normalizeCardPin(readerPin);
         if (pin.isEmpty()) {
             return Optional.empty();
         }
@@ -180,7 +180,7 @@ public class AccessControlService {
         }
         String deviceUserId = request.deviceUserId().trim();
         if (type == BiometricCredentialType.CARD) {
-            deviceUserId = CardCredentialKeys.extractCardPin(deviceUserId);
+            deviceUserId = CardCredentialKeys.normalizeCardPin(deviceUserId);
         }
 
         if (request.employeeId() != null) {

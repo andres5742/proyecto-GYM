@@ -10,7 +10,7 @@ public final class CardCredentialKeys {
 
     private CardCredentialKeys() {}
 
-    /** Solo el código que envía el lector (sin sufijo de cédula). */
+    /** Solo la parte de tarjeta guardada o leída (sin sufijo de cédula). */
     public static String extractCardPin(String storedOrRaw) {
         if (storedOrRaw == null) {
             return "";
@@ -21,6 +21,23 @@ public final class CardCredentialKeys {
             return trimmed.substring(0, sep).trim();
         }
         return trimmed;
+    }
+
+    /**
+     * Código de tarjeta canónico: solo dígitos, sin ceros a la izquierda.
+     * Acepta el impreso en la tarjeta ({@code 0000035979}, {@code 000,35979}) o lo que envíe el lector.
+     */
+    public static String normalizeCardPin(String storedOrRaw) {
+        String raw = extractCardPin(storedOrRaw);
+        if (raw.isEmpty()) {
+            return "";
+        }
+        String digits = raw.replaceAll("\\D", "");
+        if (digits.isEmpty()) {
+            return raw;
+        }
+        String withoutLeadingZeros = digits.replaceFirst("^0+", "");
+        return withoutLeadingZeros.isEmpty() ? "0" : withoutLeadingZeros;
     }
 
     public static String normalizeDocumentDigits(String documentId) {
@@ -35,7 +52,7 @@ public final class CardCredentialKeys {
     }
 
     public static String composeMemberCard(String cardPinFromReader, String memberDocumentId) {
-        String card = extractCardPin(cardPinFromReader);
+        String card = normalizeCardPin(cardPinFromReader);
         if (card.isEmpty()) {
             throw new BusinessException("Falta el código de la tarjeta leída");
         }
@@ -48,7 +65,7 @@ public final class CardCredentialKeys {
     }
 
     public static String composeStaffCard(String cardPinFromReader, Long employeeId) {
-        String card = extractCardPin(cardPinFromReader);
+        String card = normalizeCardPin(cardPinFromReader);
         if (card.isEmpty()) {
             throw new BusinessException("Falta el código de la tarjeta leída");
         }
