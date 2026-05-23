@@ -7,6 +7,7 @@ import com.gym.management.dto.AccessVoiceHints;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.dto.CardCredentialMigrationResponse;
+import com.gym.management.dto.CardSelectionCandidate;
 import com.gym.management.dto.KioskAccessEventResponse;
 import com.gym.management.dto.LastDeviceReadResponse;
 import com.gym.management.exception.BusinessException;
@@ -28,6 +29,7 @@ import com.gym.management.repository.MemberBiometricCredentialRepository;
 import com.gym.management.repository.MemberRepository;
 import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.CardCredentialKeys;
+import com.gym.management.util.CardSelectionJson;
 import com.gym.management.util.WelcomeMessageUtils;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -86,6 +88,23 @@ public class AccessControlService {
         return verifyAndOpen(new AccessVerifyRequest(pin.trim(), BiometricCredentialType.CARD));
     }
 
+    /** Pantalla /acceso: el afiliado elige con el teclado cuando varias personas comparten el código de tarjeta. */
+    @Transactional
+    public AccessVerifyResponse verifyCardMemberSelection(String readerPin, Long memberId) {
+        if (memberId == null) {
+            throw new BusinessException("Indica el afiliado seleccionado");
+        }
+        String pin = CardCredentialKeys.normalizeCardPin(readerPin);
+        if (pin.isEmpty()) {
+            throw new BusinessException("Falta el código de la tarjeta");
+        }
+        MemberBiometricCredential cred = credentialRepository.findMemberCardsByReaderPin(pin).stream()
+                .filter(c -> c.getMember().getId().equals(memberId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("La tarjeta no corresponde al afiliado seleccionado"));
+        return evaluateMember(cred, cred.getDeviceUserId(), BiometricCredentialType.CARD, false);
+    }
+
     private Optional<AccessVerifyResponse> lookupAndVerify(String deviceUserId, BiometricCredentialType type) {
         if (type == BiometricCredentialType.CARD) {
             return lookupCardByReaderPin(deviceUserId);
@@ -108,12 +127,7 @@ public class AccessControlService {
         }
         List<MemberBiometricCredential> memberMatches = credentialRepository.findMemberCardsByReaderPin(pin);
         if (memberMatches.size() > 1) {
-            return Optional.of(deny(
-                    pin,
-                    BiometricCredentialType.CARD,
-                    null,
-                    null,
-                    "Varias personas comparten esta tarjeta. Identifíquese en recepción."));
+            return Optional.of(cardSelectionRequired(pin, memberMatches));
         }
         if (memberMatches.size() == 1) {
             MemberBiometricCredential cred = memberMatches.get(0);
@@ -296,10 +310,6 @@ public class AccessControlService {
                 continue;
             }
             String pin = CardCredentialKeys.normalizeCardPin(credential.getDeviceUserId());
-            if (CardCredentialKeys.isChipCardUid(pin)) {
-                membersSkipped++;
-                continue;
-            }
             String composite = CardCredentialKeys.composeMemberCard(credential.getDeviceUserId(), documentId);
             if (composite.equals(credential.getDeviceUserId())) {
                 membersSkipped++;
@@ -442,6 +452,7 @@ public class AccessControlService {
                 null,
                 null,
                 logId,
+                null,
                 null,
                 null,
                 null);
@@ -647,7 +658,41 @@ public class AccessControlService {
                 logId,
                 voiceHints.membershipDaysRemaining(),
                 voiceHints.tiqueteraEntriesRemainingAfter(),
-                voiceHints.tiqueteraPlan() ? Boolean.TRUE : null);
+                voiceHints.tiqueteraPlan() ? Boolean.TRUE : null,
+                null);
+    }
+
+    private AccessVerifyResponse cardSelectionRequired(String readerPin, List<MemberBiometricCredential> matches) {
+        List<CardSelectionCandidate> candidates = new ArrayList<>();
+        int index = 1;
+        for (MemberBiometricCredential cred : matches) {
+            Member member = cred.getMember();
+            candidates.add(new CardSelectionCandidate(
+                    index++,
+                    member.getId(),
+                    member.getFirstName() + " " + member.getLastName(),
+                    member.getDocumentId()));
+        }
+        String message =
+                "Varias personas comparten esta tarjeta. Pulse 1-" + candidates.size() + " en el teclado para elegir.";
+        Long logId = saveSelectionLog(readerPin, message, CardSelectionJson.write(candidates));
+        return new AccessVerifyResponse(
+                AccessResult.SELECT_MEMBER,
+                false,
+                message,
+                null,
+                null,
+                AccessPersonType.MEMBER,
+                null,
+                readerPin,
+                BiometricCredentialType.CARD,
+                null,
+                null,
+                logId,
+                null,
+                null,
+                null,
+                candidates);
     }
 
     private AccessVerifyResponse deny(
@@ -680,7 +725,20 @@ public class AccessControlService {
                 logId,
                 null,
                 null,
+                null,
                 null);
+    }
+
+    private Long saveSelectionLog(String deviceUserId, String message, String selectionJson) {
+        AccessLog log = accessLogRepository.save(AccessLog.builder()
+                .fingerprintUserId(deviceUserId)
+                .credentialType(BiometricCredentialType.CARD)
+                .result(AccessResult.SELECT_MEMBER)
+                .message(message)
+                .gateOpened(false)
+                .cardSelectionJson(selectionJson)
+                .build());
+        return log.getId();
     }
 
     private Long saveMemberLog(
@@ -787,7 +845,8 @@ public class AccessControlService {
                 documentId,
                 voiceHints.membershipDaysRemaining(),
                 voiceHints.tiqueteraEntriesRemainingAfter(),
-                voiceHints.tiqueteraPlan() ? Boolean.TRUE : null);
+                voiceHints.tiqueteraPlan() ? Boolean.TRUE : null,
+                CardSelectionJson.read(log.getCardSelectionJson()));
     }
 
     private AccessLogResponse toLogResponse(AccessLog log) {
@@ -808,7 +867,11 @@ public class AccessControlService {
                 log.getMember() != null ? log.getMember().getId() : null,
                 personName,
                 log.getResult(),
-                log.getResult() == AccessResult.GRANTED ? "Ingreso permitido" : "Ingreso denegado",
+                switch (log.getResult()) {
+                    case GRANTED -> "Ingreso permitido";
+                    case SELECT_MEMBER -> "Elija afiliado";
+                    case DENIED -> "Ingreso denegado";
+                },
                 log.getMessage(),
                 log.isGateOpened(),
                 log.getCreatedAt());

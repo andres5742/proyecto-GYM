@@ -4,8 +4,7 @@ import com.gym.management.exception.BusinessException;
 import java.util.Locale;
 
 /**
- * Clave de tarjeta en BD: UID del chip ({@code A5AD8AE2}) o, si el código es corto/repetible,
- * {@code codigo|cedula} / {@code codigo|Eid} (staff).
+ * Clave de tarjeta en BD: siempre {@code codigo|cedula} (ej. {@code A5AD8AE2|1234567890}).
  */
 public final class CardCredentialKeys {
 
@@ -74,15 +73,8 @@ public final class CardCredentialKeys {
         return normalizedCardPin.length() >= MIN_NUMERIC_CHIP_UID_LENGTH;
     }
 
-    /** Clave final a guardar: UID del lector tal cual, o código corto + cédula. */
+    /** Clave final a guardar: siempre {@code codigo|cedula} para distinguir afiliados con el mismo código. */
     public static String resolveMemberCardStorage(String cardPinFromReader, String memberDocumentId) {
-        String card = normalizeCardPin(cardPinFromReader);
-        if (card.isEmpty()) {
-            throw new BusinessException("Falta el código de la tarjeta leída");
-        }
-        if (isChipCardUid(card)) {
-            return ensureMaxLength(card);
-        }
         return composeMemberCard(cardPinFromReader, memberDocumentId);
     }
 

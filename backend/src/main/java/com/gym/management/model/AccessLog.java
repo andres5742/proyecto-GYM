@@ -54,6 +54,10 @@ public class AccessLog {
     @Column(nullable = false, length = 300)
     private String message;
 
+    /** JSON con candidatos cuando result = SELECT_MEMBER (mismo código de tarjeta, varios afiliados). */
+    @Column(name = "card_selection_json", length = 4000)
+    private String cardSelectionJson;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean gateOpened = false;

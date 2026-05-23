@@ -6,6 +6,7 @@ import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
 import com.gym.management.dto.CardCredentialMigrationResponse;
+import com.gym.management.dto.CardSelectMemberRequest;
 import com.gym.management.dto.KioskAccessEventResponse;
 import com.gym.management.dto.KioskOpenGateRequest;
 import com.gym.management.dto.LastDeviceReadResponse;
@@ -71,6 +72,15 @@ public class AccessControlController {
             throw new BusinessException("Falta Pin (número de tarjeta o usuario en el ZKTeco)");
         }
         return accessControlService.verifyZktEvent(pin);
+    }
+
+    /** Pantalla /acceso: el afiliado elige con teclado cuando varias personas comparten el código de tarjeta. */
+    @PostMapping("/zkt/select-member")
+    public AccessVerifyResponse zktSelectMember(
+            @RequestHeader(value = "X-Device-Key", required = false) String deviceKey,
+            @Valid @RequestBody CardSelectMemberRequest body) {
+        validateDeviceKey(deviceKey);
+        return accessControlService.verifyCardMemberSelection(body.pin().trim(), body.memberId());
     }
 
     /** Pantalla /acceso: consulta ingresos recientes (tarjeta/huella vía ZKTeco). */

@@ -5,6 +5,7 @@ import com.gym.management.model.AccessPersonType;
 import com.gym.management.model.AccessResult;
 import com.gym.management.model.BiometricCredentialType;
 import com.gym.management.model.Gender;
+import java.util.List;
 
 public record AccessVerifyResponse(
         AccessResult result,
@@ -25,7 +26,9 @@ public record AccessVerifyResponse(
         Integer membershipDaysRemaining,
         /** Entrenos tiquetera tras este ingreso; null si no es tiquetera. */
         Integer tiqueteraEntriesRemainingAfter,
-        Boolean tiqueteraPlan) {
+        Boolean tiqueteraPlan,
+        /** Afiliados posibles cuando varias personas comparten el mismo código de tarjeta. */
+        List<CardSelectionCandidate> cardSelectionCandidates) {
 
     public AccessVerifyResponse(
             AccessResult result,
@@ -53,12 +56,16 @@ public record AccessVerifyResponse(
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
     public AccessVerifyResponse {
         if (personType == null) {
             personType = employeeId != null ? AccessPersonType.STAFF : AccessPersonType.MEMBER;
+        }
+        if (cardSelectionCandidates == null) {
+            cardSelectionCandidates = List.of();
         }
     }
 

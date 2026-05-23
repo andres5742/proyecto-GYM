@@ -1,6 +1,13 @@
 import type { Gender } from './member.model';
 
-export type AccessResult = 'GRANTED' | 'DENIED';
+export type AccessResult = 'GRANTED' | 'DENIED' | 'SELECT_MEMBER';
+
+export interface CardSelectionCandidate {
+  index: number;
+  memberId: number;
+  memberName: string;
+  documentId?: string | null;
+}
 
 export type BiometricCredentialType = 'FINGERPRINT' | 'CARD' | 'FACE';
 
@@ -41,6 +48,7 @@ export interface AccessVerifyResponse {
   /** Entrenos tiquetera tras este ingreso. */
   tiqueteraEntriesRemainingAfter?: number | null;
   tiqueteraPlan?: boolean | null;
+  cardSelectionCandidates?: CardSelectionCandidate[];
 }
 
 export interface BiometricEnrollRequest {
@@ -101,6 +109,7 @@ export interface KioskAccessEvent {
   membershipDaysRemaining?: number | null;
   tiqueteraEntriesRemainingAfter?: number | null;
   tiqueteraPlan?: boolean | null;
+  cardSelectionCandidates?: CardSelectionCandidate[];
 }
 
 export interface AccessLogEntry {

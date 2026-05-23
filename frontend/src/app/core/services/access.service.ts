@@ -53,6 +53,18 @@ export class AccessService {
     );
   }
 
+  /** Pantalla /acceso: elegir afiliado cuando el mismo código de tarjeta está en varias cuentas. */
+  zktSelectMember(pin: string, memberId: number): Observable<AccessVerifyResponse> {
+    const headers = new HttpHeaders({
+      'X-Device-Key': environment.accessDeviceKey ?? '',
+    });
+    return this.http.post<AccessVerifyResponse>(
+      `${this.baseUrl}/zkt/select-member`,
+      { pin: pin.trim(), memberId },
+      { headers },
+    );
+  }
+
   /** Última lectura del lector (registrar tarjeta/huella en recepción). */
   lastDeviceRead(sinceIso: string): Observable<LastDeviceRead | null> {
     const params = new HttpParams().set('since', sinceIso);

@@ -2,7 +2,8 @@
   class="kiosk"
   [class.granted]="lastResult()?.result === 'GRANTED'"
   [class.denied]="lastResult()?.result === 'DENIED'"
-  [class.waiting]="kioskReady() && !lastResult()"
+  [class.selecting]="cardSelection()"
+  [class.waiting]="kioskReady() && !lastResult() && !cardSelection()"
 >
   <header class="kiosk-header" aria-label="Cerrar aplicación">
     <button type="button" class="kiosk-header__close" (click)="closeApp()" aria-label="Cerrar aplicación">
@@ -33,9 +34,27 @@
             <p class="kiosk-center__lead">Pase su tarjeta o huella</p>
           }
 
-          <p class="kiosk-center__status" [class.kiosk-center__status--waiting]="!lastResult()">
+          <p class="kiosk-center__status" [class.kiosk-center__status--waiting]="!lastResult() && !cardSelection()">
             {{ statusLine() }}
           </p>
+
+          @if (cardSelection(); as pick) {
+            <div class="card-selection" aria-live="assertive">
+              <p class="card-selection__title">¿Quién ingresa?</p>
+              <ol class="card-selection__list">
+                @for (c of pick.candidates; track c.memberId) {
+                  <li>
+                    <span class="card-selection__key">{{ c.index }}</span>
+                    <span class="card-selection__name">{{ c.memberName }}</span>
+                    @if (c.documentId) {
+                      <span class="card-selection__doc">Cédula {{ c.documentId }}</span>
+                    }
+                  </li>
+                }
+              </ol>
+              <p class="card-selection__hint">Pulse el número en el teclado (1, 2, 3…)</p>
+            </div>
+          }
 
           @if (lastResult(); as r) {
             <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">

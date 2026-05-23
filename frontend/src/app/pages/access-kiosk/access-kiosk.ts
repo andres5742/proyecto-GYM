@@ -1,6 +1,6 @@
 import { Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { AccessVerifyResponse, isStaffPerson, KioskAccessEvent } from '../../core/models/access.model';
+import { AccessVerifyResponse, CardSelectionCandidate, isStaffPerson, KioskAccessEvent } from '../../core/models/access.model';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AccessService } from '../../core/services/access.service';
 import {
@@ -30,6 +30,7 @@ const KIOSK_MOTIVATIONAL_PHRASES = [
 const POLL_MS = 700;
 const GRANTED_DISPLAY_MS = 8000;
 const DENIED_DISPLAY_MS = 5000;
+const SELECT_MEMBER_DISPLAY_MS = 45000;
 /** Arranque automático al abrir la página (sin botón Activar). */
 const AUTO_START_MS = 400;
 
@@ -60,6 +61,10 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly audioSupported = isWelcomeAudioSupported();
   protected readonly motivationalPhrase = signal(KIOSK_MOTIVATIONAL_PHRASES[0]);
   protected readonly configError = signal<string | null>(null);
+  protected readonly cardSelection = signal<{
+    pin: string;
+    candidates: CardSelectionCandidate[];
+  } | null>(null);
   protected footerDateLabel(): string {
     return this.clock()
       .toLocaleDateString('es-CO', {
@@ -135,6 +140,15 @@ export class AccessKiosk implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(event: KeyboardEvent): void {
     if (!this.kioskReady() || this.configError()) {
+      return;
+    }
+    const selection = this.cardSelection();
+    if (selection) {
+      const choice = this.parseSelectionKey(event);
+      if (choice != null) {
+        event.preventDefault();
+        this.submitCardSelection(selection.pin, choice);
+      }
       return;
     }
     if (event.key === 'F2') {
@@ -275,6 +289,41 @@ export class AccessKiosk implements OnInit, OnDestroy {
       membershipDaysRemaining: event.membershipDaysRemaining ?? null,
       tiqueteraEntriesRemainingAfter: event.tiqueteraEntriesRemainingAfter ?? null,
       tiqueteraPlan: event.tiqueteraPlan ?? null,
+      cardSelectionCandidates: event.cardSelectionCandidates ?? [],
+    });
+  }
+
+  private parseSelectionKey(event: KeyboardEvent): CardSelectionCandidate | null {
+    const digit = event.code.match(/^Digit([1-9])$/) ?? event.code.match(/^Numpad([1-9])$/);
+    if (!digit) {
+      return null;
+    }
+    const index = Number(digit[1]);
+    const candidates = this.cardSelection()?.candidates ?? [];
+    return candidates.find((c) => c.index === index) ?? null;
+  }
+
+  private submitCardSelection(pin: string, candidate: CardSelectionCandidate): void {
+    this.statusLine.set(`Verificando a ${candidate.memberName}…`);
+    this.accessService.zktSelectMember(pin, candidate.memberId).subscribe({
+      next: (res) => {
+        this.cardSelection.set(null);
+        this.applyVerifyResponse(res);
+      },
+      error: (err: HttpErrorResponse) => {
+        const msg =
+          typeof err.error === 'object' && err.error?.message
+            ? String(err.error.message)
+            : 'No se pudo validar la tarjeta.';
+        this.cardSelection.set(null);
+        this.applyVerifyResponse({
+          result: 'DENIED',
+          gateOpened: false,
+          message: msg,
+          deviceUserId: pin,
+          credentialType: 'CARD',
+        });
+      },
     });
   }
 
@@ -290,6 +339,20 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {
       this.lastProcessedLogId = res.accessLogId;
     }
+
+    if (res.result === 'SELECT_MEMBER' && (res.cardSelectionCandidates?.length ?? 0) > 0) {
+      this.cardSelection.set({
+        pin: res.deviceUserId,
+        candidates: res.cardSelectionCandidates ?? [],
+      });
+      this.welcomeTitle.set(null);
+      this.showWelcomeAudioBtn.set(false);
+      this.statusLine.set(res.message);
+      this.scheduleRelease(SELECT_MEMBER_DISPLAY_MS);
+      return;
+    }
+
+    this.cardSelection.set(null);
 
     if (res.result === 'GRANTED') {
       const staff = isStaffPerson(res);
@@ -346,6 +409,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   private scheduleRelease(ms: number): void {
     this.releaseTimer = setTimeout(() => {
       this.releaseTimer = null;
+      this.cardSelection.set(null);
       this.lastResult.set(null);
       this.welcomeTitle.set(null);
       this.showWelcomeAudioBtn.set(false);

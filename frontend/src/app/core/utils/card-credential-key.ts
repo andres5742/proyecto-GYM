@@ -59,13 +59,6 @@ export function resolveMemberCardKey(
   cardPin: string,
   documentId: string | null | undefined,
 ): string | null {
-  const card = normalizeCardPin(cardPin);
-  if (!card) {
-    return null;
-  }
-  if (isChipCardUid(card)) {
-    return card;
-  }
   return composeMemberCardKey(cardPin, documentId);
 }
 

@@ -32,6 +32,8 @@ public final class ApiAuthorizationRules {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/access/zkt/event")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/access/zkt/select-member")
+                .permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/access/kiosk/events")
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/access/kiosk/open-gate")
