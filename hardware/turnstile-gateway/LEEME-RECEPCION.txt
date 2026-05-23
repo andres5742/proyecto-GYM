@@ -36,6 +36,12 @@ Solo si ZKAccess muestra solo numeros (sin letras A-F), cambie en iniciar-lector
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
 
+Si el torniquete quedo LIBRE (sin seguro) y no vuelve a bloquearse:
+  -> Doble clic en poner-seguro.bat (misma carpeta turnstile-gateway)
+  -> Cierre quitar-seguro.bat si lo dejo abierto
+  -> Reinicie iniciar-lector-tarjeta.bat o Sport Gym Acceso
+  -> El script ahora re-pone seguro solo tras 8 s; si falla COM3, use poner-seguro.bat
+
 APP .EXE (Electron, con F2/F3 torniquete):
   -> hardware/access-desktop/compilar-acceso-electron.bat
   -> dist/SportGym-Acceso-1.0.0.exe

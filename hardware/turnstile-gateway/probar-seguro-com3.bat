@@ -37,9 +37,9 @@ echo --- PONER seguro (l) ---
 python turnstile_gate.py lock
 timeout /t 3 >nul
 
-echo --- QUITAR seguro (a) — empuje el torniquete ---
-python turnstile_gate.py unlock
-timeout /t 3 >nul
+echo --- QUITAR seguro (a) — empuje el torniquete; vuelve a bloquear solo ---
+python turnstile_gate.py unlock --wait
+timeout /t 2 >nul
 
 echo.
 echo Si el torniquete se movio: copie turnstile-gate.env.example a turnstile-gate.env

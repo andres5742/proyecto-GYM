@@ -62,7 +62,8 @@ function runGateCommand(action) {
     console.warn('No se encontró turnstile_gate.py en', gwDir);
     return;
   }
-  const child = spawn('python', [script, action], {
+  const args = action === 'unlock' ? [script, 'unlock', '--wait'] : [script, action];
+  const child = spawn('python', args, {
     cwd: gwDir,
     detached: false,
     stdio: 'ignore',
@@ -90,15 +91,17 @@ function queueGateCommand(cmd, data) {
 }
 
 function syncGateFromPayload(payload) {
-  const granted = payload && payload.result === 'GRANTED';
+  const result = payload && String(payload.result || '').toUpperCase();
+  const granted = result === 'GRANTED';
   const opened = payload && Boolean(payload.gateOpened);
+  const shouldUnlock = granted && opened;
   if (config.spawnCardReader) {
-    if (granted && opened) {
+    if (shouldUnlock) {
       queueGateCommand('unlock');
     } else {
       queueGateCommand('lock');
     }
-  } else if (granted && opened) {
+  } else if (shouldUnlock) {
     runGateCommand('unlock');
   } else {
     runGateCommand('lock');
@@ -245,9 +248,6 @@ app.whenReady().then(async () => {
     callback({ requestHeaders: details.requestHeaders });
   });
   spawnCardReader();
-  if (!config.spawnCardReader) {
-    runGateCommand('lock');
-  }
   createWindow();
   registerExitShortcuts();
 });
