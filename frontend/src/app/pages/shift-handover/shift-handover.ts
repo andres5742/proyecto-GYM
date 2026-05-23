@@ -96,16 +96,11 @@ export class ShiftHandoverPage implements OnInit {
   );
 
   protected readonly liveComparisons = computed((): ShiftHandoverComparison[] => {
-    const summary = this.preview()?.shiftDetail?.summary;
-    if (!summary) {
+    if (!this.preview()?.shiftDetail?.summary) {
       return [];
     }
-    const by = summary.amountByPaymentMethod;
     const expectedCash = this.expectedCashInDrawer();
-    return [
-      this.cmp('Dinero contado (billetes + monedas)', this.cashTotal(), expectedCash),
-      this.cmp('Cobros deudas anteriores', this.priorTotal(), by['PENDING'] ?? 0),
-    ];
+    return [this.cmp('Dinero contado (billetes + monedas)', this.cashTotal(), expectedCash)];
   });
 
   protected readonly selectedHistory = computed(() => {
