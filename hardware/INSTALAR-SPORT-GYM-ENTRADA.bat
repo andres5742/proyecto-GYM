@@ -123,6 +123,11 @@ if not defined TARGET if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso
 )
 
 if defined TARGET (
+  echo Sincronizando lector con la app instalada...
+  if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\" (
+    mkdir "%LOCALAPPDATA%\Programs\Sport Gym Acceso\turnstile-gateway" 2>nul
+    xcopy /E /I /Y /Q "%DEST%\turnstile-gateway\*" "%LOCALAPPDATA%\Programs\Sport Gym Acceso\turnstile-gateway\"
+  )
   set "PS_T=!TARGET!"
   set "PS_W=!WORKDIR!"
   powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell;$s=$w.CreateShortcut('%LINK%');$s.TargetPath=$env:PS_T;$s.WorkingDirectory=$env:PS_W;$s.Description='Sport Gym Acceso';$s.Save()"
@@ -132,6 +137,8 @@ if defined TARGET (
   echo  Escritorio: Sport Gym Acceso
   echo  Programa:   !TARGET!
   echo  Lector:     %DEST%\turnstile-gateway
+  echo  Atajo:      %~dp0INICIAR-ACCESO-COMPLETO.bat
+  copy /Y "%~dp0INICIAR-ACCESO-COMPLETO.bat" "%DEST%\INICIAR-ACCESO-COMPLETO.bat" >nul 2>&1
   echo ========================================
   set /p ABRIR="Abrir Sport Gym Acceso ahora? S/N: "
   if /i "!ABRIR!"=="S" start "" "!TARGET!"

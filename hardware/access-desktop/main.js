@@ -32,8 +32,13 @@ function appBaseDir() {
   return app.isPackaged ? path.dirname(process.execPath) : __dirname;
 }
 
-/** Carpeta turnstile-gateway: primero junto al .exe (C:\SportGym), luego resources. */
+/** Carpeta turnstile-gateway: C:\SportGym (INSTALAR), junto al .exe, o resources embebido. */
 function resolveGatewayDir() {
+  const gymEntry = path.join('C:', 'SportGym', 'turnstile-gateway');
+  const gymBat = path.join(gymEntry, 'iniciar-lector-tarjeta.bat');
+  if (fs.existsSync(gymBat)) {
+    return gymEntry;
+  }
   const beside = path.join(appBaseDir(), 'turnstile-gateway');
   const besideBat = path.join(beside, 'iniciar-lector-tarjeta.bat');
   if (fs.existsSync(besideBat)) {
@@ -126,7 +131,22 @@ function spawnCardReader() {
   const gwDir = resolveGatewayDir();
   const bat = path.join(gwDir, 'iniciar-lector-tarjeta.bat');
   if (!fs.existsSync(bat)) {
-    console.warn('No se encontró iniciar-lector-tarjeta.bat en', gwDir);
+    const msg =
+      'No se encontro el lector de tarjeta COM3.\n\n' +
+      'Ejecute de nuevo: INSTALAR-SPORT-GYM-ENTRADA.bat\n\n' +
+      'O abra manualmente:\n' +
+      'C:\\SportGym\\turnstile-gateway\\iniciar-lector-tarjeta.bat';
+    console.warn(msg, gwDir);
+    if (mainWindow) {
+      dialog.showMessageBoxSync(mainWindow, {
+        type: 'warning',
+        title: 'Sport Gym Acceso',
+        message: 'Lector COM3 no encontrado',
+        detail: msg,
+      });
+    } else {
+      dialog.showErrorBox('Sport Gym Acceso - Lector COM3', msg);
+    }
     return;
   }
   const child = spawn('cmd.exe', ['/c', 'call', bat], {
