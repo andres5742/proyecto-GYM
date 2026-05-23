@@ -2,7 +2,7 @@
   class="kiosk"
   [class.granted]="lastResult()?.result === 'GRANTED'"
   [class.denied]="lastResult()?.result === 'DENIED'"
-  [class.selecting]="cardSelection()"
+  [class.selecting]="cardSelection() || lastResult()?.result === 'SELECT_MEMBER'"
   [class.waiting]="kioskReady() && !lastResult() && !cardSelection()"
 >
   <header class="kiosk-header" aria-label="Cerrar aplicación">
@@ -54,8 +54,10 @@
           }
 
           @if (lastResult(); as r) {
-            <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'">
-              <span class="result-icon" aria-hidden="true">{{ r.result === 'GRANTED' ? '✅' : '⛔' }}</span>
+            <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'" [class.pick]="r.result === 'SELECT_MEMBER'">
+              <span class="result-icon" aria-hidden="true">{{
+                r.result === 'GRANTED' ? '✅' : r.result === 'SELECT_MEMBER' ? '🔢' : '⛔'
+              }}</span>
               <div class="result-banner__body">
                 @if (r.memberName) {
                   <strong>{{ r.memberName }}</strong>

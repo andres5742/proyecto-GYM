@@ -28,6 +28,8 @@ const KIOSK_MOTIVATIONAL_PHRASES = [
 ];
 
 const POLL_MS = 700;
+/** Margen al iniciar: evita perder lecturas si el reloj del PC va adelantado al servidor. */
+const POLL_LOOKBACK_MS = 180_000;
 const GRANTED_DISPLAY_MS = 8000;
 const DENIED_DISPLAY_MS = 5000;
 const SELECT_MEMBER_DISPLAY_MS = 45000;
@@ -181,7 +183,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.audioUnlocked.set(ok);
     }
     this.kioskReady.set(true);
-    this.pollSinceIso = new Date().toISOString();
+    this.pollSinceIso = new Date(Date.now() - POLL_LOOKBACK_MS).toISOString();
     this.lastProcessedLogId = 0;
     this.lastResult.set(null);
     this.welcomeTitle.set(null);
@@ -345,14 +347,23 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.lastProcessedLogId = res.accessLogId;
     }
 
-    if (res.result === 'SELECT_MEMBER' && (res.cardSelectionCandidates?.length ?? 0) > 0) {
-      this.cardSelection.set({
-        pin: res.deviceUserId,
-        candidates: res.cardSelectionCandidates ?? [],
-      });
+    if (res.result === 'SELECT_MEMBER') {
+      const candidates = res.cardSelectionCandidates ?? [];
+      if (candidates.length > 0) {
+        this.cardSelection.set({
+          pin: res.deviceUserId,
+          candidates,
+        });
+      } else {
+        this.cardSelection.set(null);
+      }
       this.welcomeTitle.set(null);
       this.showWelcomeAudioBtn.set(false);
-      this.statusLine.set(res.message);
+      this.statusLine.set(
+        candidates.length > 0
+          ? res.message
+          : `${res.message} Actualice el servidor (git pull + actualizar-acceso-tarjetas.sh).`,
+      );
       this.scheduleRelease(SELECT_MEMBER_DISPLAY_MS);
       return;
     }

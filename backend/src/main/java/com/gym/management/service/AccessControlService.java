@@ -100,7 +100,7 @@ public class AccessControlService {
         if (pin.isEmpty()) {
             throw new BusinessException("Falta el código de la tarjeta");
         }
-        MemberBiometricCredential cred = credentialRepository.findMemberCardsByReaderPin(pin).stream()
+        MemberBiometricCredential cred = findMemberCardsSharingPin(pin).stream()
                 .filter(c -> c.getMember().getId().equals(memberId))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("La tarjeta no corresponde al afiliado seleccionado"));
@@ -127,7 +127,7 @@ public class AccessControlService {
         if (pin.isEmpty()) {
             return Optional.empty();
         }
-        List<MemberBiometricCredential> memberMatches = credentialRepository.findMemberCardsByReaderPin(pin);
+        List<MemberBiometricCredential> memberMatches = findMemberCardsSharingPin(pin);
         if (memberMatches.size() > 1) {
             return Optional.of(resolveSharedCardPin(readerPin, memberMatches));
         }
@@ -237,6 +237,9 @@ public class AccessControlService {
         credential.setDeviceUserId(deviceUserId);
         credential.setDeviceLabel(blankToNull(deviceLabel));
         credential = credentialRepository.save(credential);
+        if (type == BiometricCredentialType.CARD) {
+            normalizeLegacySharedCardPins(deviceUserId, member.getId());
+        }
         return toMemberEnrollResponse(credential);
     }
 
@@ -683,6 +686,11 @@ public class AccessControlService {
      * Si uno ya entró hoy y llega otra lectura con el mismo código, se asume el otro afiliado pendiente.
      */
     private AccessVerifyResponse resolveSharedCardPin(String readerPin, List<MemberBiometricCredential> matches) {
+        normalizeLegacySharedCardPins(readerPin, null);
+        List<MemberBiometricCredential> refreshed = findMemberCardsSharingPin(readerPin);
+        if (refreshed.size() > 1) {
+            matches = refreshed;
+        }
         List<MemberBiometricCredential> pendingToday = matches.stream()
                 .filter(c -> !alreadyEnteredToday(c.getMember()))
                 .toList();
@@ -710,8 +718,8 @@ public class AccessControlService {
             candidates.add(new CardSelectionCandidate(
                     index++,
                     member.getId(),
-                    member.getFirstName() + " " + member.getLastName(),
-                    member.getDocumentId()));
+                    WelcomeMessageUtils.resolveFirstName(member.getFirstName(), member.getLastName()),
+                    null));
         }
         String message =
                 "Varias personas comparten este código. Primer ingreso del día: pulse 1-"
@@ -970,6 +978,52 @@ public class AccessControlService {
         Instant to = today.plusDays(1).atStartOfDay(GYM_ZONE).toInstant();
         return accessLogRepository.existsByMemberIdAndResultBetween(
                 member.getId(), AccessResult.GRANTED, from, to);
+    }
+
+    /** Afiliados cuyo código de lector (parte antes de |) coincide con la tarjeta pasada. */
+    private List<MemberBiometricCredential> findMemberCardsSharingPin(String readerPin) {
+        String pin = CardCredentialKeys.normalizeCardPin(readerPin);
+        if (pin.isEmpty()) {
+            return List.of();
+        }
+        return credentialRepository.findAllWithMember().stream()
+                .filter(c -> c.getCredentialType() == BiometricCredentialType.CARD)
+                .filter(c -> pin.equals(CardCredentialKeys.normalizeCardPin(c.getDeviceUserId())))
+                .toList();
+    }
+
+    /**
+     * Si varias personas comparten el mismo UID, la clave antigua (solo código) se migra a codigo|cedula
+     * para que el sistema las distinga en recepción y en el torniquete.
+     */
+    private void normalizeLegacySharedCardPins(String readerPin, Long exceptMemberId) {
+        List<MemberBiometricCredential> sharing = findMemberCardsSharingPin(readerPin);
+        if (sharing.size() < 2) {
+            return;
+        }
+        for (MemberBiometricCredential credential : sharing) {
+            Member member = credential.getMember();
+            if (exceptMemberId != null && member.getId().equals(exceptMemberId)) {
+                continue;
+            }
+            if (CardCredentialKeys.isComposite(credential.getDeviceUserId())) {
+                continue;
+            }
+            if (member.getDocumentId() == null || member.getDocumentId().isBlank()) {
+                continue;
+            }
+            String composite = CardCredentialKeys.composeMemberCard(credential.getDeviceUserId(), member.getDocumentId());
+            if (composite.equals(credential.getDeviceUserId())) {
+                continue;
+            }
+            var conflict = credentialRepository.findByCredentialTypeAndDeviceUserId(
+                    BiometricCredentialType.CARD, composite);
+            if (conflict.isPresent() && !conflict.get().getMember().getId().equals(member.getId())) {
+                continue;
+            }
+            credential.setDeviceUserId(composite);
+            credentialRepository.save(credential);
+        }
     }
 
     private static String blankToNull(String value) {

@@ -393,6 +393,32 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureAccessLogCardSelection(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE access_logs
+                        ADD COLUMN IF NOT EXISTS card_selection_json VARCHAR(4000)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE access_logs
+                        DROP CONSTRAINT IF EXISTS access_logs_result_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE access_logs
+                        ADD CONSTRAINT access_logs_result_check
+                        CHECK (result IN ('GRANTED', 'DENIED', 'SELECT_MEMBER'))
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner ensureBiometricCredentialTypeCard(JdbcTemplate jdbc) {
         return args -> {
             try {
