@@ -35,4 +35,4 @@ echo Abriendo Sport Gym Acceso...
 start "" "%APP%"
 echo.
 echo Debe ver 2 ventanas: lector COM3 + pantalla del gym.
-pause
+exit /b 0

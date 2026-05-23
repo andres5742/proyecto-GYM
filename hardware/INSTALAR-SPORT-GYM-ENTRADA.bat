@@ -108,19 +108,26 @@ echo Setup: !SETUP! >> "%LOG%"
 start /wait "" "!SETUP!"
 
 set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
+set "LAUNCHER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
 set "TARGET="
 set "WORKDIR="
+set "ICON="
 if exist "%DEST%\Sport Gym Acceso.exe" (
   set "TARGET=%DEST%\Sport Gym Acceso.exe" & set "WORKDIR=%DEST%"
+  set "ICON=%DEST%\Sport Gym Acceso.exe,0"
 )
 if not defined TARGET if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" (
   set "TARGET=%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe"
   set "WORKDIR=%LOCALAPPDATA%\Programs\Sport Gym Acceso"
+  set "ICON=%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe,0"
 )
 if not defined TARGET if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" (
   set "TARGET=%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe"
   set "WORKDIR=%ProgramFiles%\Sport Gym Acceso"
+  set "ICON=%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe,0"
 )
+
+copy /Y "%~dp0INICIAR-ACCESO-COMPLETO.bat" "%LAUNCHER%" >nul 2>&1
 
 if defined TARGET (
   echo Sincronizando lector con la app instalada...
@@ -128,20 +135,28 @@ if defined TARGET (
     mkdir "%LOCALAPPDATA%\Programs\Sport Gym Acceso\turnstile-gateway" 2>nul
     xcopy /E /I /Y /Q "%DEST%\turnstile-gateway\*" "%LOCALAPPDATA%\Programs\Sport Gym Acceso\turnstile-gateway\"
   )
-  set "PS_T=!TARGET!"
-  set "PS_W=!WORKDIR!"
-  powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell;$s=$w.CreateShortcut('%LINK%');$s.TargetPath=$env:PS_T;$s.WorkingDirectory=$env:PS_W;$s.Description='Sport Gym Acceso';$s.Save()"
+)
+
+if exist "%LAUNCHER%" (
+  set "PS_ICON=!ICON!"
+  powershell -NoProfile -Command ^
+    "$w=New-Object -ComObject WScript.Shell;" ^
+    "$s=$w.CreateShortcut('%LINK%');" ^
+    "$s.TargetPath='%LAUNCHER%';" ^
+    "$s.WorkingDirectory='%DEST%';" ^
+    "$s.Description='Sport Gym Acceso';" ^
+    "if($env:PS_ICON){$s.IconLocation=$env:PS_ICON};" ^
+    "$s.Save()"
   echo.
   echo ========================================
   echo  LISTO
-  echo  Escritorio: Sport Gym Acceso
-  echo  Programa:   !TARGET!
-  echo  Lector:     %DEST%\turnstile-gateway
-  echo  Atajo:      %~dp0INICIAR-ACCESO-COMPLETO.bat
-  copy /Y "%~dp0INICIAR-ACCESO-COMPLETO.bat" "%DEST%\INICIAR-ACCESO-COMPLETO.bat" >nul 2>&1
+  echo  Escritorio: Sport Gym Acceso (logo del gym)
+  echo  Abre lector COM3 + pantalla del servidor
+  echo  Lector: %DEST%\turnstile-gateway
+  if defined TARGET echo  App: !TARGET!
   echo ========================================
   set /p ABRIR="Abrir Sport Gym Acceso ahora? S/N: "
-  if /i "!ABRIR!"=="S" start "" "!TARGET!"
+  if /i "!ABRIR!"=="S" call "%LAUNCHER%"
 ) else (
   echo AVISO: complete la instalacion del Setup si la cancelo.
 )
