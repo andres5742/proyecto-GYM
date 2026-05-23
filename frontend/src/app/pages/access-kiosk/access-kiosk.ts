@@ -159,7 +159,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.triggerShortcutGate('workout');
       return;
     }
-    if (event.key === 'F3') {
+    if (event.key === 'F8') {
       event.preventDefault();
       this.triggerShortcutGate('sports-dance');
     }
@@ -217,7 +217,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   private triggerShortcutGate(reason: 'workout' | 'sports-dance'): void {
-    const label = reason === 'sports-dance' ? 'F3 Bailes' : 'F2 Entreno';
+    const label = reason === 'sports-dance' ? 'F8 Bailes' : 'F2 Entreno';
     this.statusLine.set(`Abriendo torniquete (${label})…`);
     this.accessService.kioskOpenGate(reason).subscribe({
       next: (res) => this.applyVerifyResponse(res),
@@ -231,7 +231,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
           result: 'DENIED',
           gateOpened: false,
           message: msg,
-          deviceUserId: reason === 'sports-dance' ? 'F3' : 'F2',
+          deviceUserId: reason === 'sports-dance' ? 'F8' : 'F2',
           credentialType: 'CARD',
         });
         this.scheduleRelease(DENIED_DISPLAY_MS);

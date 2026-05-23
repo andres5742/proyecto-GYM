@@ -488,16 +488,16 @@ public class AccessControlService {
     }
 
     /**
-     * Pantalla /acceso o app de escritorio: F2 entreno del día, F3 bailes deportivos.
+     * Pantalla /acceso o app de escritorio: F2 entreno del día, F8 bailes deportivos.
      * Abre el torniquete vía {@code TURNSTILE_WEBHOOK} sin afiliado (pase invitado en entrada).
      */
     @Transactional
     public AccessVerifyResponse kioskOpenGate(String reason) {
         boolean sports = "sports-dance".equalsIgnoreCase(reason);
-        String deviceUserId = sports ? "F3-BAILES" : "F2-ENTRENO";
-        String label = sports ? "Bailes deportivos (F3)" : "Entreno del día (F2)";
+        String deviceUserId = sports ? "F8-BAILES" : "F2-ENTRENO";
+        String label = sports ? "Bailes deportivos (F8)" : "Entreno del día (F2)";
         String message =
-                sports ? "Torniquete: bailes deportivos (F3)" : "Torniquete: entreno del día (F2)";
+                sports ? "Torniquete: bailes deportivos (F8)" : "Torniquete: entreno del día (F2)";
         boolean opened = turnstileGatewayService.openGate(label, null);
         Long logId =
                 saveMemberLog(deviceUserId, BiometricCredentialType.CARD, null, AccessResult.GRANTED, message, opened);

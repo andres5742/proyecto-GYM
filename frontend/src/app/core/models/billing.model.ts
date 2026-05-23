@@ -45,6 +45,7 @@ export interface BillingPayment {
 export interface DayWorkoutRegisterRequest {
   memberId?: number | null;
   paymentMethod: PaymentMethod;
+  paymentSplits?: PaymentSplitLine[] | null;
 }
 
 export interface DayWorkoutRegisterResponse {

@@ -152,17 +152,96 @@
     aria-labelledby="day-pass-modal-title"
     (click)="closeDayPassModal()"
   >
-    <div class="f2-modal panel" (click)="$event.stopPropagation()">
+    <div
+      class="f2-modal panel"
+      [class.f2-modal--split]="dayPassUseSplitPayment()"
+      (click)="$event.stopPropagation()"
+    >
       <h2 id="day-pass-modal-title">{{ dayPassModalTitle() }}</h2>
       <p class="muted small">Pase de un día sin estar en el sistema. Elige cómo pagó:</p>
-      <label class="f2-modal__field">
-        Medio de pago
-        <select [ngModel]="dayPassPaymentMethod()" (ngModelChange)="dayPassPaymentMethod.set($event)">
-          @for (pm of paymentMethods; track pm.value) {
-            <option [ngValue]="pm.value">{{ pm.label }}</option>
-          }
-        </select>
+
+      @if (dayPassChargeTotal(); as total) {
+        <p class="f2-modal__total">Total: <strong>{{ total | cop }}</strong></p>
+      }
+
+      <label class="f2-modal__toggle">
+        <input
+          type="checkbox"
+          [checked]="dayPassUseSplitPayment()"
+          (change)="setDayPassUseSplitPayment($any($event.target).checked)"
+        />
+        <span>Dividir pago en dos medios</span>
       </label>
+
+      @if (dayPassUseSplitPayment()) {
+        <div class="f2-modal__split">
+          <label class="f2-modal__field">
+            Medio 1
+            <select [ngModel]="dayPassSplitMethod1()" (ngModelChange)="dayPassSplitMethod1.set($event)">
+              @for (pm of paymentMethods; track pm.value) {
+                <option [ngValue]="pm.value">{{ pm.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="f2-modal__field">
+            Monto medio 1
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              [ngModel]="dayPassSplitAmount1()"
+              (ngModelChange)="onDayPassSplitAmount1Change($event)"
+            />
+          </label>
+          <label class="f2-modal__field">
+            Medio 2
+            <select [ngModel]="dayPassSplitMethod2()" (ngModelChange)="dayPassSplitMethod2.set($event)">
+              @for (pm of paymentMethods; track pm.value) {
+                <option [ngValue]="pm.value">{{ pm.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="f2-modal__field">
+            Monto medio 2
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              [ngModel]="dayPassSplitAmount2()"
+              (ngModelChange)="onDayPassSplitAmount2Change($event)"
+            />
+          </label>
+          @if (dayPassSplitRemaining(); as diff) {
+            <p
+              class="f2-modal__hint"
+              [class.f2-modal__hint--ok]="diff === 0"
+              [class.f2-modal__hint--warn]="diff !== 0"
+            >
+              {{
+                diff === 0
+                  ? 'La suma coincide con el total del pase.'
+                  : diff > 0
+                    ? 'Faltan $' + diff.toLocaleString('es-CO') + ' para completar el total.'
+                    : 'Sobran $' + (-diff).toLocaleString('es-CO') + ' respecto al total.'
+              }}
+            </p>
+          }
+        </div>
+      } @else {
+        <label class="f2-modal__field">
+          Medio de pago
+          <select [ngModel]="dayPassPaymentMethod()" (ngModelChange)="dayPassPaymentMethod.set($event)">
+            @for (pm of paymentMethods; track pm.value) {
+              <option [ngValue]="pm.value">{{ pm.label }}</option>
+            }
+          </select>
+        </label>
+      }
+
       <div class="f2-modal__actions">
         <button type="button" class="btn btn-secondary" [disabled]="dayPassProcessing()" (click)="closeDayPassModal()">
           Cancelar
@@ -170,7 +249,7 @@
         <button
           type="button"
           class="btn btn-primary"
-          [disabled]="dayPassProcessing()"
+          [disabled]="!canConfirmDayPass()"
           (click)="confirmDayPass()"
         >
           {{ dayPassProcessing() ? 'Procesando…' : 'Confirmar y abrir acceso' }}

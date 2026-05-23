@@ -1038,7 +1038,7 @@ export class BillingPage implements OnInit, OnDestroy {
       return;
     }
     if (isBillingDayPassPlan(plan)) {
-      this.message.set('Entreno del día y bailes deportivos se registran con F2 y F3');
+      this.message.set('Entreno del día y bailes deportivos se registran con F2 y F8');
       this.membershipPlanId.set(null);
       return;
     }

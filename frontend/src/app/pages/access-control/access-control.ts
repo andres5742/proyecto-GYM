@@ -500,8 +500,8 @@ export class AccessControlPage implements OnInit, OnDestroy {
     if (t === 'F2-ENTRENO') {
       return 'F2 · Entreno del día';
     }
-    if (t === 'F3-BAILES') {
-      return 'F3 · Bailes deportivos';
+    if (t === 'F3-BAILES' || t === 'F8-BAILES') {
+      return t.startsWith('F8') ? 'F8 · Bailes deportivos' : 'F3 · Bailes deportivos';
     }
     return t || '—';
   }
@@ -514,8 +514,8 @@ export class AccessControlPage implements OnInit, OnDestroy {
     if (code === 'F2-ENTRENO') {
       return 'Pase entreno (PC entrada)';
     }
-    if (code === 'F3-BAILES') {
-      return 'Pase bailes (PC entrada)';
+    if (code === 'F3-BAILES' || code === 'F8-BAILES') {
+      return code.startsWith('F8') ? 'Pase bailes F8 (PC entrada)' : 'Pase bailes F3 (PC entrada)';
     }
     return '—';
   }
@@ -620,7 +620,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
         }
         this.lastCaptureLogId = read.logId;
         const pin = read.pin.trim();
-        const isSpecialPass = pin === 'F2-ENTRENO' || pin === 'F3-BAILES';
+        const isSpecialPass = pin === 'F2-ENTRENO' || pin === 'F3-BAILES' || pin === 'F8-BAILES';
         this.lastCapturedPin.set(pin);
         this.captureWaiting.set(false);
         if (!isSpecialPass) {

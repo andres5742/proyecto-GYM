@@ -38,7 +38,7 @@ export function normalizePlanNameKey(name: string): string {
 
 const BILLING_DAY_PASS_NAME_KEYS = ['entreno dia', 'bailes deportivos'] as const;
 
-/** Pases F2/F3; no van en el cobro de membresía. */
+/** Pases F2/F8; no van en el cobro de membresía. */
 export function isBillingDayPassPlan(plan: MembershipPlan): boolean {
   const nameKey = normalizePlanNameKey(plan.name);
   if (BILLING_DAY_PASS_NAME_KEYS.some((n) => nameKey === n)) {
@@ -49,7 +49,9 @@ export function isBillingDayPassPlan(plan: MembershipPlan): boolean {
     desc.includes('(f2') ||
     desc.includes('f2 en recepcion') ||
     desc.includes('/ f3') ||
-    desc.includes('f3)')
+    desc.includes('f3)') ||
+    desc.includes('/ f8') ||
+    desc.includes('f8)')
   );
 }
 

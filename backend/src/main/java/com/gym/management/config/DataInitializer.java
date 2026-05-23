@@ -532,7 +532,7 @@ public class DataInitializer {
             if (planRepository.findByNameIgnoreCase("Bailes deportivos").isEmpty()) {
                 planRepository.save(MembershipPlan.builder()
                         .name("Bailes deportivos")
-                        .description("Pase de bailes deportivos por un solo día (Facturación / F3)")
+                        .description("Pase de bailes deportivos por un solo día (Facturación / F8)")
                         .durationDays(1)
                         .price(new BigDecimal("12000"))
                         .active(true)

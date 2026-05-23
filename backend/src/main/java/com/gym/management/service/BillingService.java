@@ -5,6 +5,7 @@ import com.gym.management.dto.BillingMonthlySummaryResponse;
 import com.gym.management.dto.BillingPaymentResponse;
 import com.gym.management.dto.DayWorkoutRegisterRequest;
 import com.gym.management.dto.DayWorkoutRegisterResponse;
+import com.gym.management.dto.PaymentSplitLine;
 import com.gym.management.dto.AccessOnboardingData;
 import com.gym.management.dto.AccessOnboardingKind;
 import com.gym.management.dto.BiometricEnrollRequest;
@@ -39,6 +40,7 @@ import com.gym.management.repository.MemberRepository;
 import com.gym.management.repository.MembershipPlanRepository;
 import com.gym.management.repository.SaleRepository;
 import com.gym.management.security.SecurityUtils;
+import com.gym.management.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -205,7 +207,6 @@ public class BillingService {
                         "Configure el plan «" + planName + "» en Planes (1 día de duración)."));
 
         PaymentMethod method = request.paymentMethod();
-        BillingPaymentMethodRules.requireAllowed(method);
         BillingCashRegister cashRegister = billingCashRegisterService.getOpenRegisterRequired();
         LocalDate today = LocalDate.now(GYM_ZONE);
         Employee registeredBy = resolveRegisteringEmployee();
@@ -214,25 +215,34 @@ public class BillingService {
                 ? member.getFirstName() + " " + member.getLastName()
                 : GUEST_LABEL;
 
-        BigDecimal amount = dayPlan.getPrice();
-        BillingPayment.BillingPaymentBuilder billingBuilder = BillingPayment.builder()
-                .paymentType(paymentType)
-                .billingCashRegister(cashRegister)
-                .plan(dayPlan)
-                .employee(registeredBy)
-                .paymentMethod(method)
-                .amount(amount)
-                .paymentDate(today)
-                .membershipStart(today)
-                .membershipEnd(today)
-                .notes(member != null ? "Pase diario afiliado · " + planName : "Pase diario invitado · " + planName);
+        BigDecimal planPrice = MoneyUtil.roundPesos(dayPlan.getPrice());
+        List<PaymentSplitLine> splits = resolveDayPassPaymentSplits(method, planPrice, request.paymentSplits());
 
-        if (member != null) {
-            billingBuilder.member(member);
-        } else {
-            billingBuilder.guestLabel(GUEST_LABEL);
+        BillingPayment billing = null;
+        for (PaymentSplitLine split : splits) {
+            BigDecimal lineAmount = MoneyUtil.roundPesos(BigDecimal.valueOf(split.amount()));
+            BillingPayment.BillingPaymentBuilder billingBuilder = BillingPayment.builder()
+                    .paymentType(paymentType)
+                    .billingCashRegister(cashRegister)
+                    .plan(dayPlan)
+                    .employee(registeredBy)
+                    .paymentMethod(split.paymentMethod())
+                    .amount(lineAmount)
+                    .paymentDate(today)
+                    .membershipStart(today)
+                    .membershipEnd(today)
+                    .notes(member != null ? "Pase diario afiliado · " + planName : "Pase diario invitado · " + planName);
+
+            if (member != null) {
+                billingBuilder.member(member);
+            } else {
+                billingBuilder.guestLabel(GUEST_LABEL);
+            }
+            BillingPayment saved = billingPaymentRepository.save(billingBuilder.build());
+            if (billing == null) {
+                billing = saved;
+            }
         }
-        BillingPayment billing = billingPaymentRepository.save(billingBuilder.build());
 
         String announcementSpeech = buildDayPassAnnouncementSpeech(paymentType, member);
 
@@ -364,7 +374,7 @@ public class BillingService {
     private void requireMembershipBillablePlan(MembershipPlan plan) {
         if (isDayPassPlan(plan)) {
             throw new BusinessException(
-                    "Entreno del día y bailes deportivos se registran con F2 y F3, no como membresía.");
+                    "Entreno del día y bailes deportivos se registran con F2 y F8, no como membresía.");
         }
     }
 
@@ -522,5 +532,48 @@ public class BillingService {
 
     private static BigDecimal sumMap(Map<PaymentMethod, BigDecimal> map) {
         return map.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static List<PaymentSplitLine> resolveDayPassPaymentSplits(
+            PaymentMethod paymentMethod, BigDecimal expectedTotal, List<PaymentSplitLine> paymentSplits) {
+        if (paymentSplits == null || paymentSplits.isEmpty()) {
+            BillingPaymentMethodRules.requireAllowed(paymentMethod);
+            return List.of(new PaymentSplitLine(paymentMethod, expectedTotal.longValue()));
+        }
+        if (paymentSplits.size() > 2) {
+            throw new BusinessException("Máximo dos medios de pago por cobro");
+        }
+        if (paymentSplits.size() == 1) {
+            PaymentSplitLine only = paymentSplits.get(0);
+            BillingPaymentMethodRules.requireAllowed(only.paymentMethod());
+            BigDecimal lineAmount = MoneyUtil.roundPesos(BigDecimal.valueOf(only.amount()));
+            if (lineAmount.compareTo(expectedTotal) != 0) {
+                throw new BusinessException(
+                        "El monto del medio de pago ($"
+                                + MoneyUtil.formatPesos(lineAmount)
+                                + ") debe igualar el total ($"
+                                + MoneyUtil.formatPesos(expectedTotal)
+                                + ")");
+            }
+            return List.of(only);
+        }
+        PaymentSplitLine first = paymentSplits.get(0);
+        PaymentSplitLine second = paymentSplits.get(1);
+        if (first.paymentMethod() == second.paymentMethod()) {
+            throw new BusinessException("Los dos medios de pago deben ser distintos");
+        }
+        BillingPaymentMethodRules.requireAllowed(first.paymentMethod());
+        BillingPaymentMethodRules.requireAllowed(second.paymentMethod());
+        BigDecimal sum = MoneyUtil.roundPesos(BigDecimal.valueOf(first.amount()))
+                .add(MoneyUtil.roundPesos(BigDecimal.valueOf(second.amount())));
+        if (sum.compareTo(expectedTotal) != 0) {
+            throw new BusinessException(
+                    "La suma de los dos medios ($"
+                            + MoneyUtil.formatPesos(sum)
+                            + ") debe igualar el total del pase ($"
+                            + MoneyUtil.formatPesos(expectedTotal)
+                            + ")");
+        }
+        return List.of(first, second);
     }
 }
