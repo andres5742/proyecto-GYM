@@ -1,10 +1,14 @@
 @echo off
-REM Lanzador en C:\SportGym: el lector vive en turnstile-gateway\
+REM Lanzador en C:\SportGym — app desde sportgymr10.com + lector COM3
 cd /d "%~dp0"
-if not exist "%~dp0turnstile-gateway\SportGym-Acceso-App.bat" (
-  echo ERROR: Falta carpeta turnstile-gateway en %~dp0
-  echo Ejecute de nuevo: INSTALAR-SPORT-GYM-ENTRADA.bat
-  pause
-  exit /b 1
+if exist "%~dp0SportGym-Acceso.vbs" (
+  start "" wscript.exe "%~dp0SportGym-Acceso.vbs"
+  exit /b 0
 )
-call "%~dp0turnstile-gateway\SportGym-Acceso-App.bat"
+if exist "%~dp0turnstile-gateway\SportGym-Acceso-App.bat" (
+  call "%~dp0turnstile-gateway\SportGym-Acceso-App.bat"
+  exit /b 0
+)
+echo ERROR: Falta turnstile-gateway. Ejecute INSTALAR-SPORT-GYM-ENTRADA.bat
+pause
+exit /b 1

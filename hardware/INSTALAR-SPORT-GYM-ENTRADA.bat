@@ -72,22 +72,22 @@ echo.
 echo No hay .exe Electron en esta carpeta.
 echo Instalando MODO NAVEGADOR + lector (funciona igual con el servidor).
 echo.
-REM Lanzadores en raiz (llaman a turnstile-gateway donde esta el lector COM3)
+REM App desde sportgymr10.com (ventana propia + logo) + lector COM3
+copy /Y "%~dp0SportGym-Acceso.vbs" "%DEST%\SportGym-Acceso.vbs" >nul
 copy /Y "%~dp0SportGym-Acceso-App.bat" "%DEST%\SportGym-Acceso-App.bat" >nul
 copy /Y "%~dp0SportGym-Acceso-Kiosk.bat" "%DEST%\SportGym-Acceso-Kiosk.bat" >nul
 
-set "APP_BAT=%DEST%\SportGym-Acceso-App.bat"
+set "APP_VBS=%DEST%\SportGym-Acceso.vbs"
 set "GW_DIR=%DEST%\turnstile-gateway"
 set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
-powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell;$s=$w.CreateShortcut('%LINK%');$s.TargetPath='%APP_BAT%';$s.WorkingDirectory='%DEST%';$s.Description='Ingreso gym';$s.Save()" 2>nul
+powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell;$s=$w.CreateShortcut('%LINK%');$s.TargetPath='wscript.exe';$s.Arguments='\"\"%APP_VBS%\"\"';$s.WorkingDirectory='%DEST%';$s.Description='Sport Gym Acceso (servidor)';$s.Save()" 2>nul
 
 echo.
 echo ========================================
 echo  LISTO en %DEST%
 echo  Escritorio: Sport Gym Acceso
-echo  Debe abrir 2 ventanas: lector COM3 + pantalla /acceso
-echo  Si solo ve el navegador, ejecute:
-echo    %GW_DIR%\SportGym-Acceso-App.bat
+echo  App carga de https://sportgymr10.com/acceso (logo del gym)
+echo  + lector tarjeta COM3 en ventana aparte
 echo.
 echo  Para .exe Electron: copie junto a este .bat:
 echo    SportGym-Acceso-Setup-1.0.0-win32.exe
