@@ -15,6 +15,16 @@ if not exist "config.json" (
   echo Edite config.json con su ACCESS_DEVICE_KEY y rutas.
 )
 
+echo Cerrando Sport Gym Acceso si esta abierto (libera app.asar)...
+taskkill /F /IM "Sport Gym Acceso.exe" >nul 2>&1
+taskkill /F /IM electron.exe >nul 2>&1
+timeout /t 2 >nul
+
+if exist "dist\win-ia32-unpacked" (
+  echo Limpiando compilacion anterior...
+  rmdir /S /Q dist 2>nul
+)
+
 echo Instalando dependencias (primera vez tarda varios minutos)...
 call npm install
 if errorlevel 1 (
