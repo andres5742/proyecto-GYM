@@ -6,6 +6,7 @@ import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.AccessVoiceHints;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
+import com.gym.management.dto.CardCredentialMigrationResponse;
 import com.gym.management.dto.KioskAccessEventResponse;
 import com.gym.management.dto.LastDeviceReadResponse;
 import com.gym.management.exception.BusinessException;
@@ -25,6 +26,8 @@ import com.gym.management.repository.EmployeeBiometricCredentialRepository;
 import com.gym.management.repository.EmployeeRepository;
 import com.gym.management.repository.MemberBiometricCredentialRepository;
 import com.gym.management.repository.MemberRepository;
+import com.gym.management.security.SecurityUtils;
+import com.gym.management.util.CardCredentialKeys;
 import com.gym.management.util.WelcomeMessageUtils;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -84,6 +87,9 @@ public class AccessControlService {
     }
 
     private Optional<AccessVerifyResponse> lookupAndVerify(String deviceUserId, BiometricCredentialType type) {
+        if (type == BiometricCredentialType.CARD) {
+            return lookupCardByReaderPin(deviceUserId);
+        }
         var memberCred = credentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId);
         if (memberCred.isPresent()) {
             return Optional.of(evaluateMember(memberCred.get(), deviceUserId, type, false));
@@ -91,6 +97,40 @@ public class AccessControlService {
         var staffCred = employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId);
         if (staffCred.isPresent()) {
             return Optional.of(evaluateStaff(staffCred.get(), deviceUserId, type, false));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<AccessVerifyResponse> lookupCardByReaderPin(String readerPin) {
+        String pin = CardCredentialKeys.extractCardPin(readerPin);
+        if (pin.isEmpty()) {
+            return Optional.empty();
+        }
+        List<MemberBiometricCredential> memberMatches = credentialRepository.findMemberCardsByReaderPin(pin);
+        if (memberMatches.size() > 1) {
+            return Optional.of(deny(
+                    pin,
+                    BiometricCredentialType.CARD,
+                    null,
+                    null,
+                    "Varias personas comparten esta tarjeta. Identifíquese en recepción."));
+        }
+        if (memberMatches.size() == 1) {
+            MemberBiometricCredential cred = memberMatches.get(0);
+            return Optional.of(evaluateMember(cred, cred.getDeviceUserId(), BiometricCredentialType.CARD, false));
+        }
+        List<EmployeeBiometricCredential> staffMatches = employeeCredentialRepository.findStaffCardsByReaderPin(pin);
+        if (staffMatches.size() > 1) {
+            return Optional.of(deny(
+                    pin,
+                    BiometricCredentialType.CARD,
+                    null,
+                    null,
+                    "Varias tarjetas de personal coinciden. Use recepción."));
+        }
+        if (staffMatches.size() == 1) {
+            EmployeeBiometricCredential cred = staffMatches.get(0);
+            return Optional.of(evaluateStaff(cred, cred.getDeviceUserId(), BiometricCredentialType.CARD, false));
         }
         return Optional.empty();
     }
@@ -139,6 +179,9 @@ public class AccessControlService {
                     "El rostro se registra con el lector biométrico (cámara en recepción), no con ID de terminal.");
         }
         String deviceUserId = request.deviceUserId().trim();
+        if (type == BiometricCredentialType.CARD) {
+            deviceUserId = CardCredentialKeys.extractCardPin(deviceUserId);
+        }
 
         if (request.employeeId() != null) {
             return enrollStaffDeviceCredential(request.employeeId(), deviceUserId, type, request.deviceLabel());
@@ -154,6 +197,10 @@ public class AccessControlService {
         Member member = memberRepository
                 .findById(memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado: " + memberId));
+
+        if (type == BiometricCredentialType.CARD) {
+            deviceUserId = CardCredentialKeys.composeMemberCard(deviceUserId, member.getDocumentId());
+        }
 
         credentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
             if (!existing.getMember().getId().equals(member.getId())) {
@@ -182,6 +229,10 @@ public class AccessControlService {
         Employee employee = employeeRepository
                 .findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado: " + employeeId));
+
+        if (type == BiometricCredentialType.CARD) {
+            deviceUserId = CardCredentialKeys.composeStaffCard(deviceUserId, employeeId);
+        }
 
         employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(type, deviceUserId).ifPresent(existing -> {
             if (!existing.getEmployee().getId().equals(employee.getId())) {
@@ -219,6 +270,81 @@ public class AccessControlService {
                 .findByEmployeeIdAndCredentialType(employeeId, credentialType)
                 .orElseThrow(() -> new ResourceNotFoundException(notEnrolledMessage(credentialType, true)));
         employeeCredentialRepository.delete(credential);
+    }
+
+    /**
+     * Afiliados/entrenadores con tarjeta antigua (solo código de lector): guarda {@code codigo|cedula} o {@code codigo|Eid}.
+     */
+    @Transactional
+    public CardCredentialMigrationResponse migrateCardCredentialsToDocumentSuffix() {
+        if (!SecurityUtils.isAdmin()) {
+            throw new BusinessException("Solo administración puede actualizar las tarjetas registradas");
+        }
+        int membersUpdated = 0;
+        int membersSkipped = 0;
+        int staffUpdated = 0;
+        int staffSkipped = 0;
+
+        for (MemberBiometricCredential credential : credentialRepository.findAllWithMember()) {
+            if (credential.getCredentialType() != BiometricCredentialType.CARD) {
+                continue;
+            }
+            Member member = credential.getMember();
+            String documentId = member.getDocumentId();
+            if (documentId == null || documentId.isBlank()) {
+                membersSkipped++;
+                continue;
+            }
+            String composite = CardCredentialKeys.composeMemberCard(credential.getDeviceUserId(), documentId);
+            if (composite.equals(credential.getDeviceUserId())) {
+                membersSkipped++;
+                continue;
+            }
+            var conflict = credentialRepository.findByCredentialTypeAndDeviceUserId(
+                    BiometricCredentialType.CARD, composite);
+            if (conflict.isPresent() && !conflict.get().getMember().getId().equals(member.getId())) {
+                membersSkipped++;
+                continue;
+            }
+            credential.setDeviceUserId(composite);
+            credentialRepository.save(credential);
+            membersUpdated++;
+        }
+
+        for (EmployeeBiometricCredential credential : employeeCredentialRepository.findAllWithActiveEmployee()) {
+            if (credential.getCredentialType() != BiometricCredentialType.CARD) {
+                continue;
+            }
+            Employee employee = credential.getEmployee();
+            String composite = CardCredentialKeys.composeStaffCard(credential.getDeviceUserId(), employee.getId());
+            if (composite.equals(credential.getDeviceUserId())) {
+                staffSkipped++;
+                continue;
+            }
+            var conflict = employeeCredentialRepository.findByCredentialTypeAndDeviceUserId(
+                    BiometricCredentialType.CARD, composite);
+            if (conflict.isPresent()
+                    && !conflict.get().getEmployee().getId().equals(employee.getId())) {
+                staffSkipped++;
+                continue;
+            }
+            credential.setDeviceUserId(composite);
+            employeeCredentialRepository.save(credential);
+            staffUpdated++;
+        }
+
+        String message =
+                "Actualizados: "
+                        + membersUpdated
+                        + " afiliado(s), "
+                        + staffUpdated
+                        + " entrenador(es). Omitidos: "
+                        + membersSkipped
+                        + " afiliado(s), "
+                        + staffSkipped
+                        + " entrenador(es) (sin cédula, ya actualizados o clave en uso).";
+        return new CardCredentialMigrationResponse(
+                membersUpdated, membersSkipped, staffUpdated, staffSkipped, message);
     }
 
     @Transactional(readOnly = true)

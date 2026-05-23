@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface MemberBiometricCredentialRepository extends JpaRepository<MemberBiometricCredential, Long> {
 
@@ -24,4 +25,12 @@ public interface MemberBiometricCredentialRepository extends JpaRepository<Membe
     @Query(
             "SELECT c FROM MemberBiometricCredential c JOIN FETCH c.member m LEFT JOIN FETCH m.plan ORDER BY c.credentialType, m.lastName")
     List<MemberBiometricCredential> findAllWithMember();
+
+    @Query(
+            """
+            SELECT c FROM MemberBiometricCredential c JOIN FETCH c.member m
+            WHERE c.credentialType = com.gym.management.model.BiometricCredentialType.CARD
+            AND (c.deviceUserId = :pin OR c.deviceUserId LIKE CONCAT(:pin, '|%'))
+            """)
+    List<MemberBiometricCredential> findMemberCardsByReaderPin(@Param("pin") String pin);
 }

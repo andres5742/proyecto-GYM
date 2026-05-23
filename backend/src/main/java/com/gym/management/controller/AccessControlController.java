@@ -5,6 +5,7 @@ import com.gym.management.dto.AccessVerifyRequest;
 import com.gym.management.dto.AccessVerifyResponse;
 import com.gym.management.dto.BiometricEnrollRequest;
 import com.gym.management.dto.BiometricEnrollResponse;
+import com.gym.management.dto.CardCredentialMigrationResponse;
 import com.gym.management.dto.KioskAccessEventResponse;
 import com.gym.management.dto.KioskOpenGateRequest;
 import com.gym.management.dto.LastDeviceReadResponse;
@@ -114,6 +115,13 @@ public class AccessControlController {
     @ResponseStatus(HttpStatus.CREATED)
     public BiometricEnrollResponse enroll(@Valid @RequestBody BiometricEnrollRequest request) {
         return accessControlService.enroll(request);
+    }
+
+    /** Una vez: tarjetas ya registradas pasan a formato codigoLector|cedula. */
+    @PostMapping("/migrate-card-credentials")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public CardCredentialMigrationResponse migrateCardCredentials() {
+        return accessControlService.migrateCardCredentialsToDocumentSuffix();
     }
 
     @DeleteMapping("/enroll/{memberId}")

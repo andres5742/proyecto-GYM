@@ -163,4 +163,20 @@ export class AccessService {
   removeStaffWebcamEnrollment(employeeId: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/webcam/enroll/staff/${employeeId}`);
   }
+
+  /** Actualiza tarjetas antiguas a formato codigo|cedula (una vez). */
+  migrateCardCredentials(): Observable<CardCredentialMigrationResult> {
+    return this.http.post<CardCredentialMigrationResult>(
+      `${this.baseUrl}/migrate-card-credentials`,
+      {},
+    );
+  }
+}
+
+export interface CardCredentialMigrationResult {
+  membersUpdated: number;
+  membersSkipped: number;
+  staffUpdated: number;
+  staffSkipped: number;
+  message: string;
 }

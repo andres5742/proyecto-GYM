@@ -21,6 +21,11 @@ import { AuthService } from '../../core/services/auth.service';
 import { EmployeeService } from '../../core/services/employee.service';
 import { MemberService } from '../../core/services/member.service';
 import { buildMemberAccessMap } from '../../core/utils/member-access-status';
+import {
+  composeMemberCardKey,
+  composeStaffCardKey,
+  extractCardPin,
+} from '../../core/utils/card-credential-key';
 
 const ACCESS_DATE_LOCALE = 'es-CO';
 const ACCESS_DATE_TZ = 'America/Bogota';
@@ -57,6 +62,8 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
   protected readonly message = signal<string | null>(null);
   protected readonly saving = signal(false);
+  protected readonly migratingCards = signal(false);
+  protected readonly isAdmin = () => this.auth.isAdmin();
   protected readonly clearingLogs = signal(false);
   protected readonly members = signal<Member[]>([]);
   protected readonly trainers = signal<Employee[]>([]);
@@ -116,10 +123,10 @@ export class AccessControlPage implements OnInit, OnDestroy {
     },
     {
       id: 'device',
-      header: 'Nº tarjeta / Pin ZKT',
+      header: 'Clave (lector|cédula)',
       sortable: true,
       sortValue: (r) => r.deviceUserId,
-      cell: (r) => r.deviceUserId,
+      cell: (r) => this.formatStoredCardKey(r.deviceUserId),
     },
     {
       id: 'label',
@@ -145,10 +152,10 @@ export class AccessControlPage implements OnInit, OnDestroy {
     },
     {
       id: 'device',
-      header: 'Nº tarjeta / Pin ZKT',
+      header: 'Clave (lector|cédula)',
       sortable: true,
       sortValue: (r) => r.deviceUserId,
-      cell: (r) => r.deviceUserId,
+      cell: (r) => this.formatStoredCardKey(r.deviceUserId),
     },
     {
       id: 'label',
@@ -368,6 +375,58 @@ export class AccessControlPage implements OnInit, OnDestroy {
       this.section() === 'register' &&
       (this.registerMethod() === 'card' || this.registerMethod() === 'fingerprint')
     );
+  }
+
+  protected formatStoredCardKey(deviceUserId: string | undefined): string {
+    if (!deviceUserId?.trim()) {
+      return '—';
+    }
+    const pin = extractCardPin(deviceUserId);
+    if (pin === deviceUserId.trim()) {
+      return deviceUserId;
+    }
+    return `${pin} → ${deviceUserId}`;
+  }
+
+  protected previewMemberCardKey(): string | null {
+    const raw = this.enrollForm.getRawValue().deviceUserId;
+    const memberId = this.enrollForm.getRawValue().memberId;
+    if (!memberId) {
+      return null;
+    }
+    const member = this.members().find((m) => m.id === memberId);
+    return composeMemberCardKey(raw, member?.documentId);
+  }
+
+  protected previewStaffCardKey(): string | null {
+    const raw = this.staffEnrollForm.getRawValue().deviceUserId;
+    const employeeId = this.staffEnrollForm.getRawValue().employeeId;
+    if (employeeId == null) {
+      return null;
+    }
+    return composeStaffCardKey(raw, employeeId);
+  }
+
+  migrateExistingCards(): void {
+    if (
+      !confirm(
+        '¿Actualizar todas las tarjetas ya registradas? Se guardará como código del lector + cédula (afiliados) o código + ID de entrenador.',
+      )
+    ) {
+      return;
+    }
+    this.migratingCards.set(true);
+    this.accessService.migrateCardCredentials().subscribe({
+      next: (result) => {
+        this.migratingCards.set(false);
+        this.message.set(result.message);
+        this.loadAll();
+      },
+      error: (err) => {
+        this.migratingCards.set(false);
+        this.message.set(err?.error?.message ?? 'No se pudo actualizar las tarjetas');
+      },
+    });
   }
 
   protected logDeviceCode(row: AccessLogEntry): string {

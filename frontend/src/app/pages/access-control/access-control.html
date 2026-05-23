@@ -161,7 +161,8 @@
         <header class="register-workspace__head">
           <h3>Afiliado · tarjeta ZKTeco</h3>
           <p class="muted small">
-            Pase la tarjeta en el lector: el número aparecerá aquí para vincularlo al afiliado.
+            Pase la tarjeta en el lector. Se guardará como <strong>código del lector + cédula</strong> del afiliado
+            (ej. 12345|1061778723) para que cada tarjeta sea única.
           </p>
         </header>
         <div class="reader-capture">
@@ -184,6 +185,13 @@
               Nº tarjeta / Pin en ZKTeco
               <input formControlName="deviceUserId" placeholder="Ej: 10042 o número de tarjeta" />
             </label>
+            @if (previewMemberCardKey(); as stored) {
+              <p class="card-key-preview muted small">
+                Se guardará en el sistema: <strong>{{ stored }}</strong>
+              </p>
+            } @else if (enrollForm.getRawValue().memberId && enrollForm.getRawValue().deviceUserId) {
+              <p class="card-key-preview warn small">El afiliado debe tener cédula registrada.</p>
+            }
             <label>
               Nota (opcional)
               <input formControlName="deviceLabel" placeholder="Ej: Lector entrada ZKT" />
@@ -268,6 +276,11 @@
               Nº tarjeta / Pin en ZKTeco
               <input formControlName="deviceUserId" placeholder="Ej: 20001" />
             </label>
+            @if (previewStaffCardKey(); as stored) {
+              <p class="card-key-preview muted small">
+                Se guardará en el sistema: <strong>{{ stored }}</strong>
+              </p>
+            }
             <label>
               Nota (opcional)
               <input formControlName="deviceLabel" placeholder="Ej: Tarjeta personal" />
@@ -288,7 +301,19 @@
 @if (section() === 'registered') {
   <div class="registered-layout">
     <section class="registered-block panel">
-      <h3 class="registered-block__title">Afiliados registrados</h3>
+      <div class="registered-block__head-row">
+        <h3 class="registered-block__title">Afiliados registrados</h3>
+        @if (isAdmin()) {
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            [disabled]="migratingCards()"
+            (click)="migrateExistingCards()"
+          >
+            {{ migratingCards() ? 'Actualizando…' : 'Actualizar tarjetas (añadir cédula)' }}
+          </button>
+        }
+      </div>
       <div class="registered-block__grid">
         <article class="access-card">
           <header class="access-card__head">
