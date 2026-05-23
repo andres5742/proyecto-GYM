@@ -170,6 +170,14 @@ public class AccessControlController {
         accessControlService.deleteLog(id);
     }
 
+    /** Igual que DELETE /logs/{id}; POST por compatibilidad con proxies que bloquean DELETE. */
+    @PostMapping("/logs/{id}/revoke")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TRAINER')")
+    public java.util.Map<String, String> revokeLog(@PathVariable Long id) {
+        accessControlService.deleteLog(id);
+        return java.util.Map.of("message", "Ingreso eliminado");
+    }
+
     @PostMapping("/manual-open/{memberId}")
     public AccessVerifyResponse manualOpen(@PathVariable Long memberId) {
         return accessControlService.manualOpen(memberId);

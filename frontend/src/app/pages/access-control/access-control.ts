@@ -21,6 +21,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { EmployeeService } from '../../core/services/employee.service';
 import { MemberService } from '../../core/services/member.service';
 import { CardPinInputDirective } from '../../core/directives/card-pin-input.directive';
+import { httpErrorMessage } from '../../core/utils/http-error-message';
 import { buildMemberAccessMap } from '../../core/utils/member-access-status';
 import {
   normalizeCardPin,
@@ -822,18 +823,29 @@ export class AccessControlPage implements OnInit, OnDestroy {
   }
 
   protected canDeleteAccessLog(row: AccessLogEntry): boolean {
-    return row.result === 'GRANTED' && Boolean(row.memberId ?? row.memberName?.trim());
+    return Number.isFinite(row.id) && row.id > 0;
+  }
+
+  protected deleteAccessLogLabel(row: AccessLogEntry): string {
+    if (row.result === 'GRANTED') {
+      return 'Eliminar ingreso';
+    }
+    return 'Quitar del historial';
   }
 
   deleteAccessLog(row: AccessLogEntry): void {
-    if (!row.id) {
+    if (!this.canDeleteAccessLog(row)) {
       return;
     }
     const who = this.logPersonLabel(row);
     const when = formatAccessDateTime(row.createdAt);
+    const grantedHint =
+      row.result === 'GRANTED'
+        ? '\n\nEsa persona podrá volver a registrar entrada hoy si aplica.'
+        : '';
     if (
       !confirm(
-        `¿Eliminar el ingreso de ${who} (${when})?\n\nEsa persona podrá volver a registrar entrada hoy si aplica.`,
+        `¿Eliminar este registro de ${who} (${when})?${grantedHint}`,
       )
     ) {
       return;
@@ -842,12 +854,17 @@ export class AccessControlPage implements OnInit, OnDestroy {
     this.accessService.deleteLog(row.id).subscribe({
       next: () => {
         this.deletingLogId.set(null);
-        this.message.set(`Ingreso eliminado: ${who}`);
+        this.message.set(`Registro eliminado: ${who}`);
         this.logs.update((list) => list.filter((entry) => entry.id !== row.id));
       },
       error: (err) => {
         this.deletingLogId.set(null);
-        this.message.set(err?.error?.message ?? 'No se pudo eliminar el ingreso');
+        this.message.set(
+          httpErrorMessage(
+            err,
+            'No se pudo eliminar el registro. Actualice backend y frontend en el servidor (git pull + actualizar-acceso-tarjetas.sh).',
+          ),
+        );
       },
     });
   }

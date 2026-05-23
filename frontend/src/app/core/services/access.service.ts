@@ -135,8 +135,8 @@ export class AccessService {
     return this.http.delete<void>(`${this.baseUrl}/logs`);
   }
 
-  deleteLog(logId: number): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/logs/${logId}`);
+  deleteLog(logId: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/logs/${logId}/revoke`, {});
   }
 
   manualOpen(memberId: number): Observable<AccessVerifyResponse> {

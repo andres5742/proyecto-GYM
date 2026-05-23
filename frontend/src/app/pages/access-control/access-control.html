@@ -513,7 +513,7 @@
             [disabled]="deletingLogId() === row.id"
             (click)="deleteAccessLog(row)"
           >
-            {{ deletingLogId() === row.id ? 'Eliminando…' : 'Eliminar ingreso' }}
+            {{ deletingLogId() === row.id ? 'Eliminando…' : deleteAccessLogLabel(row) }}
           </button>
         }
         @if (row.result === 'DENIED' && (row.credentialType === 'CARD' || row.credentialType === 'FINGERPRINT')) {

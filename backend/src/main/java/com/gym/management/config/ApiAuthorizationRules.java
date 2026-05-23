@@ -44,6 +44,8 @@ public final class ApiAuthorizationRules {
                 .hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/access/logs/*")
                 .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
+                .requestMatchers(HttpMethod.POST, "/api/access/logs/*/revoke")
+                .hasAnyRole("ADMIN", "SUPER_ADMIN", "TRAINER")
                 .requestMatchers(HttpMethod.GET, "/api/modules/public")
                 .permitAll()
                 .requestMatchers(
