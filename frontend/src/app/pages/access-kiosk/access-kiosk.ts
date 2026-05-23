@@ -15,6 +15,7 @@ import {
   resolveStaffWelcomeText,
   unlockWelcomeAudio,
 } from '../../core/utils/access-welcome-audio';
+import { zktKeypadSelectionIndex } from '../../core/utils/zkt-keypad';
 
 const KIOSK_MOTIVATIONAL_PHRASES = [
   'Cada día es una nueva oportunidad para ser más fuerte.',
@@ -296,11 +297,10 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   private parseSelectionKey(event: KeyboardEvent): CardSelectionCandidate | null {
-    const digit = event.code.match(/^Digit([1-9])$/) ?? event.code.match(/^Numpad([1-9])$/);
-    if (!digit) {
+    const index = zktKeypadSelectionIndex(event);
+    if (index == null) {
       return null;
     }
-    const index = Number(digit[1]);
     const candidates = this.cardSelection()?.candidates ?? [];
     return candidates.find((c) => c.index === index) ?? null;
   }
