@@ -323,19 +323,11 @@ public class ShiftHandoverService {
 
     private List<ShiftHandoverComparisonResponse> buildComparisons(
             ShiftHandover handover, SalesSummaryResponse sales, ExpectedCashTotals expected) {
-        Map<PaymentMethod, BigDecimal> byMethod = sales.amountByPaymentMethod();
-        BigDecimal expectedPending = byMethod.getOrDefault(PaymentMethod.PENDING, BigDecimal.ZERO);
-
         BigDecimal cashCounted = CashCountUtil.totalCash(handover);
-        BigDecimal priorTotal = sumPriorPayments(handover);
-
-        List<ShiftHandoverComparisonResponse> list = new ArrayList<>();
-        list.add(comparison(
+        return List.of(comparison(
                 "Dinero contado (billetes + monedas)",
                 cashCounted,
                 expected.total()));
-        list.add(comparison("Cobros deudas anteriores", priorTotal, expectedPending));
-        return list;
     }
 
     private ShiftHandoverComparisonResponse comparison(String label, BigDecimal declared, BigDecimal expected) {

@@ -1,9 +1,6 @@
 <section class="page-header">
   <h2>Entrega de turno</h2>
-  <p>
-    Cuenta el dinero físico del turno y registra cobros de deudas anteriores. El sistema compara con las
-    ventas registradas.
-  </p>
+  <p>Cuenta el dinero físico del turno. El sistema compara con las ventas y la facturación del día.</p>
 </section>
 
 @if (message()) {
@@ -175,44 +172,6 @@
           </p>
         </div>
       }
-
-      <h3>Cobros de productos / deudas anteriores</h3>
-      <p class="hint">Ventas que debían de antes y se pagaron en este turno (no van en ventas del sistema).</p>
-      @for (pay of priorPayments(); track $index) {
-        <div class="line-row prior-row">
-          <input
-            placeholder="Cliente o producto"
-            [disabled]="alreadySubmitted()"
-            [(ngModel)]="pay.description"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Monto"
-            [disabled]="alreadySubmitted()"
-            [(ngModel)]="pay.amount"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          <select
-            [disabled]="alreadySubmitted()"
-            [(ngModel)]="pay.paymentMethod"
-            [ngModelOptions]="{ standalone: true }"
-          >
-            @for (pm of paymentMethods; track pm.value) {
-              <option [value]="pm.value">{{ pm.label }}</option>
-            }
-          </select>
-          @if (!alreadySubmitted()) {
-            <button type="button" class="btn-remove" (click)="removePriorPayment($index)">×</button>
-          }
-        </div>
-      }
-      @if (!alreadySubmitted()) {
-        <button type="button" class="btn-add" (click)="addPriorPayment()">+ Agregar cobro de deuda</button>
-      }
-      <p class="line-total">Total cobros anteriores: <strong>{{ priorTotal() | cop }}</strong></p>
 
       <label class="notes-field">
         Notas (opcional)

@@ -10,9 +10,8 @@ import {
   ShiftHandover,
   ShiftHandoverCashForm,
   ShiftHandoverComparison,
-  ShiftHandoverPriorPaymentLine,
 } from '../../core/models/shift-handover.model';
-import { PAYMENT_METHODS, PaymentMethod } from '../../core/models/sale.model';
+import { PAYMENT_METHODS } from '../../core/models/sale.model';
 import { WorkShift } from '../../core/models/shift.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ShiftHandoverService } from '../../core/services/shift-handover.service';
@@ -53,7 +52,6 @@ export class ShiftHandoverPage implements OnInit {
 
   protected readonly cash = signal<ShiftHandoverCashForm>(emptyCashForm());
   protected readonly notes = signal('');
-  protected readonly priorPayments = signal<ShiftHandoverPriorPaymentLine[]>([]);
 
   protected readonly alreadySubmitted = computed(() => !!this.preview()?.id);
   protected readonly billTotal = computed(() =>
@@ -63,9 +61,6 @@ export class ShiftHandoverPage implements OnInit {
     this.coinDenominations.reduce((sum, d) => sum + (this.cash()[d.key] || 0) * d.value, 0),
   );
   protected readonly cashTotal = computed(() => this.billTotal() + this.coinTotal());
-  protected readonly priorTotal = computed(() =>
-    this.priorPayments().reduce((s, p) => s + (p.amount || 0), 0),
-  );
 
   protected readonly billingCashExpected = computed(
     () => this.preview()?.billingCashExpected ?? 0,
@@ -177,29 +172,10 @@ export class ShiftHandoverPage implements OnInit {
       coin50: data.coin50 ?? 0,
     });
     this.notes.set(data.notes ?? '');
-    this.priorPayments.set(
-      data.priorPayments?.map((p) => ({
-        description: p.description,
-        amount: p.amount,
-        paymentMethod: p.paymentMethod,
-        notes: p.notes,
-      })) ?? [],
-    );
   }
 
   updateCash(key: keyof ShiftHandoverCashForm, value: number): void {
     this.cash.update((c) => ({ ...c, [key]: Math.max(0, value || 0) }));
-  }
-
-  addPriorPayment(): void {
-    this.priorPayments.update((list) => [
-      ...list,
-      { description: '', amount: 0, paymentMethod: 'CASH' as PaymentMethod },
-    ]);
-  }
-
-  removePriorPayment(index: number): void {
-    this.priorPayments.update((list) => list.filter((_, i) => i !== index));
   }
 
   submit(): void {
@@ -207,7 +183,6 @@ export class ShiftHandoverPage implements OnInit {
     if (!shift || this.alreadySubmitted()) {
       return;
     }
-    const validPrior = this.priorPayments().filter((p) => p.description.trim() && p.amount > 0);
 
     this.saving.set(true);
     this.handoverService
@@ -216,7 +191,7 @@ export class ShiftHandoverPage implements OnInit {
         ...this.cash(),
         notes: this.notes() || undefined,
         expenses: [],
-        priorPayments: validPrior,
+        priorPayments: [],
       })
       .subscribe({
         next: (result) => {
