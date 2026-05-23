@@ -135,6 +135,10 @@ export class AccessService {
     return this.http.delete<void>(`${this.baseUrl}/logs`);
   }
 
+  deleteLog(logId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/logs/${logId}`);
+  }
+
   manualOpen(memberId: number): Observable<AccessVerifyResponse> {
     return this.http.post<AccessVerifyResponse>(`${this.baseUrl}/manual-open/${memberId}`, {});
   }

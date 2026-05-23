@@ -162,6 +162,14 @@ public class AccessControlController {
         accessControlService.clearAllLogs();
     }
 
+    /** Quita un ingreso del historial (p. ej. para permitir otro pase el mismo día). */
+    @DeleteMapping("/logs/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TRAINER')")
+    public void deleteLog(@PathVariable Long id) {
+        accessControlService.deleteLog(id);
+    }
+
     @PostMapping("/manual-open/{memberId}")
     public AccessVerifyResponse manualOpen(@PathVariable Long memberId) {
         return accessControlService.manualOpen(memberId);

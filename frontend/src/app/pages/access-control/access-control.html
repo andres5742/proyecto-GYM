@@ -506,6 +506,16 @@
       [showActions]="true"
     >
       <ng-template #actions let-row>
+        @if (canDeleteAccessLog(row)) {
+          <button
+            type="button"
+            class="btn btn-delete btn-sm"
+            [disabled]="deletingLogId() === row.id"
+            (click)="deleteAccessLog(row)"
+          >
+            {{ deletingLogId() === row.id ? 'Eliminando…' : 'Eliminar ingreso' }}
+          </button>
+        }
         @if (row.result === 'DENIED' && (row.credentialType === 'CARD' || row.credentialType === 'FINGERPRINT')) {
           <button type="button" class="btn btn-primary btn-sm" (click)="linkCardFromLog(row)">
             Vincular

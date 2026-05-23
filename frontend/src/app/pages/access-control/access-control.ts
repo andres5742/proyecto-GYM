@@ -74,6 +74,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly migratingCards = signal(false);
   protected readonly isAdmin = () => this.auth.isAdmin();
   protected readonly clearingLogs = signal(false);
+  protected readonly deletingLogId = signal<number | null>(null);
   protected readonly members = signal<Member[]>([]);
   protected readonly trainers = signal<Employee[]>([]);
   protected readonly enrollments = signal<BiometricEnrollResponse[]>([]);
@@ -816,6 +817,37 @@ export class AccessControlPage implements OnInit, OnDestroy {
       error: (err) => {
         this.message.set(err?.error?.message ?? 'No se pudo limpiar el historial');
         this.clearingLogs.set(false);
+      },
+    });
+  }
+
+  protected canDeleteAccessLog(row: AccessLogEntry): boolean {
+    return row.result === 'GRANTED' && Boolean(row.memberId ?? row.memberName?.trim());
+  }
+
+  deleteAccessLog(row: AccessLogEntry): void {
+    if (!row.id) {
+      return;
+    }
+    const who = this.logPersonLabel(row);
+    const when = formatAccessDateTime(row.createdAt);
+    if (
+      !confirm(
+        `¿Eliminar el ingreso de ${who} (${when})?\n\nEsa persona podrá volver a registrar entrada hoy si aplica.`,
+      )
+    ) {
+      return;
+    }
+    this.deletingLogId.set(row.id);
+    this.accessService.deleteLog(row.id).subscribe({
+      next: () => {
+        this.deletingLogId.set(null);
+        this.message.set(`Ingreso eliminado: ${who}`);
+        this.logs.update((list) => list.filter((entry) => entry.id !== row.id));
+      },
+      error: (err) => {
+        this.deletingLogId.set(null);
+        this.message.set(err?.error?.message ?? 'No se pudo eliminar el ingreso');
       },
     });
   }

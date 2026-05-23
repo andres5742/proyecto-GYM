@@ -425,6 +425,14 @@ public class AccessControlService {
         accessLogRepository.deleteAllInBatch();
     }
 
+    @Transactional
+    public void deleteLog(Long id) {
+        if (!accessLogRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Registro de ingreso no encontrado: " + id);
+        }
+        accessLogRepository.deleteById(id);
+    }
+
     /**
      * Pantalla /acceso o app de escritorio: F2 entreno del día, F3 bailes deportivos.
      * Abre el torniquete vía {@code TURNSTILE_WEBHOOK} sin afiliado (pase invitado en entrada).
