@@ -8,6 +8,7 @@ import com.gym.management.model.MembershipPlan;
 import com.gym.management.model.MembershipStatus;
 import com.gym.management.repository.MemberRepository;
 import com.gym.management.repository.MembershipPlanRepository;
+import com.gym.management.security.SecurityUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.Normalizer;
@@ -51,6 +52,9 @@ public class MemberImportService {
 
     @Transactional
     public MemberImportResponse importFromExcel(MultipartFile file) {
+        if (!SecurityUtils.isSuperAdmin()) {
+            throw new BusinessException("Solo el super administrador puede importar afiliados");
+        }
         if (file == null || file.isEmpty()) {
             throw new BusinessException("Selecciona un archivo Excel");
         }

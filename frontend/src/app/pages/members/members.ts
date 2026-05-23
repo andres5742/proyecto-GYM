@@ -30,7 +30,8 @@ export class Members implements OnInit {
 
   protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
   protected readonly isAdmin = () => this.auth.isAdmin();
-  protected readonly canEditMembershipEnd = () => this.auth.isAdmin();
+  protected readonly canEditMembershipEnd = () => this.auth.isSuperAdmin();
+  protected readonly creatingNew = signal(false);
 
   protected readonly members = signal<Member[]>([]);
   protected readonly accessByMemberId = signal(buildMemberAccessMap([]));
@@ -121,7 +122,9 @@ export class Members implements OnInit {
     lastName: ['', [Validators.required, Validators.maxLength(100)]],
     gender: ['' as Gender | ''],
     phone: [''],
-    documentId: [''],
+    documentId: ['', Validators.required],
+    planId: ['' as string],
+    membershipEnd: [''],
   });
 
   ngOnInit(): void {
@@ -195,6 +198,7 @@ export class Members implements OnInit {
   }
 
   clearEdit(): void {
+    this.creatingNew.set(false);
     this.editingId.set(null);
     this.editingMember.set(null);
     this.portalPassword.set('');
@@ -204,10 +208,32 @@ export class Members implements OnInit {
       gender: '',
       phone: '',
       documentId: '',
+      planId: '',
+      membershipEnd: '',
+    });
+  }
+
+  startCreate(): void {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
+    this.creatingNew.set(true);
+    this.editingId.set(null);
+    this.editingMember.set(null);
+    this.portalPassword.set('');
+    this.form.reset({
+      firstName: '',
+      lastName: '',
+      gender: '',
+      phone: '',
+      documentId: '',
+      planId: '',
+      membershipEnd: '',
     });
   }
 
   startEdit(member: Member): void {
+    this.creatingNew.set(false);
     this.editingId.set(member.id);
     this.editingMember.set(member);
     this.portalPassword.set('');
@@ -217,20 +243,56 @@ export class Members implements OnInit {
       gender: member.gender ?? '',
       phone: member.phone ?? '',
       documentId: member.documentId ?? '',
+      planId: member.planId != null ? String(member.planId) : '',
+      membershipEnd: member.membershipEnd ?? '',
     });
   }
 
   save(): void {
-    const id = this.editingId();
-    if (id == null) {
-      return;
-    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const raw = this.form.getRawValue();
+    const planId = raw.planId ? Number(raw.planId) : null;
+    const membershipEnd = raw.membershipEnd?.trim() || undefined;
+
+    if (this.creatingNew()) {
+      if (!this.isSuperAdmin()) {
+        return;
+      }
+      const request: MemberRequest = {
+        firstName: raw.firstName,
+        lastName: raw.lastName,
+        gender: raw.gender || null,
+        phone: raw.phone || undefined,
+        documentId: raw.documentId.trim(),
+        planId,
+        status: 'ACTIVE',
+        membershipEnd: this.canEditMembershipEnd() ? membershipEnd : undefined,
+      };
+      this.saving.set(true);
+      this.memberService.create(request).subscribe({
+        next: () => {
+          this.message.set('Afiliado creado');
+          this.saving.set(false);
+          this.clearEdit();
+          this.loadData();
+        },
+        error: (err) => {
+          this.message.set(err?.error?.message ?? 'No se pudo crear el afiliado');
+          this.saving.set(false);
+        },
+      });
+      return;
+    }
+
+    const id = this.editingId();
+    if (id == null) {
+      return;
+    }
+
     const existing = this.members().find((m) => m.id === id);
     const request: MemberRequest = {
       firstName: raw.firstName,
@@ -238,10 +300,10 @@ export class Members implements OnInit {
       gender: raw.gender || null,
       phone: raw.phone || undefined,
       documentId: raw.documentId || undefined,
-      planId: existing?.planId ?? null,
+      planId: this.canEditMembershipEnd() ? planId : (existing?.planId ?? null),
       status: existing?.status ?? 'ACTIVE',
       membershipStart: existing?.membershipStart,
-      membershipEnd: existing?.membershipEnd,
+      membershipEnd: this.canEditMembershipEnd() ? membershipEnd : existing?.membershipEnd,
     };
 
     this.saving.set(true);
@@ -251,8 +313,8 @@ export class Members implements OnInit {
         this.saving.set(false);
         this.loadData();
       },
-      error: () => {
-        this.message.set('No se pudo guardar el afiliado');
+      error: (err) => {
+        this.message.set(err?.error?.message ?? 'No se pudo guardar el afiliado');
         this.saving.set(false);
       },
     });
@@ -353,6 +415,10 @@ export class Members implements OnInit {
   }
 
   onExcelSelected(event: Event): void {
+    if (!this.isSuperAdmin()) {
+      this.message.set('Solo el super administrador puede importar afiliados');
+      return;
+    }
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';

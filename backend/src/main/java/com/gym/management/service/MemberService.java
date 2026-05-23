@@ -49,6 +49,9 @@ public class MemberService {
 
     @Transactional
     public MemberResponse create(MemberRequest request) {
+        if (!SecurityUtils.isSuperAdmin()) {
+            throw new BusinessException("Solo el super administrador puede crear afiliados");
+        }
         String email = resolveEmail(request, null);
         if (memberRepository.existsByEmail(email)) {
             throw new BusinessException("Ya existe un afiliado con ese documento o correo");
@@ -92,6 +95,8 @@ public class MemberService {
     public MemberResponse update(Long id, MemberRequest request) {
         Member member = getMember(id);
         LocalDate previousMembershipEnd = member.getMembershipEnd();
+        LocalDate previousMembershipStart = member.getMembershipStart();
+        MembershipPlan previousPlan = member.getPlan();
         boolean wasFrozen = MembershipFreezeService.isFrozen(member);
         Integer frozenDays = member.getFrozenRemainingDays();
         String email = resolveEmail(request, member);
@@ -99,8 +104,10 @@ public class MemberService {
             throw new BusinessException("Ya existe un afiliado con ese documento o correo");
         }
         mapRequest(member, request);
-        if (!SecurityUtils.isAdmin()) {
+        if (!SecurityUtils.isSuperAdmin()) {
             member.setMembershipEnd(previousMembershipEnd);
+            member.setMembershipStart(previousMembershipStart);
+            member.setPlan(previousPlan);
         }
         if (wasFrozen) {
             member.setMembershipFrozen(true);

@@ -1,8 +1,14 @@
 <section class="page-header">
   <h2>Tus afiliados</h2>
   <p>
-    Consulta y edita datos de contacto. Los afiliados nuevos y la membresía se registran en
-    <a routerLink="/panel/facturacion">Facturación → Pago de membresía</a>.
+    Consulta y edita datos de contacto.
+    @if (isSuperAdmin()) {
+      Como super administrador puedes <strong>crear afiliados</strong> aquí y cambiar la
+      <strong>fecha de vencimiento</strong>.
+    } @else {
+      Los afiliados nuevos y la membresía se registran en
+      <a routerLink="/panel/facturacion">Facturación → Pago de membresía</a>.
+    }
   </p>
 </section>
 
@@ -10,6 +16,7 @@
   <p class="alert info">{{ message() }}</p>
 }
 
+@if (isSuperAdmin()) {
 <section class="panel import-panel">
   <h3>Importar desde Excel</h3>
   <p class="import-hint">
@@ -57,12 +64,13 @@
     </div>
   }
 </section>
+}
 
 <div class="members-layout">
-  @if (editingId(); as id) {
+  @if (creatingNew() || editingId()) {
     <form class="panel members-edit-panel" [formGroup]="form" (ngSubmit)="save()">
       <header class="members-edit-panel__head">
-        <h3>Editar afiliado</h3>
+        <h3>{{ creatingNew() ? 'Nuevo afiliado' : 'Editar afiliado' }}</h3>
         <button type="button" class="link" (click)="clearEdit()">Cerrar</button>
       </header>
 
@@ -91,7 +99,24 @@
         <input formControlName="documentId" />
       </label>
 
-      @if (editingMember(); as em) {
+      @if (canEditMembershipEnd()) {
+        <label>
+          Plan (opcional)
+          <select formControlName="planId">
+            <option value="">Sin plan asignado</option>
+            @for (plan of plans(); track plan.id) {
+              <option [value]="plan.id">{{ plan.name }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Fecha de vencimiento
+          <input type="date" formControlName="membershipEnd" />
+        </label>
+        <p class="field-note">
+          Solo el super administrador puede definir o cambiar la fecha de vencimiento desde este módulo.
+        </p>
+      } @else if (editingMember(); as em) {
         <dl class="membership-readonly">
           <div>
             <dt>Plan</dt>
@@ -107,9 +132,11 @@
           </div>
         </dl>
         <p class="field-note">
-          Plan y fechas de membresía se actualizan al cobrar en Facturación.
+          Plan y fecha de vencimiento se actualizan al cobrar en Facturación.
         </p>
+      }
 
+      @if (editingMember(); as em) {
         <section
           class="membership-freeze-block"
           [class.membership-freeze-block--frozen]="em.membershipFrozen"
@@ -155,7 +182,13 @@
 
       <div class="form-actions">
         <button type="submit" class="btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Guardando...' : 'Guardar cambios' }}
+          {{
+            saving()
+              ? 'Guardando...'
+              : creatingNew()
+                ? 'Crear afiliado'
+                : 'Guardar cambios'
+          }}
         </button>
       </div>
 
@@ -197,19 +230,34 @@
     </form>
   } @else {
     <aside class="panel members-hint-panel">
-      <h3>Editar un afiliado</h3>
-      <p class="muted">
-        En la tabla, pulsa <strong>Editar</strong> en la fila que necesites. Para dar de alta a alguien nuevo con
-        membresía y acceso (huella o tarjeta), usa Facturación.
-      </p>
-      <a routerLink="/panel/facturacion" class="btn btn-primary members-hint-panel__cta">Ir a Facturación</a>
+      <h3>{{ isSuperAdmin() ? 'Afiliados' : 'Editar un afiliado' }}</h3>
+      @if (isSuperAdmin()) {
+        <p class="muted">
+          Pulsa <strong>Nuevo afiliado</strong> o <strong>Editar</strong> en la tabla. Puedes ajustar la fecha de
+          vencimiento; el resto del personal solo edita datos de contacto.
+        </p>
+        <button type="button" class="btn btn-primary members-hint-panel__cta" (click)="startCreate()">
+          Nuevo afiliado
+        </button>
+      } @else {
+        <p class="muted">
+          En la tabla, pulsa <strong>Editar</strong> en la fila que necesites. Para dar de alta a alguien nuevo con
+          membresía, usa Facturación.
+        </p>
+        <a routerLink="/panel/facturacion" class="btn btn-primary members-hint-panel__cta">Ir a Facturación</a>
+      }
     </aside>
   }
 
   <div class="panel table-panel">
     <header class="list-header">
       <h3>Listado de afiliados</h3>
-      <span class="list-count">{{ totalFiltered() }} de {{ members().length }}</span>
+      <div class="list-header__actions">
+        @if (isSuperAdmin() && !creatingNew() && !editingId()) {
+          <button type="button" class="btn btn-primary" (click)="startCreate()">Nuevo afiliado</button>
+        }
+        <span class="list-count">{{ totalFiltered() }} de {{ members().length }}</span>
+      </div>
     </header>
 
     <div class="table-toolbar">

@@ -484,6 +484,13 @@
   }
 }
 
+.list-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .list-count {
   font-size: 0.9rem;
   color: var(--color-text-muted, #666);

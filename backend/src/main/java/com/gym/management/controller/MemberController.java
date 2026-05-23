@@ -81,6 +81,7 @@ public class MemberController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public MemberImportResponse importFromExcel(@RequestParam("file") MultipartFile file) {
         return memberImportService.importFromExcel(file);
     }
