@@ -20,6 +20,7 @@ import { AccessService } from '../../core/services/access.service';
 import { AuthService } from '../../core/services/auth.service';
 import { EmployeeService } from '../../core/services/employee.service';
 import { MemberService } from '../../core/services/member.service';
+import { CardPinInputDirective } from '../../core/directives/card-pin-input.directive';
 import { buildMemberAccessMap } from '../../core/utils/member-access-status';
 import {
   resolveMemberCardKey,
@@ -48,7 +49,13 @@ const LOGS_POLL_MS = 2000;
 
 @Component({
   selector: 'app-access-control',
-  imports: [ReactiveFormsModule, RouterLink, MemberSearchSelectComponent, DataTableComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    MemberSearchSelectComponent,
+    DataTableComponent,
+    CardPinInputDirective,
+  ],
   templateUrl: './access-control.html',
   styleUrl: './access-control.scss',
 })

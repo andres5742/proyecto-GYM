@@ -39,6 +39,8 @@ set ACCESS_DEVICE_KEY=clave-torniquete-produccion-2026
 set GYM_ACCESS_API=https://sportgymr10.com/api/access/zkt/event
 set SERIAL_PORT=COM3
 set SERIAL_BAUD=9600
+REM hex = codigo con letras (ej. A5214A48). decimal = solo numeros (como sistema anterior).
+REM Si en ZKAccess ve solo numeros, use: set SERIAL_PIN_FORMAT=decimal
 set SERIAL_PIN_FORMAT=hex
 set SERIAL_DEBUG=0
 

@@ -22,6 +22,12 @@ Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2):
   -> Cierre ZKAccess, use iniciar-lector-tarjeta.bat (SERIAL_PIN_FORMAT=hex o decimal)
   -> Vincule en el gym el mismo codigo que muestra ZKAccess (hex o numero)
 
+Teclado del lector ZKT: si al pulsar un numero sale una letra:
+  -> En el terminal ZKT: usuario/tarjeta en modo NUMERICO (no alfanumerico/hex manual).
+  -> En el PC (campo web): use teclado numerico o pase la tarjeta; no escriba en modo hex.
+  -> Si el sistema viejo mostraba solo numeros: en iniciar-lector-tarjeta.bat ponga
+     set SERIAL_PIN_FORMAT=decimal
+
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)
 
