@@ -34,7 +34,7 @@ export function normalizeDocumentDigits(documentId: string | null | undefined): 
   return documentId.replace(/\D/g, '');
 }
 
-/** UID del chip (ej. A5214A48): único por tarjeta física; no requiere cédula en la clave. */
+/** Número del chip en decimal (ej. 2198114): único por tarjeta física; no requiere cédula en la clave. */
 export function isChipCardUid(cardPin: string | null | undefined): boolean {
   const card = normalizeCardPin(cardPin);
   if (card.length < 8) {

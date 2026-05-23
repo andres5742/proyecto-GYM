@@ -4,7 +4,7 @@ import com.gym.management.exception.BusinessException;
 import java.util.Locale;
 
 /**
- * Clave de tarjeta en BD: UID del chip ({@code A5214A48}) o, si el código es corto/repetible,
+ * Clave de tarjeta en BD: número del chip ({@code 2198114}) o, si el código es corto/repetible,
  * {@code codigo|cedula} / {@code codigo|Eid} (staff).
  */
 public final class CardCredentialKeys {
@@ -61,7 +61,7 @@ public final class CardCredentialKeys {
     }
 
     /**
-     * UID único del chip (lo que envía ZKTeco al pasar la tarjeta), p. ej. {@code A5214A48}.
+     * Número único del chip (decimal, como ZKAccess), p. ej. {@code 2198114}.
      * No hace falta añadir cédula: dos tarjetas físicas distintas no comparten este valor.
      */
     public static boolean isChipCardUid(String normalizedCardPin) {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Backend + frontend: UID de tarjeta (A5214A48), pantalla acceso y registro.
+# Backend + frontend: tarjetas en decimal (ej. 2198114), pantalla acceso y registro.
 # Uso en el VPS:
 #   cd /apps/gym-app && ./deploy/actualizar-acceso-tarjetas.sh
 
@@ -25,4 +25,4 @@ echo ""
 echo "==> Últimas lecturas de tarjeta en logs (si hay):"
 docker logs gym-backend --tail 200 2>&1 | grep -iE 'zkt|card|pin|access' | tail -15 || true
 
-echo "OK. Pruebe en recepción: Acceso → pasar tarjeta → debe verse UID tipo A5214A48."
+echo "OK. Pruebe en recepción: Acceso → pasar tarjeta → debe verse número tipo 2198114."

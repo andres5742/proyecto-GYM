@@ -18,15 +18,20 @@ Si sale "No such file or directory":
   -> Ejecute descargar-lector-recepcion.bat (con internet)
   -> O copie de nuevo toda la carpeta con serial_card_reader.py
 
-Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2):
-  -> Cierre ZKAccess, use iniciar-lector-tarjeta.bat (SERIAL_PIN_FORMAT=hex o decimal)
-  -> Vincule en el gym el mismo codigo que muestra ZKAccess (hex o numero)
+Formato por defecto: DECIMAL (solo numeros, como ZKAccess y el sistema anterior).
+  -> iniciar-lector-tarjeta.bat ya trae SERIAL_PIN_FORMAT=decimal
+  -> Vincule en el gym el mismo numero que muestra ZKAccess al pasar la tarjeta
+
+Si el diagnostico muestra RECIBIDO en 9600 (ej. hex 218AE2 = decimal 2198114):
+  -> Cierre ZKAccess, use iniciar-lector-tarjeta.bat
+  -> El script convierte a decimal automaticamente (2198114)
 
 Teclado del lector ZKT: si al pulsar un numero sale una letra:
-  -> En el terminal ZKT: usuario/tarjeta en modo NUMERICO (no alfanumerico/hex manual).
-  -> En el PC (campo web): use teclado numerico o pase la tarjeta; no escriba en modo hex.
-  -> Si el sistema viejo mostraba solo numeros: en iniciar-lector-tarjeta.bat ponga
-     set SERIAL_PIN_FORMAT=decimal
+  -> En el terminal ZKT: usuario/tarjeta en modo NUMERICO (no alfanumerico).
+  -> En el PC (campo web): use teclado numerico o pase la tarjeta.
+
+Solo si ZKAccess muestra letras A-F (ej. A5214A48), cambie en iniciar-lector-tarjeta.bat:
+     set SERIAL_PIN_FORMAT=hex
 
 Si pasa tarjeta y NO sale nada en pantalla:
   -> probar-diagnostico-com.bat (lista COM y prueba 9600/115200)

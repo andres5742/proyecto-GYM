@@ -167,11 +167,11 @@
         <header class="register-workspace__head">
           <h3>Afiliado · tarjeta ZKTeco</h3>
           <p class="muted small">
-            Pase la tarjeta en el lector: suele leer el <strong>UID del chip</strong> (ej. A5214A48), único por tarjeta
+            Pase la tarjeta en el lector: suele leer el <strong>número del chip</strong> (ej. 2198114), único por tarjeta
             — se guarda tal cual, como el sistema anterior. Si solo tiene un número corto impreso (ej. 35979), se usa
             <strong>código + cédula</strong> para evitar duplicados.
-            Si al escribir en el campo sale una <strong>letra en vez del número</strong>, es el teclado del lector en
-            modo hexadecimal o el idioma del Windows: use el teclado numérico del PC o pase la tarjeta (no escriba a mano).
+            Si al escribir en el campo sale una <strong>letra en vez del número</strong>, use el teclado numérico del PC
+            o pase la tarjeta (no escriba a mano).
           </p>
         </header>
         <div class="reader-capture">
@@ -197,7 +197,7 @@
                 formControlName="deviceUserId"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Ej: A5214A48 (lector) o número impreso"
+                placeholder="Ej: 2198114 (lector) o número impreso"
               />
             </label>
             @if (previewMemberCardKey(); as stored) {

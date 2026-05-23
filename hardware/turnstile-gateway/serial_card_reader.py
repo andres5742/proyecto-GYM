@@ -39,7 +39,7 @@ PORT = os.environ.get("SERIAL_PORT", "COM3")
 BAUD = int(os.environ.get("SERIAL_BAUD", "9600"))
 DEBUG = os.environ.get("SERIAL_DEBUG", "").lower() in ("1", "true", "yes", "si", "sí")
 # Tarjetas ZKT por COM suelen ser binario: hex=218AE2, decimal=2198114
-PIN_FORMAT = os.environ.get("SERIAL_PIN_FORMAT", "hex").lower()
+PIN_FORMAT = os.environ.get("SERIAL_PIN_FORMAT", "decimal").lower()
 PID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".lector-tarjeta.pid")
 
 
