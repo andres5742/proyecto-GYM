@@ -52,6 +52,9 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
 
     Optional<AccessLog> findFirstByCreatedAtAfterOrderByIdDesc(Instant since);
 
+    Optional<AccessLog> findFirstByResultAndCreatedAtAfterOrderByIdDesc(
+            AccessResult result, Instant since);
+
     @Query(
             """
             SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END

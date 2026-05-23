@@ -32,6 +32,7 @@ import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.CardCredentialKeys;
 import com.gym.management.util.CardSelectionJson;
 import com.gym.management.util.WelcomeMessageUtils;
+import com.gym.management.util.ZktKeypadSelection;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -39,6 +40,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccessControlService {
 
     private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
+    private static final long CARD_SELECTION_KEYPAD_SECONDS = 60;
 
     private final MemberRepository memberRepository;
     private final EmployeeRepository employeeRepository;
@@ -87,7 +90,55 @@ public class AccessControlService {
      */
     @Transactional
     public AccessVerifyResponse verifyZktEvent(String pin) {
-        return verifyAndOpen(new AccessVerifyRequest(pin.trim(), BiometricCredentialType.CARD));
+        String trimmed = pin != null ? pin.trim() : "";
+        OptionalInt keypadChoice = ZktKeypadSelection.selectionIndexFromPin(trimmed);
+        if (keypadChoice.isPresent()) {
+            Optional<AccessVerifyResponse> fromKeypad = resolvePendingCardSelectionKeypad(keypadChoice.getAsInt());
+            if (fromKeypad.isPresent()) {
+                return fromKeypad.get();
+            }
+            return keypadWithoutPendingSelection(trimmed);
+        }
+        return verifyAndOpen(new AccessVerifyRequest(trimmed, BiometricCredentialType.CARD));
+    }
+
+    /**
+     * Tecla 1/2 del ZKT llega como Pin FD/FA al mismo endpoint que la tarjeta.
+     * Si hay una selección de afiliado pendiente, completa el ingreso del elegido.
+     */
+    private Optional<AccessVerifyResponse> resolvePendingCardSelectionKeypad(int choiceIndex) {
+        Instant since = Instant.now().minusSeconds(CARD_SELECTION_KEYPAD_SECONDS);
+        return accessLogRepository
+                .findFirstByResultAndCreatedAtAfterOrderByIdDesc(AccessResult.SELECT_MEMBER, since)
+                .flatMap(log -> {
+                    List<CardSelectionCandidate> candidates =
+                            CardSelectionJson.read(log.getCardSelectionJson());
+                    return candidates.stream()
+                            .filter(c -> c.index() == choiceIndex)
+                            .findFirst()
+                            .map(c -> verifyCardMemberSelection(log.getFingerprintUserId(), c.memberId()));
+                });
+    }
+
+    /** Tecla suelta (FD/FA) sin tarjeta en selección: no registrar como tarjeta desconocida. */
+    private AccessVerifyResponse keypadWithoutPendingSelection(String keypadPin) {
+        return new AccessVerifyResponse(
+                AccessResult.DENIED,
+                false,
+                "Pase la tarjeta primero; luego elija 1 o 2 en el teclado.",
+                null,
+                null,
+                AccessPersonType.MEMBER,
+                null,
+                keypadPin,
+                BiometricCredentialType.CARD,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     /** Pantalla /acceso: el afiliado elige con el teclado cuando varias personas comparten el código de tarjeta. */
