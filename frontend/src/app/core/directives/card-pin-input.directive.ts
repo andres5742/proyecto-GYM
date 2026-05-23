@@ -1,4 +1,5 @@
-import { Directive, ElementRef, HostListener, inject } from '@angular/core';
+import { Directive, ElementRef, HostListener, inject, Optional, Self } from '@angular/core';
+import { NgControl } from '@angular/forms';
 
 /**
  * Lectores USB y teclados del ZKT envían pulsaciones como teclado (HID).
@@ -10,6 +11,7 @@ import { Directive, ElementRef, HostListener, inject } from '@angular/core';
 })
 export class CardPinInputDirective {
   private readonly el = inject(ElementRef<HTMLInputElement>);
+  @Optional() @Self() private readonly ngControl = inject(NgControl, { self: true, optional: true });
 
   private static readonly CODE_TO_CHAR: Record<string, string> = {
     Digit0: '0',
@@ -36,6 +38,9 @@ export class CardPinInputDirective {
 
   @HostListener('keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
     const fromCode = CardPinInputDirective.CODE_TO_CHAR[event.code];
     if (fromCode) {
       event.preventDefault();
@@ -49,14 +54,39 @@ export class CardPinInputDirective {
     }
   }
 
+  /** Bloquea caracteres raros que pegan lectores HID o teclados en español. */
+  @HostListener('input', ['$event'])
+  onInput(event: Event): void {
+    const input = this.el.nativeElement;
+    const cleaned = input.value.replace(/[^0-9A-Za-z|]/g, '');
+    if (cleaned === input.value) {
+      return;
+    }
+    event.preventDefault();
+    this.setValue(cleaned, input.selectionStart ?? cleaned.length);
+  }
+
   private insertAtCursor(char: string): void {
     const input = this.el.nativeElement;
     const start = input.selectionStart ?? input.value.length;
     const end = input.selectionEnd ?? start;
     const next = `${input.value.slice(0, start)}${char}${input.value.slice(end)}`;
-    input.value = next;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    const pos = start + char.length;
-    input.setSelectionRange(pos, pos);
+    this.setValue(next, start + char.length);
+  }
+
+  private setValue(value: string, cursor: number): void {
+    const input = this.el.nativeElement;
+    const control = this.ngControl?.control;
+    if (control) {
+      control.setValue(value, { emitEvent: true });
+      control.markAsDirty();
+    } else {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    queueMicrotask(() => {
+      const pos = Math.min(cursor, value.length);
+      input.setSelectionRange(pos, pos);
+    });
   }
 }

@@ -39,9 +39,9 @@ set ACCESS_DEVICE_KEY=clave-torniquete-produccion-2026
 set GYM_ACCESS_API=https://sportgymr10.com/api/access/zkt/event
 set SERIAL_PORT=COM3
 set SERIAL_BAUD=9600
-REM decimal = solo numeros, como ZKAccess y el sistema anterior (ej. 2198114).
-REM hex = codigo con letras (ej. A5214A48). Solo si ZKAccess muestra letras A-F.
-set SERIAL_PIN_FORMAT=decimal
+REM hex = UID del chip (ej. A5AD8AE2), como el sistema anterior.
+REM decimal = solo numeros (ej. 2198114). Solo si ZKAccess muestra solo numeros.
+set SERIAL_PIN_FORMAT=hex
 set SERIAL_DEBUG=0
 
 REM Seguro torniquete: edite turnstile-gate.env (copie .example) o variables aqui:

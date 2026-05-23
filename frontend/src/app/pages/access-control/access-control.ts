@@ -79,6 +79,8 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly logs = signal<AccessLogEntry[]>([]);
   protected readonly lastCapturedPin = signal<string | null>(null);
   protected readonly captureWaiting = signal(false);
+  /** Evita que la lectura del lector sobrescriba mientras escribe a mano. */
+  protected readonly pinFieldFocused = signal(false);
 
   private capturePollTimer: ReturnType<typeof setInterval> | null = null;
   private logsPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -573,13 +575,18 @@ export class AccessControlPage implements OnInit, OnDestroy {
           }
           this.setRegisterMethod('card');
         }
-        if (this.registerAudience() === 'members') {
+        if (this.pinFieldFocused()) {
+          this.message.set(
+            `Lector detectó ${pin}. Termine de escribir o borre el campo y pase la tarjeta de nuevo.`,
+          );
+        } else if (this.registerAudience() === 'members') {
           this.syncMemberEnrollCredentialType();
           this.enrollForm.patchValue({ deviceUserId: pin });
+          this.message.set(`Lectura capturada: ${pin} (${read.credentialTypeLabel})`);
         } else {
           this.staffEnrollForm.patchValue({ deviceUserId: pin });
+          this.message.set(`Lectura capturada: ${pin} (${read.credentialTypeLabel})`);
         }
-        this.message.set(`Lectura capturada: ${pin} (${read.credentialTypeLabel})`);
         this.accessService.logs().subscribe({
           next: (l) => this.logs.set(l),
         });

@@ -148,6 +148,8 @@
                 autocomplete="off"
                 spellcheck="false"
                 placeholder="Ej: 10042"
+                (focus)="pinFieldFocused.set(true)"
+                (blur)="pinFieldFocused.set(false)"
               />
             </label>
             <label>
@@ -167,11 +169,12 @@
         <header class="register-workspace__head">
           <h3>Afiliado · tarjeta ZKTeco</h3>
           <p class="muted small">
-            Pase la tarjeta en el lector: suele leer el <strong>número del chip</strong> (ej. 2198114), único por tarjeta
+            Pase la tarjeta en el lector: suele leer el <strong>UID del chip</strong> (ej. A5AD8AE2), único por tarjeta
             — se guarda tal cual, como el sistema anterior. Si solo tiene un número corto impreso (ej. 35979), se usa
             <strong>código + cédula</strong> para evitar duplicados.
-            Si al escribir en el campo sale una <strong>letra en vez del número</strong>, use el teclado numérico del PC
-            o pase la tarjeta (no escriba a mano).
+            Para vincular use <strong>pase la tarjeta</strong> (recomendado). Si escribe a mano, use el
+            <strong>teclado numérico</strong> del PC (derecha), no el del lector de pared ni la fila superior del teclado.
+            No pase la tarjeta mientras escribe: el lector puede meter otro número encima.
           </p>
         </header>
         <div class="reader-capture">
@@ -197,7 +200,9 @@
                 formControlName="deviceUserId"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Ej: 2198114 (lector) o número impreso"
+                placeholder="Ej: A5AD8AE2 (lector) o número impreso"
+                (focus)="pinFieldFocused.set(true)"
+                (blur)="pinFieldFocused.set(false)"
               />
             </label>
             @if (previewMemberCardKey(); as stored) {
@@ -253,6 +258,8 @@
                 autocomplete="off"
                 spellcheck="false"
                 placeholder="Ej: 20001"
+                (focus)="pinFieldFocused.set(true)"
+                (blur)="pinFieldFocused.set(false)"
               />
             </label>
             <label>
@@ -301,6 +308,8 @@
                 autocomplete="off"
                 spellcheck="false"
                 placeholder="Ej: 20001"
+                (focus)="pinFieldFocused.set(true)"
+                (blur)="pinFieldFocused.set(false)"
               />
             </label>
             @if (previewStaffCardKey(); as stored) {
