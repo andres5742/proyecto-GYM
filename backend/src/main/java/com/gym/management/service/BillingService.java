@@ -442,15 +442,32 @@ public class BillingService {
     /** Elimina un cobro de facturación por Nequi/Bancolombia del mes en curso (super admin). */
     @Transactional
     public void deleteDigitalPaymentInCurrentMonth(Long id, LocalDate monthStart, LocalDate monthEnd) {
+        deletePaymentInMonthAsSuperAdmin(id, monthStart, monthEnd, PaymentMethod.NEQUI, PaymentMethod.BANCOLOMBIA);
+    }
+
+    /** Elimina un cobro de facturación en efectivo del mes en curso, incluidos días anteriores (super admin). */
+    @Transactional
+    public void deleteCashPaymentInCurrentMonth(Long id, LocalDate monthStart, LocalDate monthEnd) {
+        deletePaymentInMonthAsSuperAdmin(id, monthStart, monthEnd, PaymentMethod.CASH);
+    }
+
+    private void deletePaymentInMonthAsSuperAdmin(
+            Long id, LocalDate monthStart, LocalDate monthEnd, PaymentMethod... allowedMethods) {
         if (!SecurityUtils.isSuperAdmin()) {
-            throw new BusinessException("Solo el super administrador puede eliminar ingresos de Nequi y Bancolombia");
+            throw new BusinessException("Solo el super administrador puede eliminar este tipo de ingresos");
         }
         BillingPayment payment = billingPaymentRepository
                 .findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Movimiento no encontrado: " + id));
-        if (payment.getPaymentMethod() != PaymentMethod.NEQUI
-                && payment.getPaymentMethod() != PaymentMethod.BANCOLOMBIA) {
-            throw new BusinessException("Solo se pueden eliminar ingresos por Nequi o Bancolombia");
+        boolean allowed = false;
+        for (PaymentMethod method : allowedMethods) {
+            if (payment.getPaymentMethod() == method) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) {
+            throw new BusinessException("El medio de pago del movimiento no coincide con el solicitado");
         }
         if (payment.getPaymentDate().isBefore(monthStart) || payment.getPaymentDate().isAfter(monthEnd)) {
             throw new BusinessException("Solo se pueden eliminar ingresos del mes en curso");

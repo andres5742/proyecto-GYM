@@ -195,4 +195,12 @@ export class BillingService {
   deleteDigitalAccountIncome(source: DigitalAccountIncomeSource, id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/digital-account-incomes/${source}/${id}`);
   }
+
+  listCashAccountIncomes(): Observable<DigitalAccountIncomeLine[]> {
+    return this.http.get<DigitalAccountIncomeLine[]>(`${this.baseUrl}/digital-account-incomes/cash`);
+  }
+
+  deleteCashAccountIncome(source: DigitalAccountIncomeSource, id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/digital-account-incomes/cash/${source}/${id}`);
+  }
 }

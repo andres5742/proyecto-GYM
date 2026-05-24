@@ -189,6 +189,7 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly bancolombiaInitialInput = signal(0);
   protected readonly paymentAccountSettings = signal<PaymentAccountSettings | null>(null);
   protected readonly digitalIncomesModalOpen = signal(false);
+  protected readonly treasuryIncomeDeleteKind = signal<'digital' | 'cash'>('digital');
   protected readonly digitalIncomes = signal<DigitalAccountIncomeLine[]>([]);
   protected readonly loadingDigitalIncomes = signal(false);
   protected readonly deletingDigitalIncomeKey = signal<string | null>(null);
@@ -792,11 +793,20 @@ export class BillingPage implements OnInit, OnDestroy {
   }
 
   openDigitalIncomesModal(): void {
+    this.openTreasuryIncomesModal('digital');
+  }
+
+  openCashIncomesModal(): void {
+    this.openTreasuryIncomesModal('cash');
+  }
+
+  private openTreasuryIncomesModal(kind: 'digital' | 'cash'): void {
     if (!this.isSuperAdmin()) {
       return;
     }
+    this.treasuryIncomeDeleteKind.set(kind);
     this.digitalIncomesModalOpen.set(true);
-    this.loadDigitalIncomes();
+    this.loadTreasuryIncomes();
   }
 
   closeDigitalIncomesModal(): void {
@@ -805,9 +815,14 @@ export class BillingPage implements OnInit, OnDestroy {
     }
   }
 
-  loadDigitalIncomes(): void {
+  loadTreasuryIncomes(): void {
+    const kind = this.treasuryIncomeDeleteKind();
     this.loadingDigitalIncomes.set(true);
-    this.billingService.listDigitalAccountIncomes().subscribe({
+    const request =
+      kind === 'cash'
+        ? this.billingService.listCashAccountIncomes()
+        : this.billingService.listDigitalAccountIncomes();
+    request.subscribe({
       next: (rows) => {
         this.digitalIncomes.set(rows);
         this.loadingDigitalIncomes.set(false);
@@ -826,21 +841,27 @@ export class BillingPage implements OnInit, OnDestroy {
 
   deleteDigitalIncome(row: DigitalAccountIncomeLine, event: Event): void {
     event.stopPropagation();
+    const isCash = this.treasuryIncomeDeleteKind() === 'cash';
     const label = `${row.sourceLabel} · ${row.description} · ${row.amount}`;
     if (
       !confirm(
-        `¿Eliminar este ingreso de ${row.paymentMethodLabel}?\n${label}\nSe actualizarán los saldos de Nequi/Bancolombia.`,
+        isCash
+          ? `¿Eliminar este ingreso en efectivo?\n${label}\nIncluye días anteriores del mes. Se actualizará la caja.`
+          : `¿Eliminar este ingreso de ${row.paymentMethodLabel}?\n${label}\nSe actualizarán los saldos de Nequi/Bancolombia.`,
       )
     ) {
       return;
     }
     const key = this.digitalIncomeKey(row);
     this.deletingDigitalIncomeKey.set(key);
-    this.billingService.deleteDigitalAccountIncome(row.source, row.id).subscribe({
+    const deleteRequest = isCash
+      ? this.billingService.deleteCashAccountIncome(row.source, row.id)
+      : this.billingService.deleteDigitalAccountIncome(row.source, row.id);
+    deleteRequest.subscribe({
       next: () => {
         this.message.set('Ingreso eliminado');
         this.deletingDigitalIncomeKey.set(null);
-        this.loadDigitalIncomes();
+        this.loadTreasuryIncomes();
         this.loadPaymentAccountSettings();
         this.refreshCashRegister();
         this.loadToday();

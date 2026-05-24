@@ -37,6 +37,9 @@
             <button type="button" class="btn btn-secondary" (click)="openDigitalIncomesModal()">
               Eliminar ingresos Nequi / Banco
             </button>
+            <button type="button" class="btn btn-secondary" (click)="openCashIncomesModal()">
+              Eliminar ingresos en efectivo
+            </button>
           }
         </div>
       </div>
@@ -2057,19 +2060,39 @@
     <div class="modal-panel modal-panel--digital-incomes" role="dialog" (click)="$event.stopPropagation()">
       <header class="modal-header">
         <div>
-          <span class="modal-header__icon" aria-hidden="true">📱</span>
-          <h3>Eliminar ingresos Nequi y Bancolombia</h3>
+          <span class="modal-header__icon" aria-hidden="true">{{
+            treasuryIncomeDeleteKind() === 'cash' ? '💵' : '📱'
+          }}</span>
+          <h3>
+            {{
+              treasuryIncomeDeleteKind() === 'cash'
+                ? 'Eliminar ingresos en efectivo'
+                : 'Eliminar ingresos Nequi y Bancolombia'
+            }}
+          </h3>
         </div>
         <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeDigitalIncomesModal()">×</button>
       </header>
       <p class="modal-lead">
-        Solo super administrador. Ingresos del <strong>mes en curso</strong> por Nequi o Bancolombia (facturación,
-        otros ingresos, ventas y abonos fiado). Al eliminar se actualizan los saldos de las cuentas.
+        Solo super administrador. Ingresos del <strong>mes en curso</strong>
+        @if (treasuryIncomeDeleteKind() === 'cash') {
+          en <strong>efectivo</strong> (incluye días anteriores del mes: facturación, otros ingresos, ventas y fiado).
+          Al eliminar se actualiza el efectivo en caja.
+        } @else {
+          por Nequi o Bancolombia (facturación, otros ingresos, ventas y abonos fiado). Al eliminar se actualizan los
+          saldos de las cuentas.
+        }
       </p>
       @if (loadingDigitalIncomes()) {
         <p class="muted">Cargando ingresos…</p>
       } @else if (digitalIncomes().length === 0) {
-        <p class="muted">No hay ingresos digitales registrados este mes.</p>
+        <p class="muted">
+          {{
+            treasuryIncomeDeleteKind() === 'cash'
+              ? 'No hay ingresos en efectivo registrados este mes.'
+              : 'No hay ingresos digitales registrados este mes.'
+          }}
+        </p>
       } @else {
         <div class="data-table-wrap digital-incomes-table-wrap">
           <table class="data-table">
@@ -2111,7 +2134,7 @@
       }
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" (click)="closeDigitalIncomesModal()">Cerrar</button>
-        <button type="button" class="btn btn-secondary" (click)="loadDigitalIncomes()" [disabled]="loadingDigitalIncomes()">
+        <button type="button" class="btn btn-secondary" (click)="loadTreasuryIncomes()" [disabled]="loadingDigitalIncomes()">
           Actualizar
         </button>
       </div>

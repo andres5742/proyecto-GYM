@@ -37,6 +37,7 @@ public class DigitalAccountIncomeService {
 
     private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
     private static final List<PaymentMethod> DIGITAL_METHODS = List.of(PaymentMethod.NEQUI, PaymentMethod.BANCOLOMBIA);
+    private static final List<PaymentMethod> CASH_METHODS = List.of(PaymentMethod.CASH);
 
     private final BillingPaymentRepository billingPaymentRepository;
     private final BillingCashRegisterOtherIncomeRepository otherIncomeRepository;
@@ -50,14 +51,22 @@ public class DigitalAccountIncomeService {
     public List<DigitalAccountIncomeLineResponse> listCurrentMonth() {
         requireSuperAdmin();
         LocalDate today = LocalDate.now(GYM_ZONE);
-        return listBetween(today.withDayOfMonth(1), today);
+        return listBetween(today.withDayOfMonth(1), today, DIGITAL_METHODS);
     }
 
     @Transactional(readOnly = true)
-    public List<DigitalAccountIncomeLineResponse> listBetween(LocalDate start, LocalDate end) {
+    public List<DigitalAccountIncomeLineResponse> listCurrentMonthCash() {
+        requireSuperAdmin();
+        LocalDate today = LocalDate.now(GYM_ZONE);
+        return listBetween(today.withDayOfMonth(1), today, CASH_METHODS);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DigitalAccountIncomeLineResponse> listBetween(
+            LocalDate start, LocalDate end, List<PaymentMethod> methods) {
         requireSuperAdmin();
         List<DigitalAccountIncomeLineResponse> lines = new ArrayList<>();
-        for (BillingPayment payment : billingPaymentRepository.findDigitalBetweenDates(start, end, DIGITAL_METHODS)) {
+        for (BillingPayment payment : billingPaymentRepository.findDigitalBetweenDates(start, end, methods)) {
             String memberName = payment.getMember() != null
                     ? payment.getMember().getFirstName() + " " + payment.getMember().getLastName()
                     : (payment.getGuestLabel() != null ? payment.getGuestLabel() : "Invitado");
@@ -75,7 +84,7 @@ public class DigitalAccountIncomeService {
                     employeeName(payment.getEmployee())));
         }
         for (BillingCashRegisterOtherIncome income :
-                otherIncomeRepository.findDigitalBetweenDates(start, end, DIGITAL_METHODS)) {
+                otherIncomeRepository.findDigitalBetweenDates(start, end, methods)) {
             lines.add(new DigitalAccountIncomeLineResponse(
                     DigitalAccountIncomeSource.OTHER_INCOME,
                     "Otro ingreso",
@@ -90,7 +99,7 @@ public class DigitalAccountIncomeService {
         }
         LocalDateTime saleStart = start.atStartOfDay();
         LocalDateTime saleEndExclusive = end.plusDays(1).atStartOfDay();
-        for (Sale sale : saleRepository.findDigitalBetweenDates(saleStart, saleEndExclusive, DIGITAL_METHODS)) {
+        for (Sale sale : saleRepository.findDigitalBetweenDates(saleStart, saleEndExclusive, methods)) {
             String productName = sale.getProduct() != null ? sale.getProduct().getName() : "Producto";
             lines.add(new DigitalAccountIncomeLineResponse(
                     DigitalAccountIncomeSource.SALE,
@@ -105,7 +114,7 @@ public class DigitalAccountIncomeService {
                     employeeName(sale.getEmployee())));
         }
         for (ProductCreditPayment payment :
-                productCreditPaymentRepository.findDigitalBetweenShiftDates(start, end, DIGITAL_METHODS)) {
+                productCreditPaymentRepository.findDigitalBetweenShiftDates(start, end, methods)) {
             ProductCredit credit = payment.getCredit();
             String memberName = credit.getMember().getFirstName() + " " + credit.getMember().getLastName();
             String productName = credit.getProduct() != null ? credit.getProduct().getName() : "Producto";
@@ -127,43 +136,60 @@ public class DigitalAccountIncomeService {
 
     @Transactional
     public void delete(DigitalAccountIncomeSource source, Long id) {
+        delete(source, id, DIGITAL_METHODS, false);
+    }
+
+    @Transactional
+    public void deleteCash(DigitalAccountIncomeSource source, Long id) {
+        delete(source, id, CASH_METHODS, true);
+    }
+
+    private void delete(
+            DigitalAccountIncomeSource source, Long id, List<PaymentMethod> methods, boolean cash) {
         requireSuperAdmin();
         LocalDate today = LocalDate.now(GYM_ZONE);
         LocalDate monthStart = today.withDayOfMonth(1);
         switch (source) {
-            case BILLING_PAYMENT -> billingService.deleteDigitalPaymentInCurrentMonth(id, monthStart, today);
-            case OTHER_INCOME -> deleteOtherIncome(id, monthStart, today);
-            case SALE -> deleteSale(id, monthStart, today);
-            case PRODUCT_CREDIT -> deleteProductCreditPayment(id, monthStart, today);
+            case BILLING_PAYMENT -> {
+                if (cash) {
+                    billingService.deleteCashPaymentInCurrentMonth(id, monthStart, today);
+                } else {
+                    billingService.deleteDigitalPaymentInCurrentMonth(id, monthStart, today);
+                }
+            }
+            case OTHER_INCOME -> deleteOtherIncome(id, monthStart, today, methods);
+            case SALE -> deleteSale(id, monthStart, today, methods);
+            case PRODUCT_CREDIT -> deleteProductCreditPayment(id, monthStart, today, methods);
             default -> throw new BusinessException("Origen de ingreso no válido");
         }
     }
 
-    private void deleteOtherIncome(Long id, LocalDate monthStart, LocalDate today) {
+    private void deleteOtherIncome(Long id, LocalDate monthStart, LocalDate today, List<PaymentMethod> methods) {
         BillingCashRegisterOtherIncome income = otherIncomeRepository
                 .findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ingreso no encontrado: " + id));
-        requireDigital(income.getPaymentMethod());
+        requirePaymentMethod(income.getPaymentMethod(), methods);
         LocalDate registerDate = income.getCashRegister().getRegisterDate();
         assertInCurrentMonth(registerDate, monthStart, today);
         otherIncomeRepository.delete(income);
     }
 
-    private void deleteSale(Long id, LocalDate monthStart, LocalDate today) {
+    private void deleteSale(Long id, LocalDate monthStart, LocalDate today, List<PaymentMethod> methods) {
         Sale sale = saleRepository
                 .findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Venta no encontrada: " + id));
-        requireDigital(sale.getPaymentMethod());
+        requirePaymentMethod(sale.getPaymentMethod(), methods);
         LocalDate saleDate = sale.getSaleDate().toLocalDate();
         assertInCurrentMonth(saleDate, monthStart, today);
         saleService.delete(id);
     }
 
-    private void deleteProductCreditPayment(Long id, LocalDate monthStart, LocalDate today) {
+    private void deleteProductCreditPayment(
+            Long id, LocalDate monthStart, LocalDate today, List<PaymentMethod> methods) {
         ProductCreditPayment payment = productCreditPaymentRepository
                 .findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Abono fiado no encontrado: " + id));
-        requireDigital(payment.getPaymentMethod());
+        requirePaymentMethod(payment.getPaymentMethod(), methods);
         LocalDate shiftDate = payment.getWorkShift().getShiftDate();
         assertInCurrentMonth(shiftDate, monthStart, today);
         ProductCredit credit = payment.getCredit();
@@ -181,9 +207,9 @@ public class DigitalAccountIncomeService {
         }
     }
 
-    private static void requireDigital(PaymentMethod method) {
-        if (!DIGITAL_METHODS.contains(method)) {
-            throw new BusinessException("Solo se pueden eliminar ingresos por Nequi o Bancolombia");
+    private static void requirePaymentMethod(PaymentMethod method, List<PaymentMethod> allowed) {
+        if (!allowed.contains(method)) {
+            throw new BusinessException("El medio de pago del ingreso no coincide con el tipo solicitado");
         }
     }
 

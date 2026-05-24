@@ -27,9 +27,20 @@ public class DigitalAccountIncomeController {
         return digitalAccountIncomeService.listCurrentMonth();
     }
 
+    @GetMapping("/cash")
+    public List<DigitalAccountIncomeLineResponse> listCurrentMonthCash() {
+        return digitalAccountIncomeService.listCurrentMonthCash();
+    }
+
     @DeleteMapping("/{source}/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable DigitalAccountIncomeSource source, @PathVariable Long id) {
         digitalAccountIncomeService.delete(source, id);
+    }
+
+    @DeleteMapping("/cash/{source}/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCash(@PathVariable DigitalAccountIncomeSource source, @PathVariable Long id) {
+        digitalAccountIncomeService.deleteCash(source, id);
     }
 }
