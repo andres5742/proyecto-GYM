@@ -29,8 +29,6 @@ const KIOSK_MOTIVATIONAL_PHRASES = [
 ];
 
 const POLL_MS = 700;
-/** Margen al iniciar: evita perder lecturas si el reloj del PC va adelantado al servidor. */
-const POLL_LOOKBACK_MS = 180_000;
 const GRANTED_DISPLAY_MS = 8000;
 const DENIED_DISPLAY_MS = 5000;
 const SELECT_MEMBER_DISPLAY_MS = 45000;
@@ -51,6 +49,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   private lastProcessedLogId = 0;
   private pollSinceIso = new Date().toISOString();
   private polling = false;
+  private pollBootstrapped = false;
   private autoStartTimer: ReturnType<typeof setTimeout> | null = null;
   private audioUnlockAttempted = false;
   private lastWelcomedLogId = 0;
@@ -187,14 +186,15 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.audioUnlocked.set(ok);
     }
     this.kioskReady.set(true);
-    this.pollSinceIso = new Date(Date.now() - POLL_LOOKBACK_MS).toISOString();
+    this.pollSinceIso = new Date().toISOString();
     this.lastProcessedLogId = 0;
+    this.pollBootstrapped = false;
     this.lastWelcomedLogId = 0;
     this.lastWelcomedAt = 0;
     this.lastWelcomedKey = '';
     this.lastResult.set(null);
     this.welcomeTitle.set(null);
-    this.statusLine.set('Pase su tarjeta o coloque su huella en el lector…');
+    this.statusLine.set('Sistema activado. Pase su tarjeta o coloque su huella en el lector…');
     this.startPolling();
   }
 
@@ -266,6 +266,14 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.accessService.kioskEventsSince(this.pollSinceIso, this.lastProcessedLogId).subscribe({
       next: (events) => {
         this.polling = false;
+        if (!this.pollBootstrapped) {
+          this.pollBootstrapped = true;
+          for (const event of events) {
+            this.lastProcessedLogId = Math.max(this.lastProcessedLogId, event.id);
+          }
+          this.pollSinceIso = new Date().toISOString();
+          return;
+        }
         for (const event of events) {
           if (event.id <= this.lastProcessedLogId) {
             continue;

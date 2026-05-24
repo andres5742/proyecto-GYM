@@ -19,6 +19,8 @@ export function welcomeWord(gender?: Gender | null): string {
 let audioUnlocked = false;
 let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 let cachedVoice: SpeechSynthesisVoice | undefined;
+let lastSpeechSignature = '';
+let lastSpeechAt = 0;
 
 function getSpeech(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -166,6 +168,16 @@ function speakSequence(speech: SpeechSynthesis, segments: SpeechSegment[]): void
   setTimeout(speakNext, 60);
 }
 
+function dedupeSpeech(signature: string, windowMs = 9000): boolean {
+  const now = Date.now();
+  if (signature === lastSpeechSignature && now - lastSpeechAt < windowMs) {
+    return false;
+  }
+  lastSpeechSignature = signature;
+  lastSpeechAt = now;
+  return true;
+}
+
 /** Carga y cachea la mejor voz disponible. */
 export function prepareWelcomeSpeech(): void {
   const speech = getSpeech();
@@ -281,7 +293,12 @@ export function playStaffAccessWelcome(gender?: Gender | null, logMessage?: stri
   if (!speech) {
     return false;
   }
-  speakSequence(speech, staffWelcomeSegmentsFromMessage(logMessage, gender));
+  const segments = staffWelcomeSegmentsFromMessage(logMessage, gender);
+  const signature = `staff|${segments.map((s) => s.text).join('|')}`;
+  if (!dedupeSpeech(signature)) {
+    return true;
+  }
+  speakSequence(speech, segments);
   return true;
 }
 
@@ -420,6 +437,10 @@ export function playAccessWelcome(
   const segments = fromLog
     ? welcomeSegmentsWithHeadline(fromLog, hints, gender)
     : welcomeSegments(firstName, gender, hints);
+  const signature = `member|${segments.map((s) => s.text).join('|')}`;
+  if (!dedupeSpeech(signature)) {
+    return true;
+  }
   speakSequence(speech, segments);
   return true;
 }
