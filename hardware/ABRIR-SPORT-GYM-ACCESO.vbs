@@ -23,8 +23,10 @@ If fso.FileExists(gw & "\preparar-com3.bat") Then
   sh.Run "cmd /c call """ & gw & "\preparar-com3.bat""", 0, True
 End If
 
-' Bloqueo preventivo del torniquete al iniciar (aunque la app aun no abra)
-If fso.FileExists(gw & "\turnstile_gate.py") Then
+' Bloqueo preventivo del torniquete al iniciar (independiente de Python)
+If fso.FileExists(gw & "\bloquear-torniquete-arranque.bat") Then
+  sh.Run "cmd /c call """ & gw & "\bloquear-torniquete-arranque.bat""", 0, True
+ElseIf fso.FileExists(gw & "\turnstile_gate.py") Then
   sh.Run "cmd /c cd /d """ & gw & """ && python turnstile_gate.py startup", 0, True
 End If
 
