@@ -282,7 +282,9 @@ app.whenReady().then(async () => {
     callback({ requestHeaders: details.requestHeaders });
   });
   spawnCardReader();
-  if (!config.spawnCardReader) {
+  if (config.spawnCardReader) {
+    queueGateCommand('lock');
+  } else {
     runGateCommand('lock');
   }
   createWindow();

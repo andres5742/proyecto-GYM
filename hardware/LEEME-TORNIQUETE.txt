@@ -19,7 +19,8 @@ Que hace ese .bat (en orden)
   2. Icono SportGym.ico (logo del gym)
   3. Sport Gym Acceso.exe (Setup desde sportgymr10.com/downloads/)
   4. Acceso directo en escritorio con logo del gym
-  5. Lanzador C:\SportGym\INICIAR-ACCESO-COMPLETO.bat (lector + app)
+  5. Lanzadores en C:\SportGym\ (lector + app + arranque Windows)
+  6. preparar-com3.bat (cierra ATP y libera COM3)
 
 Antes de ejecutar
 -----------------
@@ -30,7 +31,14 @@ Antes de ejecutar
 Uso diario
 ----------
   Doble clic en el acceso directo "Sport Gym Acceso" del escritorio.
-  (Abre lector COM3 + pantalla https://sportgymr10.com/acceso)
+  (Cierra ATP, abre lector COM3 + pantalla; bloquea torniquete al iniciar)
+
+Arranque automatico al encender el PC (recomendado torniquete)
+--------------------------------------------------------------
+  Una sola vez, en C:\SportGym\turnstile-gateway\:
+    instalar-inicio-automatico.bat
+  Al iniciar sesion en Windows: cierra ATP, espera 2 s, abre Sport Gym Acceso.
+  Para quitar: quitar-inicio-automatico.bat
 
 Alias (mismo script)
 --------------------

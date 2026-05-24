@@ -55,6 +55,12 @@ call :DownloadGit "%GIT_GW%" "%GW%" "quitar-seguro.bat"
 call :DownloadGit "%GIT_GW%" "%GW%" "requirements-serial.txt"
 call :DownloadGit "%GIT_GW%" "%GW%" "OPERACION-GYM.txt"
 call :DownloadGit "%GIT_GW%" "%GW%" "ATP-ACCESO-PROTOCOLO.txt"
+call :DownloadGit "%GIT_GW%" "%GW%" "preparar-com3.bat"
+call :DownloadGit "%GIT_GW%" "%GW%" "instalar-inicio-automatico.bat"
+call :DownloadGit "%GIT_GW%" "%GW%" "quitar-inicio-automatico.bat"
+call :DownloadGit "%GIT_HW%" "%DEST%" "iniciar-arranque-windows.bat"
+if exist "%~dp0iniciar-arranque-windows.bat" copy /Y "%~dp0iniciar-arranque-windows.bat" "%DEST%\iniciar-arranque-windows.bat" >nul 2>&1
+if exist "%~dp0turnstile-gateway\preparar-com3.bat" copy /Y "%~dp0turnstile-gateway\preparar-com3.bat" "%GW%\preparar-com3.bat" >nul 2>&1
 
 if not exist "%GW%\iniciar-lector-tarjeta.bat" (
   if exist "%~dp0turnstile-gateway\iniciar-lector-tarjeta.bat" (
@@ -136,11 +142,15 @@ echo  LISTO
 echo  Escritorio: Sport Gym Acceso
 echo  Icono: %DEST%\SportGym.ico
 echo  Lanzador: %DEST%\INICIAR-ACCESO-COMPLETO.bat
+echo  Arranque Windows: %DEST%\iniciar-arranque-windows.bat
 echo  Lector: %GW%
 echo ========================================
 echo.
 echo Si el icono no cambia de inmediato: clic derecho en el acceso directo
 echo - Propiedades - Cambiar icono - elija %DEST%\SportGym.ico
+echo.
+set /p AUTO="Instalar inicio automatico al encender Windows? S/N: "
+if /i "!AUTO!"=="S" if exist "%GW%\instalar-inicio-automatico.bat" call "%GW%\instalar-inicio-automatico.bat"
 echo.
 set /p ABRIR="Abrir Sport Gym Acceso ahora? S/N: "
 if /i "!ABRIR!"=="S" call "%DEST%\INICIAR-ACCESO-COMPLETO.bat"

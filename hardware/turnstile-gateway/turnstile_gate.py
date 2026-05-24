@@ -115,9 +115,6 @@ def _read_config() -> None:
 
 
 _read_config()
-GATE_PROTOCOL = ""
-READER_BAUD = 9600
-LOCK_BYTES_LIST: list[bytes] = []
 
 
 def _payload_label(payload: bytes) -> str:
@@ -190,6 +187,7 @@ def _post_http(url: str, label: str) -> bool:
 def lock_gate() -> None:
     """Pone el seguro (torniquete bloqueado)."""
     global _relock_timer
+    _read_config()
     if _relock_timer:
         _relock_timer.cancel()
         _relock_timer = None
@@ -215,6 +213,7 @@ def lock_gate() -> None:
 def unlock_gate(ms: int | None = None) -> None:
     """Quita el seguro; tras ms vuelve a ponerlo."""
     global _relock_timer
+    _read_config()
     duration = UNLOCK_MS if ms is None else ms
     if MODE == "serial":
         if UNLOCK_BYTES:

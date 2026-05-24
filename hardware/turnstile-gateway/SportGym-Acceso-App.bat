@@ -8,6 +8,8 @@ echo Abriendo aplicacion de acceso (ventana propia, sin barra del navegador)...
 echo URL: %URL%
 echo.
 
+if exist "%~dp0preparar-com3.bat" call "%~dp0preparar-com3.bat"
+
 start "Sport Gym - Lector tarjeta COM3" /min cmd /k call "%~dp0iniciar-lector-tarjeta.bat"
 timeout /t 5 /nobreak >nul
 

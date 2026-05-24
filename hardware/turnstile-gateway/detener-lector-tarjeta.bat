@@ -40,5 +40,5 @@ echo.
 echo Nota: esto NO desinstala Python ni borra datos del gym.
 echo Solo cierra el puente USB -^> API de Sport Gym.
 echo.
-pause
+if /i not "%~1"=="/silent" pause
 endlocal
