@@ -127,16 +127,9 @@
   padding: 1rem 1.15rem;
 }
 
-.handover-main-work {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 1fr);
-  gap: 1rem;
-  align-items: start;
-  margin-bottom: 0.75rem;
-}
-
-.handover-cash-block {
-  min-width: 0;
+.handover-cash-block--solo {
+  width: 100%;
+  max-width: none;
 }
 
 .handover-denom-row {
@@ -567,6 +560,12 @@
     max-height: min(94vh, 960px);
   }
 
+  &--inventory &__scroll {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   &__header {
     display: flex;
     align-items: flex-start;
@@ -637,6 +636,13 @@
     color: #b91c1c;
     font-size: 0.92rem;
     font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  &__notes {
+    margin: 0.75rem 0 0;
+    font-size: 0.88rem;
+    color: #475569;
     flex-shrink: 0;
   }
 
@@ -783,6 +789,41 @@
   }
 }
 
+.handover-confirm-cash-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.9rem;
+  background: #fffbeb;
+  border: 2px solid #fcd34d;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+
+  &--ok {
+    background: #f0fdf4;
+    border-color: #86efac;
+  }
+
+  .ok {
+    color: #15803d;
+    font-weight: 700;
+  }
+
+  .warn {
+    color: #b45309;
+    font-weight: 700;
+  }
+}
+
+.handover-inventory--modal {
+  flex: 1;
+  min-height: 0;
+  max-height: none !important;
+}
+
 .handover-confirm-denom-scroll {
   flex: 1;
   min-height: 0;
@@ -822,7 +863,7 @@
 
 .handover-inventory__table-wrap--modal {
   flex: 1;
-  min-height: 320px;
+  min-height: min(52vh, 520px);
   max-height: none;
   margin-top: 0.5rem;
   border: 1px solid #e2e8f0;
@@ -830,11 +871,11 @@
   background: #fff;
 
   .handover-inventory__table {
-    font-size: 0.9rem;
+    font-size: 0.92rem;
 
     th,
     td {
-      padding: 0.5rem 0.65rem;
+      padding: 0.55rem 0.7rem;
     }
 
     .col-name {
@@ -842,10 +883,12 @@
       white-space: normal;
       font-weight: 600;
     }
+  }
 
-    .col-counted strong {
-      font-size: 1.05rem;
-    }
+  .handover-inventory--modal & .handover-inventory__input {
+    width: 4.5rem;
+    min-height: 2.25rem;
+    font-size: 1rem;
   }
 }
 
@@ -881,13 +924,6 @@
     position: static;
   }
 
-  .handover-main-work {
-    grid-template-columns: 1fr;
-  }
-
-  .handover-inventory--main {
-    max-height: none;
-  }
 }
 
 @media (max-width: 900px) {

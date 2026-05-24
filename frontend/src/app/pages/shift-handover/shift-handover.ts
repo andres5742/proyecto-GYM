@@ -370,6 +370,10 @@ export class ShiftHandoverPage implements OnInit {
     if (this.alreadySubmitted()) {
       return;
     }
+    if (this.cashTotal() <= 0) {
+      this.message.set('Cuente el efectivo en billetes y monedas antes de registrar.');
+      return;
+    }
     const products = this.inventoryProducts();
     if (products.length > 0) {
       for (const p of products) {
