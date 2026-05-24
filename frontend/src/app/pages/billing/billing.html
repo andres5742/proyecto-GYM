@@ -1338,7 +1338,7 @@
                 <dd>{{ preview.cashInDrawer | cop }}</dd>
               </div>
               <div class="close-caja-breakdown__row close-caja-breakdown__row--total">
-                <dt>Total a contar en caja</dt>
+                <dt>Total a contar en caja (efectivo)</dt>
                 <dd>{{ closeExpectedCashRounded() | cop }}</dd>
               </div>
             </dl>
@@ -1348,6 +1348,46 @@
               </p>
             }
           </section>
+
+          @if (preview.digitalAccounts?.length) {
+            <section class="close-caja-breakdown close-caja-breakdown--digital">
+              <h4 class="close-caja-breakdown__title">Cuentas Nequi y Bancolombia al cierre</h4>
+              <p class="close-caja-breakdown__intro">
+                Saldo del día = apertura de la cuenta + ingresos del día − gastos del día (facturación, productos,
+                fiado y otros ingresos por ese medio).
+              </p>
+              @for (acc of preview.digitalAccounts; track acc.paymentMethod) {
+                <dl class="close-caja-breakdown__list close-caja-breakdown__list--account">
+                  <div class="close-caja-breakdown__row close-caja-breakdown__row--account-title">
+                    <dt>{{ acc.paymentMethodLabel }}</dt>
+                    <dd><strong>{{ acc.closingBalance | cop }}</strong></dd>
+                  </div>
+                  <div class="close-caja-breakdown__row">
+                    <dt>Saldo inicial (apertura del día)</dt>
+                    <dd>{{ acc.openingBalance | cop }}</dd>
+                  </div>
+                  <div class="close-caja-breakdown__row">
+                    <dt>+ Ingresos del día</dt>
+                    <dd class="pos">+ {{ acc.incomeTotal | cop }}</dd>
+                  </div>
+                  @if (acc.expenseTotal > 0) {
+                    <div class="close-caja-breakdown__row">
+                      <dt>− Gastos del día</dt>
+                      <dd class="neg">− {{ acc.expenseTotal | cop }}</dd>
+                    </div>
+                  }
+                  <div class="close-caja-breakdown__row close-caja-breakdown__row--sub">
+                    <dt>= Saldo al cierre del día</dt>
+                    <dd><strong>{{ acc.closingBalance | cop }}</strong></dd>
+                  </div>
+                  <div class="close-caja-breakdown__row">
+                    <dt>Acumulado total (histórico)</dt>
+                    <dd>{{ acc.cumulativeBalance | cop }}</dd>
+                  </div>
+                </dl>
+              }
+            </section>
+          }
           </div>
 
           <section class="close-caja-cash">

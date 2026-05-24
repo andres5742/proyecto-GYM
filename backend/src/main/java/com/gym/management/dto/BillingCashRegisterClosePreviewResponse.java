@@ -7,4 +7,5 @@ public record BillingCashRegisterClosePreviewResponse(
         BigDecimal cashInDrawer,
         BigDecimal fiadoCashCollected,
         BigDecimal expectedCashTotal,
-        List<ProductInventoryLineResponse> products) {}
+        List<ProductInventoryLineResponse> products,
+        List<DigitalAccountBalanceLine> digitalAccounts) {}

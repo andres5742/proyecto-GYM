@@ -1,5 +1,5 @@
 import { CashShortfall } from './cash-shortfall.model';
-import { BillingCashRegister } from './billing.model';
+import { BillingCashRegister, DigitalAccountBalanceLine } from './billing.model';
 import { InventoryMissingLine } from './cash-shortfall.model';
 
 export interface ProductInventoryLine {
@@ -15,6 +15,7 @@ export interface BillingCashRegisterClosePreview {
   fiadoCashCollected: number;
   expectedCashTotal: number;
   products: ProductInventoryLine[];
+  digitalAccounts: DigitalAccountBalanceLine[];
 }
 
 export interface ProductInventoryCountItem {

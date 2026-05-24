@@ -2897,6 +2897,47 @@
   }
 }
 
+.close-caja-breakdown--digital {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.close-caja-breakdown__intro {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.close-caja-breakdown__list--account {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.close-caja-breakdown__row--account-title {
+  font-size: 0.95rem;
+
+  dd strong {
+    color: var(--color-trust, #2563eb);
+  }
+}
+
+.close-caja-breakdown__row .pos {
+  color: var(--color-success);
+}
+
+.close-caja-breakdown__row .neg {
+  color: var(--color-danger);
+}
+
 .close-caja-breakdown {
   margin-bottom: 1rem;
   padding: 0.85rem 0.95rem;

@@ -255,11 +255,14 @@ public class BillingCashRegisterService {
         }
         BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register, true));
         BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
+        List<com.gym.management.dto.DigitalAccountBalanceLine> digitalAccounts =
+                paymentAccountBalanceService.computeForOpenRegister(register);
         return TreasuryAccess.maskClosePreview(new BillingCashRegisterClosePreviewResponse(
                 cashInDrawer,
                 fiadoCash,
                 cashInDrawer,
-                shiftInventoryService.listActiveProductLines()));
+                shiftInventoryService.listActiveProductLines(),
+                digitalAccounts));
     }
 
     @Transactional

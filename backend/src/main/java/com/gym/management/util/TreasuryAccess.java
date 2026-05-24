@@ -62,6 +62,11 @@ public final class TreasuryAccess {
         if (canViewTreasuryBalances() || preview == null) {
             return preview;
         }
-        return new BillingCashRegisterClosePreviewResponse(null, preview.fiadoCashCollected(), null, preview.products());
+        return new BillingCashRegisterClosePreviewResponse(
+                null,
+                preview.fiadoCashCollected(),
+                null,
+                preview.products(),
+                List.of());
     }
 }
