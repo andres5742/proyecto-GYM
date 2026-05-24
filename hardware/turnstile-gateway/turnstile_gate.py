@@ -98,14 +98,14 @@ def _parse_lock_bytes() -> list[bytes]:
 
 
 def _parse_relock_bytes() -> list[bytes]:
-    # Cierre post-apertura (app ATP vieja: refuerzo con 'b').
+    # Cierre post-apertura: refuerzo solo con comando de seguro.
     multi = os.environ.get("TURNSTILE_RELOCK_CHARS", "").strip()
     if multi:
         return [ch.encode("ascii")[:1] for ch in multi if ch.strip()]
     single = os.environ.get("TURNSTILE_RELOCK_CHAR", "").strip()
     if single:
         return [single.encode("ascii")[:1]]
-    return [ch.encode("ascii")[:1] for ch in "db"]
+    return [ch.encode("ascii")[:1] for ch in "dd"]
 
 
 def _read_config() -> None:
@@ -260,7 +260,7 @@ def _apply_relock_payloads() -> bool:
         return False
     payloads = RELOCK_BYTES_LIST or LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_RELOCK_CHARS=db (o TURNSTILE_LOCK_CHARS=d)")
+        _log("Configure TURNSTILE_RELOCK_CHARS=dd (o TURNSTILE_LOCK_CHARS=d)")
         return False
     ok = True
     for index, payload in enumerate(payloads):
