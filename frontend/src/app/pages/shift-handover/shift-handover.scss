@@ -413,9 +413,25 @@
   }
 }
 
+.handover-submit-bar {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: #fff7ed;
+  border: 2px solid #fdba74;
+  border-radius: 10px;
+
+  &__hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    color: #9a3412;
+  }
+}
+
 .btn-submit {
   width: 100%;
-  min-height: 3rem;
+  min-height: 3.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .compare-panel h3 {
@@ -516,7 +532,7 @@
 .handover-confirm-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 10000;
   background: rgb(15 23 42 / 45%);
   animation: handover-confirm-fade 0.2s ease;
 }
@@ -533,7 +549,7 @@
 
 .handover-confirm-modal {
   position: fixed;
-  z-index: 1001;
+  z-index: 10001;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -609,6 +625,18 @@
     margin: 0 0 0.85rem;
     font-size: 0.9rem;
     color: #64748b;
+    flex-shrink: 0;
+  }
+
+  &__alert-warn {
+    margin: 0 0 0.85rem;
+    padding: 0.75rem 1rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #b91c1c;
+    font-size: 0.92rem;
+    font-weight: 600;
     flex-shrink: 0;
   }
 

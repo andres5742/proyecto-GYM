@@ -292,9 +292,15 @@
       </label>
 
       @if (!alreadySubmitted()) {
-        <button type="submit" class="btn btn-primary btn-submit" [disabled]="saving()">
-          {{ saving() ? 'Registrando...' : 'Registrar entrega y cerrar turno' }}
-        </button>
+        <div class="handover-submit-bar">
+          <p class="handover-submit-bar__hint">
+            Al guardar se abre un resumen grande para confirmar efectivo y los {{ inventoryProducts().length }}
+            productos en bodega.
+          </p>
+          <button type="submit" class="btn btn-primary btn-submit" [disabled]="saving()">
+            {{ saving() ? 'Registrando...' : 'Revisar y registrar entrega' }}
+          </button>
+        </div>
       }
     </form>
 
@@ -410,6 +416,13 @@
       <p class="handover-confirm-modal__lead">
         Revise el efectivo que va a entregar y que cada producto en bodega coincida con el conteo físico.
       </p>
+
+      @if (cashTotal() <= 0) {
+        <p class="handover-confirm-modal__alert-warn" role="alert">
+          No ha contado efectivo (total $ 0). Cierre este resumen, llene billetes y monedas, y vuelva a pulsar
+          «Revisar y registrar entrega».
+        </p>
+      }
 
       <div class="handover-confirm-modal__grid">
         <section class="handover-confirm-modal__cash">
@@ -575,7 +588,12 @@
       <button type="button" class="btn btn-secondary" (click)="closeConfirmModal()" [disabled]="saving()">
         Volver a revisar
       </button>
-      <button type="button" class="btn btn-primary" (click)="confirmAndSubmit()" [disabled]="saving()">
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="confirmAndSubmit()"
+        [disabled]="saving() || !canConfirmHandover()"
+      >
         {{ saving() ? 'Registrando…' : 'Confirmar y cerrar turno' }}
       </button>
     </footer>

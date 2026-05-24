@@ -53,8 +53,8 @@ export class ShiftHandoverPage implements OnInit {
   protected readonly cash = signal<ShiftHandoverCashForm>(emptyCashForm());
   protected readonly notes = signal('');
   protected readonly inventoryCounts = signal<Record<number, number>>({});
-  /** Por defecto solo productos con falta o sobra (lista larga). */
-  protected readonly showOnlyInventoryDiff = signal(true);
+  /** Por defecto mostrar todos los productos para revisar en pantalla y en el modal. */
+  protected readonly showOnlyInventoryDiff = signal(false);
   protected readonly confirmModalOpen = signal(false);
 
   protected readonly inventoryProducts = computed(
@@ -370,10 +370,6 @@ export class ShiftHandoverPage implements OnInit {
     if (this.alreadySubmitted()) {
       return;
     }
-    if (this.cashTotal() <= 0) {
-      this.message.set('Cuente el efectivo en billetes y monedas antes de registrar.');
-      return;
-    }
     const products = this.inventoryProducts();
     if (products.length > 0) {
       for (const p of products) {
@@ -387,11 +383,18 @@ export class ShiftHandoverPage implements OnInit {
     this.confirmModalOpen.set(true);
   }
 
+  protected readonly canConfirmHandover = computed(
+    () => this.cashTotal() > 0 && !this.saving(),
+  );
+
   protected closeConfirmModal(): void {
     this.confirmModalOpen.set(false);
   }
 
   protected confirmAndSubmit(): void {
+    if (this.cashTotal() <= 0) {
+      return;
+    }
     this.closeConfirmModal();
     this.submit();
   }
