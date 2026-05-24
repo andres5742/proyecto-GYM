@@ -15,7 +15,9 @@ import com.gym.management.repository.SaleRepository;
 import com.gym.management.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PaymentAccountBalanceService {
 
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
     private static final LocalDate HISTORY_START = LocalDate.of(2020, 1, 1);
     private static final List<PaymentMethod> DIGITAL_METHODS = List.of(PaymentMethod.NEQUI, PaymentMethod.BANCOLOMBIA);
 
@@ -120,6 +123,39 @@ public class PaymentAccountBalanceService {
         Map<PaymentMethod, BigDecimal> expenses = BillingPaymentMethodTotals.fromAmountRows(
                 expenseRepository.sumByPaymentMethodBetweenDates(date, date));
         return computeDailyBalances(date, income, expenses);
+    }
+
+    /**
+     * Saldo del mes en curso por cuenta: saldo inicial global + ingresos del mes − gastos del mes.
+     */
+    @Transactional(readOnly = true)
+    public List<DigitalAccountBalanceLine> computeCurrentMonthBalances() {
+        LocalDate today = LocalDate.now(GYM_ZONE);
+        LocalDate monthStart = today.withDayOfMonth(1);
+        PaymentAccountSettings settings = getSettings();
+        Map<PaymentMethod, BigDecimal> incomeByMethod = new EnumMap<>(PaymentMethod.class);
+        Map<PaymentMethod, BigDecimal> expenseByMethod = new EnumMap<>(PaymentMethod.class);
+        for (PaymentMethod method : DIGITAL_METHODS) {
+            incomeByMethod.put(method, sumIncomeBetween(monthStart, today, method));
+            expenseByMethod.put(method, sumExpensesBetween(monthStart, today, method));
+        }
+        List<DigitalAccountBalanceLine> lines = new ArrayList<>();
+        for (PaymentMethod method : DIGITAL_METHODS) {
+            BigDecimal opening = globalInitial(settings, method);
+            BigDecimal income = incomeByMethod.getOrDefault(method, BigDecimal.ZERO);
+            BigDecimal expense = expenseByMethod.getOrDefault(method, BigDecimal.ZERO);
+            BigDecimal closing = MoneyUtil.roundPesos(opening.add(income).subtract(expense));
+            BigDecimal cumulative = computeCumulativeBalance(settings, method, today);
+            lines.add(new DigitalAccountBalanceLine(
+                    method,
+                    SaleMapper.paymentMethodLabel(method),
+                    opening,
+                    income,
+                    expense,
+                    closing,
+                    cumulative));
+        }
+        return lines;
     }
 
     private BigDecimal dayOpeningBalance(

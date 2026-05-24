@@ -10,6 +10,7 @@ import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import {
   BillingCashRegister,
   BillingCashRegisterExpense,
+  DigitalAccountIncomeLine,
   BillingCashRegisterOtherIncome,
   PaymentAccountSettings,
   BillingPayment,
@@ -187,6 +188,10 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly nequiInitialInput = signal(0);
   protected readonly bancolombiaInitialInput = signal(0);
   protected readonly paymentAccountSettings = signal<PaymentAccountSettings | null>(null);
+  protected readonly digitalIncomesModalOpen = signal(false);
+  protected readonly digitalIncomes = signal<DigitalAccountIncomeLine[]>([]);
+  protected readonly loadingDigitalIncomes = signal(false);
+  protected readonly deletingDigitalIncomeKey = signal<string | null>(null);
   protected readonly dayExpenses = signal<BillingCashRegisterExpense[]>([]);
   protected readonly dayOtherIncomes = signal<BillingCashRegisterOtherIncome[]>([]);
   protected readonly savingExpense = signal(false);
@@ -273,6 +278,12 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly roundCop = roundCop;
 
   protected readonly membershipAmountToCharge = computed(() => {
+    if (this.membershipUseSplitPayment()) {
+      const splitSum = this.membershipSplitSum();
+      if (splitSum > 0) {
+        return splitSum;
+      }
+    }
     const debt = this.openMembershipObligation();
     if (debt) {
       const amount = this.membershipAmountToday();
@@ -312,19 +323,37 @@ export class BillingPage implements OnInit, OnDestroy {
     return roundCop(a1 + a2);
   });
 
-  protected readonly membershipSplitRemaining = computed(() => {
-    const total = this.membershipChargeTotal();
-    if (total == null) {
-      return null;
+  /** Meta fija al dividir (pago completo o deuda con monto definido). En abono parcial el total sale de la suma. */
+  protected readonly membershipSplitFixedTarget = computed(() => {
+    const obligation = this.openMembershipObligation();
+    if (obligation && !this.membershipUseSplitPayment()) {
+      const amount = this.membershipAmountToday();
+      return amount != null && amount > 0 ? roundCop(amount) : roundCop(obligation.balance);
     }
-    return roundCop(total - this.membershipSplitSum());
+    if (this.membershipPaymentMode() === 'full') {
+      return this.membershipChargeTotal();
+    }
+    if (obligation && this.membershipUseSplitPayment()) {
+      const amount = this.membershipAmountToday();
+      if (amount != null && amount > 0) {
+        return roundCop(amount);
+      }
+      return roundCop(obligation.balance);
+    }
+    return null;
   });
 
-  protected readonly canUseSplitPayment = computed(
-    () =>
-      !this.membershipPayingDebt() &&
-      this.membershipPaymentMode() === 'full' &&
-      this.membershipChargeTotal() != null,
+  protected readonly membershipSplitRemaining = computed(() => {
+    const target = this.membershipSplitFixedTarget();
+    if (target == null) {
+      return null;
+    }
+    return roundCop(target - this.membershipSplitSum());
+  });
+
+  /** Muestra la casilla «¿Dividir el pago?» sin exigir monto previo. */
+  protected readonly canShowSplitPaymentToggle = computed(
+    () => this.membershipChargeTotal() != null || this.membershipPayingDebt(),
   );
 
   protected paymentMethodLabel(method: PaymentMethod): string {
@@ -679,6 +708,9 @@ export class BillingPage implements OnInit, OnDestroy {
         this.billingContext.setOpenCashRegister(null);
       },
     });
+    if (this.canViewTreasury()) {
+      this.loadPaymentAccountSettings();
+    }
     this.loadDayExpenses();
     this.loadDayOtherIncomes();
   }
@@ -757,6 +789,68 @@ export class BillingPage implements OnInit, OnDestroy {
     if (!this.savingAccountSettings()) {
       this.accountSettingsModalOpen.set(false);
     }
+  }
+
+  openDigitalIncomesModal(): void {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
+    this.digitalIncomesModalOpen.set(true);
+    this.loadDigitalIncomes();
+  }
+
+  closeDigitalIncomesModal(): void {
+    if (!this.deletingDigitalIncomeKey()) {
+      this.digitalIncomesModalOpen.set(false);
+    }
+  }
+
+  loadDigitalIncomes(): void {
+    this.loadingDigitalIncomes.set(true);
+    this.billingService.listDigitalAccountIncomes().subscribe({
+      next: (rows) => {
+        this.digitalIncomes.set(rows);
+        this.loadingDigitalIncomes.set(false);
+      },
+      error: (err) => {
+        this.message.set(httpErrorMessage(err));
+        this.digitalIncomes.set([]);
+        this.loadingDigitalIncomes.set(false);
+      },
+    });
+  }
+
+  digitalIncomeKey(row: DigitalAccountIncomeLine): string {
+    return `${row.source}-${row.id}`;
+  }
+
+  deleteDigitalIncome(row: DigitalAccountIncomeLine, event: Event): void {
+    event.stopPropagation();
+    const label = `${row.sourceLabel} · ${row.description} · ${row.amount}`;
+    if (
+      !confirm(
+        `¿Eliminar este ingreso de ${row.paymentMethodLabel}?\n${label}\nSe actualizarán los saldos de Nequi/Bancolombia.`,
+      )
+    ) {
+      return;
+    }
+    const key = this.digitalIncomeKey(row);
+    this.deletingDigitalIncomeKey.set(key);
+    this.billingService.deleteDigitalAccountIncome(row.source, row.id).subscribe({
+      next: () => {
+        this.message.set('Ingreso eliminado');
+        this.deletingDigitalIncomeKey.set(null);
+        this.loadDigitalIncomes();
+        this.loadPaymentAccountSettings();
+        this.refreshCashRegister();
+        this.loadToday();
+        this.loadDayOtherIncomes();
+      },
+      error: (err) => {
+        this.message.set(httpErrorMessage(err));
+        this.deletingDigitalIncomeKey.set(null);
+      },
+    });
   }
 
   saveAccountSettings(): void {
@@ -1164,9 +1258,6 @@ export class BillingPage implements OnInit, OnDestroy {
       return;
     }
     this.membershipPaymentMode.set(mode);
-    if (mode === 'partial') {
-      this.membershipUseSplitPayment.set(false);
-    }
     const total = this.membershipChargeTotal();
     if (mode === 'full' && total != null) {
       this.membershipAmountToday.set(total);
@@ -1180,41 +1271,55 @@ export class BillingPage implements OnInit, OnDestroy {
     this.membershipUseSplitPayment.set(enabled);
     if (enabled) {
       this.syncMembershipSplitFromTotal();
+    } else {
+      this.membershipSplitAmount1.set(null);
+      this.membershipSplitAmount2.set(null);
     }
   }
 
   onMembershipSplitAmount1Change(raw: string | number | null): void {
     const parsed = raw != null && raw !== '' ? roundCop(+raw) : null;
     this.membershipSplitAmount1.set(parsed);
-    const total = this.membershipChargeTotal();
-    if (total == null || parsed == null) {
-      this.membershipSplitAmount2.set(null);
+    const target = this.membershipSplitFixedTarget();
+    if (target == null || parsed == null) {
       return;
     }
-    const rest = roundCop(total - parsed);
+    const rest = roundCop(target - parsed);
     this.membershipSplitAmount2.set(rest > 0 ? rest : null);
   }
 
   onMembershipSplitAmount2Change(raw: string | number | null): void {
     const parsed = raw != null && raw !== '' ? roundCop(+raw) : null;
     this.membershipSplitAmount2.set(parsed);
-    const total = this.membershipChargeTotal();
-    if (total == null || parsed == null) {
-      this.membershipSplitAmount1.set(null);
+    const target = this.membershipSplitFixedTarget();
+    if (target == null || parsed == null) {
       return;
     }
-    const rest = roundCop(total - parsed);
+    const rest = roundCop(target - parsed);
     this.membershipSplitAmount1.set(rest > 0 ? rest : null);
   }
 
+  onMembershipAmountTodayChange(raw: string | number | null): void {
+    const parsed = raw != null && raw !== '' ? roundCop(+raw) : null;
+    this.membershipAmountToday.set(parsed);
+    if (this.membershipUseSplitPayment() && parsed != null && parsed > 0) {
+      this.syncMembershipSplitFromTotal();
+    }
+  }
+
   private syncMembershipSplitFromTotal(): void {
-    const total = this.membershipChargeTotal();
-    if (total == null || !this.membershipUseSplitPayment()) {
+    if (!this.membershipUseSplitPayment()) {
       return;
     }
-    const half = roundCop(Math.floor(total / 2));
+    const target = this.membershipSplitFixedTarget();
+    if (target == null) {
+      this.membershipSplitAmount1.set(null);
+      this.membershipSplitAmount2.set(null);
+      return;
+    }
+    const half = roundCop(Math.floor(target / 2));
     this.membershipSplitAmount1.set(half);
-    this.membershipSplitAmount2.set(roundCop(total - half));
+    this.membershipSplitAmount2.set(roundCop(target - half));
   }
 
   onRegisterNewMember(query: string): void {
@@ -1272,24 +1377,14 @@ export class BillingPage implements OnInit, OnDestroy {
       return;
     }
 
-    const amount = roundCop(this.membershipAmountToCharge());
-    if (amount <= 0) {
-      this.message.set('Indique cuánto va a abonar hoy y el medio de pago (pesos, sin decimales)');
-      return;
-    }
-
-    const useSplit =
-      this.membershipUseSplitPayment() &&
-      this.canUseSplitPayment() &&
-      !this.membershipPayingDebt();
+    const useSplit = this.membershipUseSplitPayment() && this.canShowSplitPaymentToggle();
     let paymentSplits: MembershipOnboardingRequest['paymentSplits'] = null;
     if (useSplit) {
-      const total = this.membershipChargeTotal();
       const a1 = this.membershipSplitAmount1();
       const a2 = this.membershipSplitAmount2();
       const m1 = this.membershipSplitMethod1();
       const m2 = this.membershipSplitMethod2();
-      if (total == null || a1 == null || a2 == null || a1 < 1 || a2 < 1) {
+      if (a1 == null || a2 == null || a1 < 1 || a2 < 1) {
         this.message.set('Indique el monto de cada medio de pago');
         return;
       }
@@ -1297,9 +1392,11 @@ export class BillingPage implements OnInit, OnDestroy {
         this.message.set('Los dos medios de pago deben ser distintos');
         return;
       }
-      if (roundCop(a1 + a2) !== total) {
+      const splitSum = roundCop(a1 + a2);
+      const fixedTarget = this.membershipSplitFixedTarget();
+      if (fixedTarget != null && splitSum !== fixedTarget) {
         this.message.set(
-          `La suma de los dos medios ($${roundCop(a1 + a2).toLocaleString('es-CO')}) debe igualar el total del plan ($${total.toLocaleString('es-CO')})`,
+          `La suma de los dos medios ($${splitSum.toLocaleString('es-CO')}) debe igualar el monto a cobrar ($${fixedTarget.toLocaleString('es-CO')})`,
         );
         return;
       }
@@ -1307,6 +1404,16 @@ export class BillingPage implements OnInit, OnDestroy {
         { paymentMethod: m1, amount: roundCop(a1) },
         { paymentMethod: m2, amount: roundCop(a2) },
       ];
+    }
+
+    const amount = roundCop(this.membershipAmountToCharge());
+    if (amount <= 0) {
+      this.message.set(
+        useSplit
+          ? 'Indique el monto de cada medio de pago'
+          : 'Indique cuánto va a abonar hoy y el medio de pago (pesos, sin decimales)',
+      );
+      return;
     }
 
     const debt = this.openMembershipObligation();

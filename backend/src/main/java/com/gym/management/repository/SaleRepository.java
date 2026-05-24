@@ -4,6 +4,7 @@ import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Sale;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -151,4 +152,29 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             """)
     List<Object[]> aggregateByProductAndPaymentBetweenDates(
             @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT s FROM Sale s
+            JOIN FETCH s.product
+            JOIN FETCH s.employee
+            JOIN FETCH s.workShift
+            WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive
+              AND s.paymentMethod IN :methods
+            ORDER BY s.saleDate DESC
+            """)
+    List<Sale> findDigitalBetweenDates(
+            @Param("startAt") LocalDateTime startAt,
+            @Param("endExclusive") LocalDateTime endExclusive,
+            @Param("methods") List<PaymentMethod> methods);
+
+    @Query(
+            """
+            SELECT s FROM Sale s
+            JOIN FETCH s.product
+            JOIN FETCH s.employee
+            JOIN FETCH s.workShift
+            WHERE s.id = :id
+            """)
+    Optional<Sale> findByIdWithDetails(@Param("id") Long id);
 }

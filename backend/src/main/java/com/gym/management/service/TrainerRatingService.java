@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class TrainerRatingService {
 
     private static final ZoneId RATING_ZONE = ZoneId.of("America/Bogota");
+    private static final java.util.Set<UserRole> RATING_PARTICIPANT_ROLES =
+            java.util.Set.of(UserRole.TRAINER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
 
     private final TrainerRatingRepository trainerRatingRepository;
     private final EmployeeRepository employeeRepository;
@@ -47,10 +49,10 @@ public class TrainerRatingService {
             throw new BusinessException("Este entrenador no está disponible para calificar");
         }
         if (!Boolean.TRUE.equals(employee.getRatingEligible())) {
-            throw new BusinessException("Este entrenador no participa en la calificación");
+            throw new BusinessException("Esta persona no participa en la calificación");
         }
-        if (employee.getRole() != UserRole.TRAINER) {
-            throw new BusinessException("Solo se pueden calificar entrenadores");
+        if (!canParticipateInRating(employee.getRole())) {
+            throw new BusinessException("Solo se pueden calificar entrenadores y administradores");
         }
 
         String identification = normalizeIdentification(request.identificationNumber());
@@ -77,7 +79,7 @@ public class TrainerRatingService {
     @Transactional(readOnly = true)
     public List<RatingParticipantAdminResponse> findAllForConfig() {
         return employeeRepository.findAllByOrderByFirstNameAsc().stream()
-                .filter(e -> e.getRole() == UserRole.TRAINER)
+                .filter(e -> canParticipateInRating(e.getRole()))
                 .map(this::toAdminParticipant)
                 .toList();
     }
@@ -87,8 +89,8 @@ public class TrainerRatingService {
         Employee employee = employeeRepository
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado: " + id));
-        if (employee.getRole() != UserRole.TRAINER) {
-            throw new BusinessException("Solo entrenadores pueden participar en la calificación");
+        if (!canParticipateInRating(employee.getRole())) {
+            throw new BusinessException("Solo entrenadores y administradores pueden participar en la calificación");
         }
         if (request.ratingEligible() != null) {
             employee.setRatingEligible(request.ratingEligible());
@@ -145,6 +147,10 @@ public class TrainerRatingService {
             return null;
         }
         return value.trim();
+    }
+
+    private static boolean canParticipateInRating(UserRole role) {
+        return role != null && RATING_PARTICIPANT_ROLES.contains(role);
     }
 
     private static String normalizeIdentification(String value) {

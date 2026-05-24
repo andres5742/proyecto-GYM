@@ -82,4 +82,33 @@ public interface ProductCreditPaymentRepository extends JpaRepository<ProductCre
             WHERE p.workShift.shiftDate BETWEEN :start AND :end
             """)
     long countByShiftDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT p FROM ProductCreditPayment p
+            JOIN FETCH p.credit c
+            JOIN FETCH c.member
+            JOIN FETCH c.product
+            JOIN FETCH p.employee
+            JOIN FETCH p.workShift
+            WHERE p.workShift.shiftDate >= :start AND p.workShift.shiftDate <= :end
+              AND p.paymentMethod IN :methods
+            ORDER BY p.paidAt DESC
+            """)
+    List<ProductCreditPayment> findDigitalBetweenShiftDates(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("methods") List<PaymentMethod> methods);
+
+    @Query(
+            """
+            SELECT p FROM ProductCreditPayment p
+            JOIN FETCH p.credit c
+            JOIN FETCH c.member
+            JOIN FETCH c.product
+            JOIN FETCH p.employee
+            JOIN FETCH p.workShift
+            WHERE p.id = :id
+            """)
+    java.util.Optional<ProductCreditPayment> findByIdWithDetails(@Param("id") Long id);
 }

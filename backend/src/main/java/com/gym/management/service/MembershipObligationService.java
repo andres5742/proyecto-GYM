@@ -356,7 +356,7 @@ public class MembershipObligationService {
             throw new BusinessException(
                     "La suma de los dos medios ($"
                             + MoneyUtil.formatPesos(sum)
-                            + ") debe igualar el total del plan ($"
+                            + ") debe igualar el monto del cobro ($"
                             + MoneyUtil.formatPesos(expectedTotal)
                             + ")");
         }
@@ -371,11 +371,11 @@ public class MembershipObligationService {
         if (paymentSplits == null || paymentSplits.size() < 2) {
             return;
         }
-        if (existingObligationId != null) {
-            throw new BusinessException("Dividir en dos medios solo aplica al pago completo de una membresía nueva");
-        }
-        if (paymentAmount.compareTo(planTotal) < 0) {
-            throw new BusinessException("Dividir en dos medios solo aplica cuando paga el total del plan");
+        if (paymentAmount.compareTo(planTotal) > 0) {
+            throw new BusinessException(
+                    "El monto a dividir no puede superar el total de la membresía ($"
+                            + MoneyUtil.formatPesos(planTotal)
+                            + ")");
         }
     }
 

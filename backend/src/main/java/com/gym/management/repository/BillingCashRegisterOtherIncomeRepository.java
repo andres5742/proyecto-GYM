@@ -62,4 +62,27 @@ public interface BillingCashRegisterOtherIncomeRepository
             GROUP BY i.paymentMethod
             """)
     List<Object[]> sumByPaymentMethodByCashRegisterId(@Param("registerId") Long registerId);
+
+    @Query(
+            """
+            SELECT i FROM BillingCashRegisterOtherIncome i
+            JOIN FETCH i.recordedBy
+            JOIN FETCH i.cashRegister
+            WHERE i.cashRegister.registerDate >= :start AND i.cashRegister.registerDate <= :end
+              AND i.paymentMethod IN :methods
+            ORDER BY i.createdAt DESC
+            """)
+    List<BillingCashRegisterOtherIncome> findDigitalBetweenDates(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("methods") List<PaymentMethod> methods);
+
+    @Query(
+            """
+            SELECT i FROM BillingCashRegisterOtherIncome i
+            JOIN FETCH i.recordedBy
+            JOIN FETCH i.cashRegister
+            WHERE i.id = :id
+            """)
+    java.util.Optional<BillingCashRegisterOtherIncome> findByIdWithDetails(@Param("id") Long id);
 }

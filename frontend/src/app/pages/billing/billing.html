@@ -28,26 +28,43 @@
       <div class="treasury-setup__head">
         <div>
           <h3 id="treasury-setup-title">Cuentas Nequi y Bancolombia</h3>
-          <p class="treasury-setup__lead">
-            Configure aquí los <strong>saldos iniciales globales</strong>. Al abrir la caja del día también puede
-            indicar cuánto hay en cada cuenta ese día; el sistema suma ingresos y resta gastos por medio de pago.
-          </p>
         </div>
-        <button type="button" class="btn btn-primary" (click)="openAccountSettingsModal()">
-          Configurar saldos iniciales
-        </button>
+        <div class="treasury-setup__actions">
+          <button type="button" class="btn btn-primary" (click)="openAccountSettingsModal()">
+            Configurar saldos iniciales
+          </button>
+          @if (isSuperAdmin()) {
+            <button type="button" class="btn btn-secondary" (click)="openDigitalIncomesModal()">
+              Eliminar ingresos Nequi / Banco
+            </button>
+          }
+        </div>
       </div>
       @if (paymentAccountSettings(); as settings) {
-        <dl class="treasury-setup__values">
-          <div>
-            <dt>Nequi (inicial global)</dt>
-            <dd>{{ settings.nequiInitialBalance | cop }}</dd>
-          </div>
-          <div>
-            <dt>Bancolombia (inicial global)</dt>
-            <dd>{{ settings.bancolombiaInitialBalance | cop }}</dd>
-          </div>
-        </dl>
+        <div class="treasury-setup__accounts">
+          @for (acc of settings.currentMonthBalances; track acc.paymentMethod) {
+            <article class="treasury-setup__account">
+              <header class="treasury-setup__account-head">
+                <h4>{{ acc.paymentMethodLabel }}</h4>
+                <strong class="treasury-setup__account-total">{{ acc.closingBalance | cop }}</strong>
+              </header>
+              <dl class="treasury-setup__account-rows">
+                <div>
+                  <dt>Saldo inicial</dt>
+                  <dd>{{ acc.openingBalance | cop }}</dd>
+                </div>
+                <div>
+                  <dt>+ Ingresos del mes</dt>
+                  <dd class="pos">+ {{ acc.incomeTotal | cop }}</dd>
+                </div>
+                <div>
+                  <dt>− Gastos del mes</dt>
+                  <dd class="neg">− {{ acc.expenseTotal | cop }}</dd>
+                </div>
+              </dl>
+            </article>
+          }
+        </div>
       }
     </section>
   }
@@ -728,27 +745,39 @@
                 }
               </div>
 
-              @if (canUseSplitPayment()) {
+              @if (canShowSplitPaymentToggle()) {
                 <label class="membership-split-toggle">
                   <input
                     type="checkbox"
                     [checked]="membershipUseSplitPayment()"
                     (change)="setMembershipUseSplitPayment($any($event.target).checked)"
                   />
-                  <span>Dividir pago completo en dos medios</span>
+                  <span>¿Dividir el pago en dos medios?</span>
                 </label>
               }
 
               <div
                 class="membership-checkout__row membership-checkout__row--pay"
-                [class.membership-checkout__row--split]="canUseSplitPayment() && membershipUseSplitPayment()"
+                [class.membership-checkout__row--split]="membershipUseSplitPayment()"
               >
-                @if (canUseSplitPayment() && membershipUseSplitPayment()) {
+                @if (membershipUseSplitPayment()) {
                   <div class="membership-split-pay">
-                    <p class="membership-split-pay__total">
-                      Total a cobrar:
-                      <strong>{{ membershipChargeTotal() | cop }}</strong>
-                    </p>
+                    @if (membershipSplitFixedTarget(); as fixedTarget) {
+                      <p class="membership-split-pay__total">
+                        Monto a dividir:
+                        <strong>{{ fixedTarget | cop }}</strong>
+                      </p>
+                    } @else {
+                      <p class="membership-split-pay__intro muted">
+                        Indique el monto en cada medio. La suma de ambos es el abono de hoy.
+                      </p>
+                      @if (membershipSplitSum() > 0) {
+                        <p class="membership-split-pay__total">
+                          Abono total:
+                          <strong>{{ membershipSplitSum() | cop }}</strong>
+                        </p>
+                      }
+                    }
                     <div class="membership-checkout__row membership-split-pay__line">
                       <label class="field">
                         <span class="field__label">Medio 1</span>
@@ -807,10 +836,10 @@
                       >
                         {{
                           diff === 0
-                            ? 'La suma coincide con el total del plan.'
+                            ? 'La suma coincide con el monto a cobrar.'
                             : diff > 0
-                              ? 'Faltan $' + diff.toLocaleString('es-CO') + ' para completar el total.'
-                              : 'Sobran $' + (-diff).toLocaleString('es-CO') + ' respecto al total.'
+                              ? 'Faltan $' + diff.toLocaleString('es-CO') + ' para completar el monto.'
+                              : 'Sobran $' + (-diff).toLocaleString('es-CO') + ' respecto al monto a cobrar.'
                         }}
                       </p>
                     }
@@ -827,7 +856,7 @@
                       inputmode="numeric"
                       pattern="[0-9]*"
                       [ngModel]="membershipAmountToday()"
-                      (ngModelChange)="membershipAmountToday.set($event != null && $event !== '' ? roundCop(+$event) : null)"
+                      (ngModelChange)="onMembershipAmountTodayChange($event)"
                       [placeholder]="
                         membershipPayingDebt()
                           ? 'Ej: ' + (openMembershipObligation()?.balance ?? '')
@@ -2018,6 +2047,73 @@
 
       <div class="modal-actions modal-actions--footer">
         <button type="button" class="btn btn-secondary" (click)="closeMonthlyModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (digitalIncomesModalOpen()) {
+  <div class="modal-backdrop modal-backdrop--digital-incomes" (click)="closeDigitalIncomesModal()">
+    <div class="modal-panel modal-panel--digital-incomes" role="dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">📱</span>
+          <h3>Eliminar ingresos Nequi y Bancolombia</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeDigitalIncomesModal()">×</button>
+      </header>
+      <p class="modal-lead">
+        Solo super administrador. Ingresos del <strong>mes en curso</strong> por Nequi o Bancolombia (facturación,
+        otros ingresos, ventas y abonos fiado). Al eliminar se actualizan los saldos de las cuentas.
+      </p>
+      @if (loadingDigitalIncomes()) {
+        <p class="muted">Cargando ingresos…</p>
+      } @else if (digitalIncomes().length === 0) {
+        <p class="muted">No hay ingresos digitales registrados este mes.</p>
+      } @else {
+        <div class="data-table-wrap digital-incomes-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Origen</th>
+                <th>Detalle</th>
+                <th>Medio</th>
+                <th class="col-amount">Monto</th>
+                <th>Registró</th>
+                <th class="col-actions">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of digitalIncomes(); track digitalIncomeKey(row)) {
+                <tr>
+                  <td>{{ row.transactionDate | date: 'd/M/yy' }}</td>
+                  <td>{{ row.sourceLabel }}</td>
+                  <td>{{ row.description }}</td>
+                  <td [class]="methodChipClass(row.paymentMethod)">{{ row.paymentMethodLabel }}</td>
+                  <td class="col-amount">{{ row.amount | cop }}</td>
+                  <td>{{ row.recordedByName }}</td>
+                  <td class="col-actions">
+                    <button
+                      type="button"
+                      class="btn btn-delete btn-sm"
+                      (click)="deleteDigitalIncome(row, $event)"
+                      [disabled]="deletingDigitalIncomeKey() === digitalIncomeKey(row)"
+                    >
+                      {{ deletingDigitalIncomeKey() === digitalIncomeKey(row) ? '…' : 'Eliminar' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeDigitalIncomesModal()">Cerrar</button>
+        <button type="button" class="btn btn-secondary" (click)="loadDigitalIncomes()" [disabled]="loadingDigitalIncomes()">
+          Actualizar
+        </button>
       </div>
     </div>
   </div>

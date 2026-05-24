@@ -26,15 +26,15 @@ public class PaymentAccountSettingsController {
     @GetMapping
     public PaymentAccountSettingsResponse get() {
         requireTreasuryAccess();
-        return toResponse(paymentAccountBalanceService.getSettings());
+        return toResponse(paymentAccountBalanceService);
     }
 
     @PutMapping
     public PaymentAccountSettingsResponse update(@Valid @RequestBody UpdatePaymentAccountSettingsRequest request) {
         requireTreasuryAccess();
-        PaymentAccountSettings saved = paymentAccountBalanceService.saveSettings(
+        paymentAccountBalanceService.saveSettings(
                 request.nequiInitialBalance(), request.bancolombiaInitialBalance());
-        return toResponse(saved);
+        return toResponse(paymentAccountBalanceService);
     }
 
     private static void requireTreasuryAccess() {
@@ -43,9 +43,11 @@ public class PaymentAccountSettingsController {
         }
     }
 
-    private static PaymentAccountSettingsResponse toResponse(PaymentAccountSettings settings) {
+    private static PaymentAccountSettingsResponse toResponse(PaymentAccountBalanceService balanceService) {
+        PaymentAccountSettings settings = balanceService.getSettings();
         return new PaymentAccountSettingsResponse(
                 MoneyUtil.roundPesos(settings.getNequiInitialBalance()),
-                MoneyUtil.roundPesos(settings.getBancolombiaInitialBalance()));
+                MoneyUtil.roundPesos(settings.getBancolombiaInitialBalance()),
+                balanceService.computeCurrentMonthBalances());
     }
 }

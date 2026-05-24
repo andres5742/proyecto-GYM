@@ -134,4 +134,18 @@ public interface BillingPaymentRepository extends JpaRepository<BillingPayment, 
             """)
     List<Object[]> aggregateMembershipByPlanAndMethodBetweenDates(
             @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT p FROM BillingPayment p
+            LEFT JOIN FETCH p.member
+            LEFT JOIN FETCH p.employee
+            WHERE p.paymentDate >= :start AND p.paymentDate <= :end
+              AND p.paymentMethod IN :methods
+            ORDER BY p.createdAt DESC
+            """)
+    List<BillingPayment> findDigitalBetweenDates(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("methods") List<PaymentMethod> methods);
 }

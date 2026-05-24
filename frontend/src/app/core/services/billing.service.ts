@@ -25,7 +25,10 @@ import {
   MembershipPaymentOutcome,
   MembershipPaymentRequest,
   OpenBillingCashRegisterRequest,
+  DigitalAccountIncomeLine,
+  DigitalAccountIncomeSource,
   PaymentAccountSettings,
+  UpdatePaymentAccountSettingsRequest,
 } from '../models/billing.model';
 
 @Injectable({ providedIn: 'root' })
@@ -177,11 +180,19 @@ export class BillingService {
   }
 
   updatePaymentAccountSettings(
-    request: PaymentAccountSettings,
+    request: UpdatePaymentAccountSettingsRequest,
   ): Observable<PaymentAccountSettings> {
     return this.http.put<PaymentAccountSettings>(
       `${this.baseUrl}/payment-account-settings`,
       request,
     );
+  }
+
+  listDigitalAccountIncomes(): Observable<DigitalAccountIncomeLine[]> {
+    return this.http.get<DigitalAccountIncomeLine[]>(`${this.baseUrl}/digital-account-incomes`);
+  }
+
+  deleteDigitalAccountIncome(source: DigitalAccountIncomeSource, id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/digital-account-incomes/${source}/${id}`);
   }
 }

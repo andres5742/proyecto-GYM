@@ -191,6 +191,31 @@ export interface DigitalAccountBalanceLine {
 export interface PaymentAccountSettings {
   nequiInitialBalance: number;
   bancolombiaInitialBalance: number;
+  currentMonthBalances: DigitalAccountBalanceLine[];
+}
+
+export interface UpdatePaymentAccountSettingsRequest {
+  nequiInitialBalance: number;
+  bancolombiaInitialBalance: number;
+}
+
+export type DigitalAccountIncomeSource =
+  | 'BILLING_PAYMENT'
+  | 'OTHER_INCOME'
+  | 'SALE'
+  | 'PRODUCT_CREDIT';
+
+export interface DigitalAccountIncomeLine {
+  source: DigitalAccountIncomeSource;
+  sourceLabel: string;
+  id: number;
+  paymentMethod: PaymentMethod;
+  paymentMethodLabel: string;
+  amount: number;
+  transactionDate: string;
+  createdAt: string;
+  description: string;
+  recordedByName: string;
 }
 
 export interface BillingCashRegisterExpense {

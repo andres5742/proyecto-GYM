@@ -1,8 +1,8 @@
 <div class="page-head">
   <h1>Calificación de entrenadores</h1>
   <p class="hint">
-    Revisa el ranking mensual para bonificaciones. El super administrador define quién aparece en la
-    página de inicio.
+    Revisa el ranking mensual para bonificaciones. El super administrador define qué entrenadores y
+    administradores aparecen en la página de inicio.
   </p>
 </div>
 
@@ -82,11 +82,11 @@
 @if (tab() === 'participants' && auth.hasRole('SUPER_ADMIN')) {
   <section class="panel">
     <p class="hint">
-      Solo los entrenadores marcados como participantes aparecen en «Califica a tu entrenador» del
-      inicio. Sube su foto y activa la casilla.
+      Entrenadores y administradores marcados como participantes aparecen en «Califica a tu entrenador»
+      del inicio. Sube la foto y activa la casilla.
     </p>
     @if (participants().length === 0) {
-      <p class="muted">No hay entrenadores registrados.</p>
+      <p class="muted">No hay entrenadores ni administradores registrados.</p>
     } @else {
       <ul class="participant-list">
         @for (p of participants(); track p.id) {
@@ -98,6 +98,7 @@
             }
             <div class="participant-meta">
               <strong>{{ p.fullName }}</strong>
+              <span class="participant-role">{{ p.roleLabel }}</span>
               <span>{{ p.active ? 'Activo' : 'Inactivo' }}</span>
             </div>
             <label class="toggle">

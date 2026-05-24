@@ -436,13 +436,35 @@ public class BillingService {
             throw new BusinessException("Solo se pueden eliminar movimientos del día actual");
         }
 
+        removePaymentWithSideEffects(payment);
+    }
+
+    /** Elimina un cobro de facturación por Nequi/Bancolombia del mes en curso (super admin). */
+    @Transactional
+    public void deleteDigitalPaymentInCurrentMonth(Long id, LocalDate monthStart, LocalDate monthEnd) {
+        if (!SecurityUtils.isSuperAdmin()) {
+            throw new BusinessException("Solo el super administrador puede eliminar ingresos de Nequi y Bancolombia");
+        }
+        BillingPayment payment = billingPaymentRepository
+                .findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Movimiento no encontrado: " + id));
+        if (payment.getPaymentMethod() != PaymentMethod.NEQUI
+                && payment.getPaymentMethod() != PaymentMethod.BANCOLOMBIA) {
+            throw new BusinessException("Solo se pueden eliminar ingresos por Nequi o Bancolombia");
+        }
+        if (payment.getPaymentDate().isBefore(monthStart) || payment.getPaymentDate().isAfter(monthEnd)) {
+            throw new BusinessException("Solo se pueden eliminar ingresos del mes en curso");
+        }
+        removePaymentWithSideEffects(payment);
+    }
+
+    private void removePaymentWithSideEffects(BillingPayment payment) {
         if (payment.getPaymentType() == BillingPaymentType.MEMBERSHIP) {
             membershipObligationService.revertPayment(payment);
             if (payment.getMembershipObligation() == null) {
                 tryRevertMembershipOnDelete(payment);
             }
         } else if (payment.getSale() != null) {
-            // Compatibilidad con registros antiguos vinculados a ventas
             Sale sale = payment.getSale();
             Product product = sale.getProduct();
             if (product != null) {
@@ -450,7 +472,6 @@ public class BillingService {
             }
             saleRepository.delete(sale);
         }
-
         billingPaymentRepository.delete(payment);
     }
 
