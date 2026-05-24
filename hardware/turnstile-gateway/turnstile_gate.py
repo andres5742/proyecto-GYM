@@ -29,6 +29,7 @@ _STALE_PENDING_MS = 12000
 _relock_timer: threading.Timer | None = None
 _active_ser = None
 _serial_lock = threading.Lock()
+_unlock_until_ts = 0.0
 
 MODE = "none"
 GATE_PORT = ""
@@ -232,11 +233,12 @@ def _apply_lock_payloads() -> bool:
 
 
 def lock_gate() -> bool:
-    global _relock_timer
+    global _relock_timer, _unlock_until_ts
     _read_config()
     if _relock_timer:
         _relock_timer.cancel()
         _relock_timer = None
+    _unlock_until_ts = 0.0
     if MODE == "serial":
         return _apply_lock_payloads()
     if MODE == "http":
@@ -247,9 +249,10 @@ def lock_gate() -> bool:
 
 
 def unlock_gate(ms: int | None = None) -> bool:
-    global _relock_timer
+    global _relock_timer, _unlock_until_ts
     _read_config()
     duration = UNLOCK_MS if ms is None else ms
+    _unlock_until_ts = time.time() + (max(1, duration) / 1000.0)
     ok = False
     if MODE == "serial":
         if UNLOCK_BYTES:
@@ -342,6 +345,10 @@ def sync_access_result(result: str, gate_opened: bool = False) -> None:
         unlock_gate()
     else:
         lock_gate()
+
+
+def is_unlock_window_open() -> bool:
+    return time.time() < _unlock_until_ts
 
 
 def consume_pending_gate() -> bool:
