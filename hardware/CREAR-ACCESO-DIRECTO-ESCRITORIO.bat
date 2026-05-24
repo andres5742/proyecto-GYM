@@ -2,7 +2,8 @@
 setlocal EnableDelayedExpansion
 title Crear acceso directo Sport Gym Acceso
 set "DEST=C:\SportGym"
-set "LAUNCHER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
+set "LAUNCHER=%DEST%\ABRIR-SPORT-GYM-ACCESO.vbs"
+if not exist "%LAUNCHER%" set "LAUNCHER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
 set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
 set "ICON=%DEST%\SportGym.ico"
 set "GIT_HW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware"
@@ -34,8 +35,10 @@ if not exist "%ICON%" if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\resourc
 del "%LINK%" 2>nul
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut('%LINK%');" ^
-  "$s.TargetPath='%LAUNCHER%'; $s.WorkingDirectory='%DEST%';" ^
+  "$launcher='%LAUNCHER%'; $link='%LINK%'; $icon='%ICON%'; $dest='%DEST%';" ^
+  "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($link);" ^
+  "if ($launcher -like '*.vbs') { $s.TargetPath = $env:Windir + '\System32\wscript.exe'; $s.Arguments = '\"' + $launcher + '\"'; } else { $s.TargetPath = $launcher; }" ^
+  "$s.WorkingDirectory=$dest;" ^
   "$s.Description='Sport Gym Acceso - lector + pantalla';" ^
   "if (Test-Path '%ICON%') { $s.IconLocation='%ICON%,0' } else { Write-Host 'AVISO: sin SportGym.ico' -ForegroundColor Yellow };" ^
   "$s.Save()"

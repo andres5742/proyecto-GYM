@@ -6,10 +6,18 @@ setlocal
 title Sport Gym - Arranque
 
 set "DEST=C:\SportGym"
-set "GW=%DEST%\turnstile-gateway"
+if exist "%~dp0ABRIR-SPORT-GYM-ACCESO.vbs" set "DEST=%~dp0"
+if not "%DEST:~-1%"=="\" set "DEST=%DEST%\"
+set "GW=%DEST%turnstile-gateway"
+
+if exist "%DEST%ABRIR-SPORT-GYM-ACCESO.vbs" (
+  start "" wscript.exe "%DEST%ABRIR-SPORT-GYM-ACCESO.vbs"
+  exit /b 0
+)
 
 if exist "%~dp0turnstile-gateway\preparar-com3.bat" (
   set "DEST=%~dp0"
+  if not "%DEST:~-1%"=="\" set "DEST=%DEST%\"
   set "GW=%DEST%turnstile-gateway"
 )
 

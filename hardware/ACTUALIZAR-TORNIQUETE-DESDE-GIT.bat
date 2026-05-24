@@ -33,18 +33,20 @@ if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\resources\SportGym.ico" (
 exit /b 0
 
 :CreateDesktopShortcut
-set "LAUNCHER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
+set "LAUNCHER=%DEST%\ABRIR-SPORT-GYM-ACCESO.vbs"
 set "LINK=%USERPROFILE%\Desktop\Sport Gym Acceso.lnk"
 set "ICON=%DEST%\SportGym.ico"
+if not exist "%LAUNCHER%" set "LAUNCHER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
 if not exist "%LAUNCHER%" (
-  echo ERROR: falta %LAUNCHER%
+  echo ERROR: falta lanzador en %DEST%
   exit /b 1
 )
 del "%LINK%" 2>nul
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$launcher='%LAUNCHER%'; $link='%LINK%'; $icon='%ICON%'; $dest='%DEST%';" ^
   "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($link);" ^
-  "$s.TargetPath=$launcher; $s.WorkingDirectory=$dest;" ^
+  "if ($launcher -like '*.vbs') { $s.TargetPath = $env:Windir + '\System32\wscript.exe'; $s.Arguments = '\"' + $launcher + '\"'; } else { $s.TargetPath = $launcher; }" ^
+  "$s.WorkingDirectory=$dest;" ^
   "$s.Description='Sport Gym Acceso - lector COM3 + pantalla';" ^
   "if (Test-Path $icon) { $s.IconLocation = $icon + ',0' } else {" ^
   "  Write-Host 'AVISO: falta SportGym.ico - icono generico' -ForegroundColor Yellow };" ^
@@ -111,8 +113,10 @@ echo [2/4] Descargando icono y lanzadores...
 call :DownloadGit "%GIT_HW%" "%DEST%" "LEEME-TORNIQUETE.txt"
 call :DownloadGit "%GIT_HW%" "%DEST%" "SportGym.ico"
 call :DownloadGit "%GIT_HW%" "%DEST%" "INICIAR-ACCESO-COMPLETO.bat"
+call :DownloadGit "%GIT_HW%" "%DEST%" "ABRIR-SPORT-GYM-ACCESO.vbs"
 call :DownloadGit "%GIT_HW%" "%DEST%" "iniciar-arranque-windows.bat"
 if exist "%~dp0INICIAR-ACCESO-COMPLETO.bat" copy /Y "%~dp0INICIAR-ACCESO-COMPLETO.bat" "%DEST%\INICIAR-ACCESO-COMPLETO.bat" >nul 2>&1
+if exist "%~dp0ABRIR-SPORT-GYM-ACCESO.vbs" copy /Y "%~dp0ABRIR-SPORT-GYM-ACCESO.vbs" "%DEST%\ABRIR-SPORT-GYM-ACCESO.vbs" >nul 2>&1
 if exist "%~dp0iniciar-arranque-windows.bat" copy /Y "%~dp0iniciar-arranque-windows.bat" "%DEST%\iniciar-arranque-windows.bat" >nul 2>&1
 if exist "%~dp0SportGym.ico" copy /Y "%~dp0SportGym.ico" "%DEST%\SportGym.ico" >nul 2>&1
 

@@ -101,7 +101,7 @@ function syncGateFromPayload(payload) {
   const opened = payload && Boolean(payload.gateOpened);
   const shouldUnlock = granted && opened;
   const deviceUserId = payload && String(payload.deviceUserId || '');
-  const isShortcut = deviceUserId.startsWith('F2') || deviceUserId.startsWith('F3');
+  const isShortcut = deviceUserId.startsWith('F2') || deviceUserId.startsWith('F3') || deviceUserId.startsWith('F8');
   const isCardFromReader =
     payload && payload.credentialType === 'CARD' && !isShortcut;
 

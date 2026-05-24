@@ -1,12 +1,17 @@
 @echo off
 title Sport Gym Acceso - Inicio completo
-REM Pantalla + lector COM3. Cierra ATP antes. Con Electron no duplica el lector.
+REM Delega en el lanzador VBS (sin ventana negra que se cierra al instante).
 
 set "DEST=C:\SportGym"
-if exist "%~dp0turnstile-gateway\iniciar-lector-tarjeta.bat" set "DEST=%~dp0"
+if exist "%~dp0ABRIR-SPORT-GYM-ACCESO.vbs" set "DEST=%~dp0"
 if not "%DEST:~-1%"=="\" set "DEST=%DEST%\"
-set "GW=%DEST%turnstile-gateway"
 
+if exist "%DEST%ABRIR-SPORT-GYM-ACCESO.vbs" (
+  start "" wscript.exe "%DEST%ABRIR-SPORT-GYM-ACCESO.vbs"
+  exit /b 0
+)
+
+set "GW=%DEST%turnstile-gateway"
 if not exist "%GW%\iniciar-lector-tarjeta.bat" (
   echo ERROR: Falta %GW%\iniciar-lector-tarjeta.bat
   echo Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
@@ -20,26 +25,21 @@ set "APP="
 if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" (
   set "APP=%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe"
 )
-if not defined APP if exist "%DEST%\Sport Gym Acceso.exe" set "APP=%DEST%\Sport Gym Acceso.exe"
+if not defined APP if exist "%DEST%Sport Gym Acceso.exe" set "APP=%DEST%Sport Gym Acceso.exe"
 if not defined APP if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" (
   set "APP=%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe"
 )
 
 if defined APP (
-  echo Abriendo Sport Gym Acceso (abre lector COM3 automaticamente)...
+  echo Abriendo Sport Gym Acceso...
   start "" "%APP%"
-  echo Listo. Debe ver ventana del lector COM3 y la pantalla de acceso.
   exit /b 0
 )
 
-echo Iniciando lector COM3 (modo sin Electron)...
-start "Sport Gym - Lector tarjeta COM3" cmd /k call "%GW%\iniciar-lector-tarjeta.bat"
-timeout /t 4 /nobreak >nul
-
+echo No hay Sport Gym Acceso.exe instalado. Abriendo navegador + lector...
 if exist "%GW%\SportGym-Acceso-App.bat" (
   call "%GW%\SportGym-Acceso-App.bat"
 ) else (
   start "" "https://sportgymr10.com/acceso"
 )
-echo Debe ver lector COM3 + pantalla /acceso.
 exit /b 0
