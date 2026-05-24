@@ -92,7 +92,7 @@ def _parse_lock_bytes() -> list[bytes]:
     single = os.environ.get("TURNSTILE_LOCK_CHAR", "").strip()
     if single:
         return [single.encode("ascii")[:1]]
-    return [ch.encode("ascii")[:1] for ch in "hi"]
+    return [ch.encode("ascii")[:1] for ch in "hil"]
 
 
 def _read_config() -> None:
@@ -220,7 +220,7 @@ def _apply_lock_payloads() -> bool:
         return False
     payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_LOCK_CHARS=hi y TURNSTILE_UNLOCK_CHAR=a")
+        _log("Configure TURNSTILE_LOCK_CHARS=hil y TURNSTILE_UNLOCK_CHAR=a")
         return False
     ok = True
     for index, payload in enumerate(payloads):

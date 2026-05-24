@@ -192,13 +192,12 @@ def main() -> None:
     try:
         from turnstile_gate import (
             clear_active_serial,
-            is_unlock_window_open,
             lock_gate,
             set_active_serial,
             startup_lock,
         )
     except ImportError:
-        clear_active_serial = is_unlock_window_open = lock_gate = set_active_serial = startup_lock = None  # type: ignore
+        clear_active_serial = lock_gate = set_active_serial = startup_lock = None  # type: ignore
 
     print(f"Escuchando {PORT} @ {BAUD} baud → {API}")
     if DEBUG:
@@ -216,7 +215,6 @@ def main() -> None:
             ser.reset_input_buffer()
             pending = bytearray()
             idle_since: float | None = None
-            next_guard_lock = time.monotonic() + 5.0
             while True:
                 if ser.in_waiting:
                     pending.extend(ser.read(ser.in_waiting))
@@ -225,7 +223,6 @@ def main() -> None:
                     handle_frame(bytes(pending))
                     pending.clear()
                     idle_since = None
-                    next_guard_lock = time.monotonic() + 5.0
                 else:
                     try:
                         from turnstile_gate import consume_pending_gate
@@ -233,14 +230,6 @@ def main() -> None:
                         consume_pending_gate()
                     except ImportError:
                         pass
-                    if lock_gate and (time.monotonic() >= next_guard_lock):
-                        try:
-                            unlocked = bool(is_unlock_window_open and is_unlock_window_open())
-                            if not unlocked:
-                                lock_gate()
-                        except Exception:
-                            pass
-                        next_guard_lock = time.monotonic() + 5.0
                     time.sleep(0.03)
     except serial.SerialException as ex:
         release_port()
