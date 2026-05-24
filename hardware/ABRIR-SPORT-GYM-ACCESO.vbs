@@ -23,6 +23,10 @@ If fso.FileExists(gw & "\preparar-com3.bat") Then
   sh.Run "cmd /c call """ & gw & "\preparar-com3.bat""", 0, True
 End If
 
+' Siempre iniciar lector COM3 primero (tarjetas + seguro fisico hi/a)
+sh.Run "cmd /k call """ & gw & "\iniciar-lector-tarjeta.bat""", 1, False
+WScript.Sleep 8000
+
 app = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe")
 If Not fso.FileExists(app) Then app = dest & "Sport Gym Acceso.exe"
 If Not fso.FileExists(app) Then app = sh.ExpandEnvironmentStrings("%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe")
@@ -33,10 +37,7 @@ If fso.FileExists(app) Then
   WScript.Quit 0
 End If
 
-' Sin Electron: lector COM3 + pantalla /acceso en Edge o Chrome (modo app)
-sh.Run "cmd /k call """ & gw & "\iniciar-lector-tarjeta.bat""", 2, False
-WScript.Sleep 5000
-
+' Sin Electron: pantalla /acceso en Edge o Chrome (modo app)
 url = "https://sportgymr10.com/acceso"
 profile = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\SportGymAcceso\EdgeProfile")
 If Not fso.FolderExists(profile) Then fso.CreateFolder profile

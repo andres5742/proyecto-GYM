@@ -59,6 +59,16 @@ echo Puerto lector: %SERIAL_PORT%  Velocidad: %SERIAL_BAUD%
 echo Seguro torniquete: %TURNSTILE_GATE_MODE% en %TURNSTILE_GATE_PORT%
 echo API: %GYM_ACCESS_API%
 echo.
+if not exist "turnstile-gate.env" if exist "turnstile-gate.env.example" (
+  copy /Y "turnstile-gate.env.example" "turnstile-gate.env" >nul
+  echo Creado turnstile-gate.env desde ejemplo.
+)
+if not exist "turnstile_gate.py" (
+  echo ERROR: Falta turnstile_gate.py en %CD%
+  pause
+  exit /b 1
+)
+echo Al iniciar debe verse: SEGURO: PONER seguro ...
 echo Pase una tarjeta en el lector...
 echo Si no aparece numero: iniciar-lector-debug.bat o iniciar-lector-115200.bat
 echo.

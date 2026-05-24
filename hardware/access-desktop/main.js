@@ -127,6 +127,23 @@ function syncGateFromPayload(payload) {
   }
 }
 
+function isCardReaderRunning(gwDir) {
+  const pidFile = path.join(gwDir, '.lector-tarjeta.pid');
+  if (!fs.existsSync(pidFile)) {
+    return false;
+  }
+  try {
+    const pid = Number.parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+    if (!Number.isFinite(pid) || pid <= 0) {
+      return false;
+    }
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function spawnCardReader() {
   if (!config.spawnCardReader || process.platform !== 'win32') {
     return;
@@ -152,12 +169,20 @@ function spawnCardReader() {
     }
     return;
   }
-  const child = spawn('cmd.exe', ['/c', 'call', bat], {
-    cwd: gwDir,
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: false,
-  });
+  if (isCardReaderRunning(gwDir)) {
+    console.log('Lector COM3 ya activo; no se abre un segundo proceso.');
+    return;
+  }
+  const child = spawn(
+    'cmd.exe',
+    ['/c', 'start', '"Sport Gym - Lector tarjeta COM3"', 'cmd', '/k', 'call', bat],
+    {
+      cwd: gwDir,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    },
+  );
   child.unref();
 }
 
