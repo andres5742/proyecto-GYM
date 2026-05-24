@@ -154,18 +154,12 @@ public class BillingCashRegisterService {
                     "La caja de hoy ya fue cerrada. Solo el super administrador puede volver a abrirla el mismo día.");
         }
         Employee opener = resolveCurrentEmployee();
-        BigDecimal openingNequi = TreasuryAccess.canViewTreasuryBalances()
-                ? MoneyUtil.roundPesos(request.openingNequiAmount())
-                : BigDecimal.ZERO;
-        BigDecimal openingBancolombia = TreasuryAccess.canViewTreasuryBalances()
-                ? MoneyUtil.roundPesos(request.openingBancolombiaAmount())
-                : BigDecimal.ZERO;
         BillingCashRegister register = BillingCashRegister.builder()
                 .registerDate(today)
                 .openedBy(opener)
                 .openingCashAmount(request.openingCashAmount())
-                .openingNequiAmount(openingNequi)
-                .openingBancolombiaAmount(openingBancolombia)
+                .openingNequiAmount(BigDecimal.ZERO)
+                .openingBancolombiaAmount(BigDecimal.ZERO)
                 .openedAt(LocalDateTime.now(GYM_ZONE))
                 .status(ShiftStatus.OPEN)
                 .build();
@@ -319,10 +313,6 @@ public class BillingCashRegisterService {
         register.setStatus(ShiftStatus.OPEN);
         register.setClosedAt(null);
         register.setOpeningCashAmount(request.openingCashAmount());
-        if (TreasuryAccess.canViewTreasuryBalances()) {
-            register.setOpeningNequiAmount(MoneyUtil.roundPesos(request.openingNequiAmount()));
-            register.setOpeningBancolombiaAmount(MoneyUtil.roundPesos(request.openingBancolombiaAmount()));
-        }
         return toResponseWithTotals(cashRegisterRepository.save(register));
     }
 

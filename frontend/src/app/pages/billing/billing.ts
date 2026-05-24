@@ -182,8 +182,6 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly expensesDayModalOpen = signal(false);
   protected readonly otherIncomesDayModalOpen = signal(false);
   protected readonly openingCashInput = signal(0);
-  protected readonly openingNequiInput = signal(0);
-  protected readonly openingBancolombiaInput = signal(0);
   protected readonly accountSettingsModalOpen = signal(false);
   protected readonly savingAccountSettings = signal(false);
   protected readonly nequiInitialInput = signal(0);
@@ -730,20 +728,6 @@ export class BillingPage implements OnInit, OnDestroy {
     const closed = this.closedRegisterToday();
     this.reopeningCaja.set(closed != null);
     this.openingCashInput.set(closed?.openingCashAmount ?? 0);
-    this.openingNequiInput.set(closed?.openingNequiAmount ?? 0);
-    this.openingBancolombiaInput.set(closed?.openingBancolombiaAmount ?? 0);
-    if (!closed && this.canViewTreasury()) {
-      this.billingService.getPaymentAccountSettings().subscribe({
-        next: (s) => {
-          if ((this.openingNequiInput() ?? 0) <= 0) {
-            this.openingNequiInput.set(s.nequiInitialBalance ?? 0);
-          }
-          if ((this.openingBancolombiaInput() ?? 0) <= 0) {
-            this.openingBancolombiaInput.set(s.bancolombiaInitialBalance ?? 0);
-          }
-        },
-      });
-    }
     this.openCajaModal.set(true);
   }
 
@@ -921,18 +905,16 @@ export class BillingPage implements OnInit, OnDestroy {
 
   confirmOpenCaja(): void {
     const amount = this.openingCashInput();
-    const nequi = this.openingNequiInput();
-    const bancolombia = this.openingBancolombiaInput();
-    if (amount < 0 || nequi < 0 || bancolombia < 0) {
-      this.message.set('Los saldos iniciales no pueden ser negativos');
+    if (amount < 0) {
+      this.message.set('El efectivo inicial no puede ser negativo');
       return;
     }
     this.openingCaja.set(true);
     this.billingService
       .openCashRegister({
         openingCashAmount: amount,
-        openingNequiAmount: this.canViewTreasury() ? nequi : 0,
-        openingBancolombiaAmount: this.canViewTreasury() ? bancolombia : 0,
+        openingNequiAmount: 0,
+        openingBancolombiaAmount: 0,
       })
       .subscribe({
       next: (reg) => {

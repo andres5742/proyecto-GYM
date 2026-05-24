@@ -1602,16 +1602,6 @@
         </div>
         <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeOpenCajaModal()">×</button>
       </header>
-      @if (canViewTreasury()) {
-        <p class="modal-lead modal-lead--treasury">
-          <strong>Efectivo, Nequi y Bancolombia:</strong> indique cuánto hay al iniciar el día. Los saldos globales de
-          referencia están en
-          <button type="button" class="btn-link" (click)="closeOpenCajaModal(); openAccountSettingsModal()">
-            Configurar saldos iniciales Nequi / Banco
-          </button>
-          .
-        </p>
-      }
       <p class="modal-lead">
         @if (reopeningCaja()) {
           Solo el super administrador puede reabrir la caja cerrada hoy. Se conservan los movimientos ya registrados.
@@ -1633,43 +1623,6 @@
           />
         </div>
       </label>
-      @if (canViewTreasury()) {
-      <label class="modal-field modal-field--money">
-        <span>Saldo inicial Nequi (apertura del día)</span>
-        <div class="money-input-wrap">
-          <span class="money-input-prefix">$</span>
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            class="money-input"
-            [ngModel]="openingNequiInput()"
-            (ngModelChange)="openingNequiInput.set(+$event)"
-          />
-        </div>
-      </label>
-      <label class="modal-field modal-field--money">
-        <span>Saldo inicial Bancolombia (apertura del día)</span>
-        <div class="money-input-wrap">
-          <span class="money-input-prefix">$</span>
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            class="money-input"
-            [ngModel]="openingBancolombiaInput()"
-            (ngModelChange)="openingBancolombiaInput.set(+$event)"
-          />
-        </div>
-      </label>
-        <p class="modal-hint">
-          Los saldos globales de referencia se configuran en
-          <button type="button" class="btn-link" (click)="closeOpenCajaModal(); openAccountSettingsModal()">
-            Saldos iniciales Nequi / Banco
-          </button>
-          .
-        </p>
-      }
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" [disabled]="openingCaja()" (click)="closeOpenCajaModal()">
           Cancelar
