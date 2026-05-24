@@ -25,6 +25,7 @@ except ImportError:
 _GATE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PENDING_FILE = os.path.join(_GATE_DIR, ".gate-pending.json")
 _LOG_FILE = os.path.join(_GATE_DIR, "gate.log")
+_STALE_PENDING_MS = 12000
 _relock_timer: threading.Timer | None = None
 _active_ser = None
 _serial_lock = threading.Lock()
@@ -281,6 +282,7 @@ def unlock_gate(ms: int | None = None) -> bool:
 def lock_standalone(retries: int = 3) -> bool:
     """Bloqueo inicial antes de abrir el lector (COM3 libre)."""
     _read_config()
+    clear_pending_gate_command()
     if MODE != "serial":
         return False
     if _active_ser is not None and getattr(_active_ser, "is_open", False):
@@ -295,6 +297,7 @@ def lock_standalone(retries: int = 3) -> bool:
 
 def startup_lock(retries: int = 3) -> bool:
     """Al abrir el lector: asegurar torniquete bloqueado."""
+    clear_pending_gate_command()
     ok = False
     for attempt in range(1, retries + 1):
         if lock_gate():
@@ -315,6 +318,14 @@ def queue_gate_command(cmd: str, data: dict | None = None) -> None:
             json.dump(payload, fh)
     except OSError as ex:
         _log(f"No se pudo encolar {cmd}: {ex}")
+
+
+def clear_pending_gate_command() -> None:
+    try:
+        if os.path.isfile(_PENDING_FILE):
+            os.remove(_PENDING_FILE)
+    except OSError:
+        pass
 
 
 def request_lock() -> None:
@@ -349,6 +360,13 @@ def consume_pending_gate() -> bool:
         return False
 
     cmd = str(payload.get("cmd", "")).lower()
+    ts = float(payload.get("ts", 0) or 0)
+    age_ms = (time.time() - ts) * 1000 if ts > 0 else 0
+    if age_ms > _STALE_PENDING_MS and cmd != "lock":
+        _log(f"Ignorando orden pendiente vieja ({cmd}, {int(age_ms)} ms)")
+        lock_gate()
+        return True
+
     if cmd == "lock":
         lock_gate()
     elif cmd == "unlock":
