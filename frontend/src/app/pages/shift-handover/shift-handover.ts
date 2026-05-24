@@ -55,6 +55,7 @@ export class ShiftHandoverPage implements OnInit {
   protected readonly inventoryCounts = signal<Record<number, number>>({});
   /** Por defecto solo productos con falta o sobra (lista larga). */
   protected readonly showOnlyInventoryDiff = signal(true);
+  protected readonly confirmModalOpen = signal(false);
 
   protected readonly inventoryProducts = computed(
     () => this.preview()?.inventoryProducts ?? [],
@@ -165,6 +166,42 @@ export class ShiftHandoverPage implements OnInit {
     this.coinDenominations.reduce((sum, d) => sum + (this.cash()[d.key] || 0) * d.value, 0),
   );
   protected readonly cashTotal = computed(() => this.billTotal() + this.coinTotal());
+
+  protected readonly cashLinesForConfirm = computed(() => {
+    const lines: { label: string; qty: number; subtotal: number }[] = [];
+    for (const d of [...this.billDenominations, ...this.coinDenominations]) {
+      const qty = this.cash()[d.key] || 0;
+      if (qty > 0) {
+        lines.push({ label: d.label, qty, subtotal: qty * d.value });
+      }
+    }
+    return lines;
+  });
+
+  protected readonly confirmInventoryLines = computed(() =>
+    this.inventoryProducts().map((line) => {
+      const counted = this.inventoryCounts()[line.productId] ?? 0;
+      const missing = this.inventoryMissingQty(line.productId);
+      const surplus = this.inventorySurplusQty(line.productId, line.expectedQuantity);
+      return {
+        ...line,
+        counted,
+        missing,
+        surplus,
+        matches: counted === line.expectedQuantity,
+        lineValue:
+          missing > 0
+            ? Math.round(missing * line.unitPrice)
+            : surplus > 0
+              ? Math.round(surplus * line.unitPrice)
+              : 0,
+      };
+    }),
+  );
+
+  protected readonly confirmInventoryDiffCount = computed(
+    () => this.confirmInventoryLines().filter((l) => !l.matches).length,
+  );
 
   protected readonly billingCashExpected = computed(
     () => this.preview()?.billingCashExpected ?? 0,
@@ -322,6 +359,41 @@ export class ShiftHandoverPage implements OnInit {
       counts[line.productId] = line.expectedQuantity;
     }
     this.inventoryCounts.set(counts);
+  }
+
+  protected onFormSubmit(event: Event): void {
+    event.preventDefault();
+    this.openConfirmModal();
+  }
+
+  protected openConfirmModal(): void {
+    if (this.alreadySubmitted()) {
+      return;
+    }
+    if (this.cashTotal() <= 0) {
+      this.message.set('Cuente el efectivo en billetes y monedas antes de registrar.');
+      return;
+    }
+    const products = this.inventoryProducts();
+    if (products.length > 0) {
+      for (const p of products) {
+        if (this.inventoryCounts()[p.productId] === undefined) {
+          this.message.set('Indique cuántos hay de cada producto en bodega.');
+          return;
+        }
+      }
+    }
+    this.message.set(null);
+    this.confirmModalOpen.set(true);
+  }
+
+  protected closeConfirmModal(): void {
+    this.confirmModalOpen.set(false);
+  }
+
+  protected confirmAndSubmit(): void {
+    this.closeConfirmModal();
+    this.submit();
   }
 
   submit(): void {
