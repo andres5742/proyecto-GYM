@@ -3,14 +3,12 @@ title Sport Gym Acceso - Inicio completo
 REM Pantalla + lector COM3. Cierra ATP antes. Con Electron no duplica el lector.
 
 set "DEST=C:\SportGym"
-set "GW=%DEST%\turnstile-gateway"
-if exist "%~dp0turnstile-gateway\iniciar-lector-tarjeta.bat" (
-  set "DEST=%~dp0"
-  set "GW=%DEST%turnstile-gateway"
-)
+if exist "%~dp0turnstile-gateway\iniciar-lector-tarjeta.bat" set "DEST=%~dp0"
+if not "%DEST:~-1%"=="\" set "DEST=%DEST%\"
+set "GW=%DEST%turnstile-gateway"
 
 if not exist "%GW%\iniciar-lector-tarjeta.bat" (
-  echo ERROR: Falta %GW%
+  echo ERROR: Falta %GW%\iniciar-lector-tarjeta.bat
   echo Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
   pause
   exit /b 1
