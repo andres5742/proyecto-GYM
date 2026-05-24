@@ -53,6 +53,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
   private polling = false;
   private autoStartTimer: ReturnType<typeof setTimeout> | null = null;
   private audioUnlockAttempted = false;
+  private lastWelcomedLogId = 0;
+  private lastWelcomedAt = 0;
+  private lastWelcomedKey = '';
 
   protected readonly lastResult = signal<AccessVerifyResponse | null>(null);
   protected readonly clock = signal(new Date());
@@ -186,6 +189,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.kioskReady.set(true);
     this.pollSinceIso = new Date(Date.now() - POLL_LOOKBACK_MS).toISOString();
     this.lastProcessedLogId = 0;
+    this.lastWelcomedLogId = 0;
+    this.lastWelcomedAt = 0;
+    this.lastWelcomedKey = '';
     this.lastResult.set(null);
     this.welcomeTitle.set(null);
     this.statusLine.set('Pase su tarjeta o coloque su huella en el lector…');
@@ -380,13 +386,18 @@ export class AccessKiosk implements OnInit, OnDestroy {
         : resolveMemberWelcomeText(res.message, firstName, gender);
       this.welcomeTitle.set(welcomeText);
       prepareWelcomeSpeech();
-      if (isWelcomeAudioUnlocked()) {
-        const spoke = staff
-          ? playStaffAccessWelcome(gender, res.message)
-          : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
-        this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
+      if (this.shouldSpeakWelcome(res)) {
+        if (isWelcomeAudioUnlocked()) {
+          const spoke = staff
+            ? playStaffAccessWelcome(gender, res.message)
+            : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
+          this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
+        } else {
+          this.showWelcomeAudioBtn.set(this.audioSupported);
+        }
+        this.markWelcomeSpoken(res);
       } else {
-        this.showWelcomeAudioBtn.set(this.audioSupported);
+        this.showWelcomeAudioBtn.set(false);
       }
       if (staff) {
         this.statusLine.set(`${welcomeText}. Pasa al torniquete.`);
@@ -436,6 +447,35 @@ export class AccessKiosk implements OnInit, OnDestroy {
       headers: { 'Content-Type': 'application/json' },
       body,
     }).catch(() => undefined);
+  }
+
+  private shouldSpeakWelcome(res: AccessVerifyResponse): boolean {
+    const logId = res.accessLogId ?? null;
+    if (logId && logId > 0) {
+      return logId !== this.lastWelcomedLogId;
+    }
+    const key = this.welcomeDedupKey(res);
+    const now = Date.now();
+    return !(key === this.lastWelcomedKey && now - this.lastWelcomedAt < 7000);
+  }
+
+  private markWelcomeSpoken(res: AccessVerifyResponse): void {
+    this.lastWelcomedAt = Date.now();
+    this.lastWelcomedKey = this.welcomeDedupKey(res);
+    const logId = res.accessLogId ?? null;
+    if (logId && logId > 0) {
+      this.lastWelcomedLogId = logId;
+    }
+  }
+
+  private welcomeDedupKey(res: AccessVerifyResponse): string {
+    const person =
+      res.memberId ??
+      res.employeeId ??
+      res.documentId ??
+      res.deviceUserId ??
+      '';
+    return `${res.result}|${person}|${res.message ?? ''}`;
   }
 
   private scheduleRelease(ms: number): void {
