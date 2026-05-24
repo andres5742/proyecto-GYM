@@ -355,7 +355,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
       deviceUserId: res.deviceUserId,
       credentialType: res.credentialType,
     });
-    this.syncLocalGate(res);
+    if (res.credentialType !== 'CARD') {
+      this.syncLocalGate(res);
+    }
 
     this.lastResult.set(res);
     if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {
@@ -449,6 +451,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
     const body = JSON.stringify({
       result: res.result,
       gateOpened: Boolean(res.gateOpened),
+      credentialType: res.credentialType,
+      deviceUserId: res.deviceUserId,
+      accessLogId: res.accessLogId ?? null,
     });
     fetch('http://127.0.0.1:8765/gate/sync', {
       method: 'POST',

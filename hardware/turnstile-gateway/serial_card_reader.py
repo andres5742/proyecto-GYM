@@ -59,9 +59,17 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length).decode("utf-8", errors="ignore") if length else "{}"
         try:
             data = json.loads(raw or "{}")
+            result = str(data.get("result", "")).upper()
+            gate_opened = bool(data.get("gateOpened", False))
+            credential_type = str(data.get("credentialType", "")).upper()
+            # Tarjeta ya se gestiona por after_api_response del lector (evita unlock duplicado).
+            if credential_type == "CARD" and result == "GRANTED" and gate_opened:
+                self.send_response(204)
+                self.end_headers()
+                return
             from turnstile_gate import sync_access_result
 
-            sync_access_result(str(data.get("result", "")), bool(data.get("gateOpened", False)))
+            sync_access_result(result, gate_opened)
             self.send_response(204)
         except Exception as ex:
             print(f"[gate-sync] error: {ex}", file=sys.stderr)
