@@ -63,7 +63,7 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
             gate_opened = bool(data.get("gateOpened", False))
             credential_type = str(data.get("credentialType", "")).upper()
             # Tarjeta ya se gestiona por after_api_response del lector (evita unlock duplicado).
-            if credential_type == "CARD" and result == "GRANTED" and gate_opened:
+            if credential_type == "CARD" and result == "GRANTED":
                 self.send_response(204)
                 self.end_headers()
                 return

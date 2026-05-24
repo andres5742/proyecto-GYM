@@ -38,6 +38,7 @@ READER_BAUD = 9600
 GATE_PROTOCOL = ""
 LOCK_BYTES_LIST: list[bytes] = []
 LOCK_BYTES = b""
+RELOCK_BYTES_LIST: list[bytes] = []
 UNLOCK_BYTES = b""
 UNLOCK_FOLLOW_BYTES = b""
 UNLOCK_MS = 8000
@@ -96,8 +97,20 @@ def _parse_lock_bytes() -> list[bytes]:
     return [ch.encode("ascii")[:1] for ch in "d"]
 
 
+def _parse_relock_bytes() -> list[bytes]:
+    # Cierre post-apertura (app ATP vieja: refuerzo con 'b').
+    multi = os.environ.get("TURNSTILE_RELOCK_CHARS", "").strip()
+    if multi:
+        return [ch.encode("ascii")[:1] for ch in multi if ch.strip()]
+    single = os.environ.get("TURNSTILE_RELOCK_CHAR", "").strip()
+    if single:
+        return [single.encode("ascii")[:1]]
+    return [ch.encode("ascii")[:1] for ch in "db"]
+
+
 def _read_config() -> None:
-    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, UNLOCK_BYTES, UNLOCK_FOLLOW_BYTES, UNLOCK_MS
+    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, RELOCK_BYTES_LIST
+    global UNLOCK_BYTES, UNLOCK_FOLLOW_BYTES, UNLOCK_MS
     global GATE_PROTOCOL, READER_BAUD, HTTP_LOCK, HTTP_UNLOCK
     _load_gate_env_file()
     MODE = os.environ.get("TURNSTILE_GATE_MODE", "serial").lower().strip()
@@ -108,6 +121,7 @@ def _read_config() -> None:
 
     if GATE_PROTOCOL in ("atp", "atp-acceso", "atp4", "atp-acceso-4"):
         LOCK_BYTES_LIST = _parse_lock_bytes()
+        RELOCK_BYTES_LIST = _parse_relock_bytes()
         LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b"h"
         unlock_ch = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").strip() or "a"
         UNLOCK_BYTES = unlock_ch.encode("ascii")[:1]
@@ -116,6 +130,7 @@ def _read_config() -> None:
         UNLOCK_FOLLOW_BYTES = follow.encode("ascii")[:1] if follow else b""
     else:
         LOCK_BYTES_LIST = _parse_lock_bytes()
+        RELOCK_BYTES_LIST = _parse_relock_bytes()
         LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b""
         LOCK_BYTES = _hex_bytes("TURNSTILE_LOCK_BYTES") or LOCK_BYTES
         if LOCK_BYTES and not LOCK_BYTES_LIST:
@@ -240,6 +255,23 @@ def _apply_lock_payloads() -> bool:
     return ok
 
 
+def _apply_relock_payloads() -> bool:
+    if MODE != "serial":
+        return False
+    payloads = RELOCK_BYTES_LIST or LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
+    if not payloads:
+        _log("Configure TURNSTILE_RELOCK_CHARS=db (o TURNSTILE_LOCK_CHARS=d)")
+        return False
+    ok = True
+    for index, payload in enumerate(payloads):
+        label = "RE-SEGURO torniquete" if index == 0 else f"RE-SEGURO ({chr(payload[0])})"
+        if not _send_serial(payload, label):
+            ok = False
+        if index < len(payloads) - 1:
+            time.sleep(0.12)
+    return ok
+
+
 def lock_gate() -> bool:
     global _relock_timer, _unlock_until_ts
     _read_config()
@@ -284,7 +316,13 @@ def unlock_gate(ms: int | None = None) -> bool:
         _relock_timer.cancel()
 
     def _relock() -> None:
-        lock_gate()
+        _read_config()
+        if MODE == "serial":
+            _apply_relock_payloads()
+        elif MODE == "http":
+            _post_http(HTTP_LOCK, "RE-SEGURO torniquete")
+        else:
+            lock_gate()
 
     _relock_timer = threading.Timer(max(1, duration) / 1000.0, _relock)
     _relock_timer.daemon = True
@@ -352,7 +390,9 @@ def sync_access_result(result: str, gate_opened: bool = False) -> None:
     result_u = str(result or "").upper()
     if result_u == "SELECT_MEMBER":
         lock_gate()
-    elif result_u == "GRANTED" and gate_opened:
+    elif result_u == "GRANTED":
+        if not gate_opened:
+            _log("GRANTED sin gateOpened=true desde API; se abre local por criterio ATP")
         unlock_gate()
     else:
         lock_gate()
