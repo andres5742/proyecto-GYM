@@ -98,14 +98,14 @@ def _parse_lock_bytes() -> list[bytes]:
 
 
 def _parse_relock_bytes() -> list[bytes]:
-    # Cierre post-apertura: refuerzo solo con comando de seguro.
+    # Cierre post-apertura: usar solo cierre firme y evitar dejar actuador jalando.
     multi = os.environ.get("TURNSTILE_RELOCK_CHARS", "").strip()
     if multi:
         return [ch.encode("ascii")[:1] for ch in multi if ch.strip()]
     single = os.environ.get("TURNSTILE_RELOCK_CHAR", "").strip()
     if single:
         return [single.encode("ascii")[:1]]
-    return [ch.encode("ascii")[:1] for ch in "dd"]
+    return [ch.encode("ascii")[:1] for ch in "d"]
 
 
 def _read_config() -> None:
@@ -125,8 +125,8 @@ def _read_config() -> None:
         LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b"h"
         unlock_ch = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").strip() or "a"
         UNLOCK_BYTES = unlock_ch.encode("ascii")[:1]
-        # ATP historico: abre con 'a' y manda una segunda letra (normalmente 'h').
-        follow = os.environ.get("TURNSTILE_UNLOCK_FOLLOW_CHAR", "h").strip()
+        # En este torniquete el follow puede dejar el actuador jalando; por defecto va vacio.
+        follow = os.environ.get("TURNSTILE_UNLOCK_FOLLOW_CHAR", "").strip()
         UNLOCK_FOLLOW_BYTES = follow.encode("ascii")[:1] if follow else b""
     else:
         LOCK_BYTES_LIST = _parse_lock_bytes()
@@ -243,7 +243,7 @@ def _apply_lock_payloads() -> bool:
         return False
     payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_LOCK_CHARS=d, TURNSTILE_UNLOCK_CHAR=a y TURNSTILE_UNLOCK_FOLLOW_CHAR=h")
+        _log("Configure TURNSTILE_LOCK_CHARS=d y TURNSTILE_UNLOCK_CHAR=a")
         return False
     ok = True
     for index, payload in enumerate(payloads):
@@ -260,7 +260,7 @@ def _apply_relock_payloads() -> bool:
         return False
     payloads = RELOCK_BYTES_LIST or LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_RELOCK_CHARS=dd (o TURNSTILE_LOCK_CHARS=d)")
+        _log("Configure TURNSTILE_RELOCK_CHARS=d (o TURNSTILE_LOCK_CHARS=d)")
         return False
     ok = True
     for index, payload in enumerate(payloads):
