@@ -21,4 +21,5 @@ public record ShiftHandoverRequest(
         @Min(0) int coin50,
         @Size(max = 1000) String notes,
         @Valid List<ShiftHandoverExpenseRequest> expenses,
-        @Valid List<ShiftHandoverPriorPaymentRequest> priorPayments) {}
+        @Valid List<ShiftHandoverPriorPaymentRequest> priorPayments,
+        @Valid List<ProductInventoryCountItem> inventoryCounts) {}

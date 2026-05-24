@@ -305,8 +305,8 @@
             <span class="kpi-card__label">Otros ingresos</span>
             <strong class="kpi-card__value">{{ dayOtherIncomesDisplayTotal(reg) | cop }}</strong>
             <span class="kpi-card__sub"
-              >{{ reg.dayOtherIncomeCount ?? dayOtherIncomes().length }}
-              {{ (reg.dayOtherIncomeCount ?? dayOtherIncomes().length) === 1 ? 'registro' : 'registros' }}
+              >{{ reg.dayOtherIncomeCount }}
+              {{ reg.dayOtherIncomeCount === 1 ? 'registro' : 'registros' }}
               · ver detalle</span
             >
           </div>
@@ -319,7 +319,7 @@
           </div>
         </article>
       }
-      @if ((reg.dayFiadoCollectedTotal ?? 0) > 0) {
+      @if (reg.dayFiadoCollectedTotal > 0) {
         <article class="kpi-card kpi-card--fiado">
           <div class="kpi-card__body">
             <span class="kpi-card__label">Fiado cobrado hoy</span>
@@ -1381,7 +1381,7 @@
             }
           </section>
 
-          @if (preview.digitalAccounts?.length) {
+          @if (preview.digitalAccounts.length) {
             <section class="close-caja-breakdown close-caja-breakdown--digital">
               <h4 class="close-caja-breakdown__title">Cuentas Nequi y Bancolombia al cierre</h4>
               <p class="close-caja-breakdown__intro">

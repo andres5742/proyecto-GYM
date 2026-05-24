@@ -1,6 +1,6 @@
 <section class="page-header">
   <h2>Entrega de turno</h2>
-  <p>Cuenta el dinero físico del turno. El sistema compara con las ventas y la facturación del día.</p>
+  <p>Cuente la caja y los productos. El sistema guarda el stock y cruza sobrante de plata con faltantes de productos.</p>
 </section>
 
 @if (message()) {
@@ -78,7 +78,34 @@
         <p class="submitted-banner">✓ Entrega registrada el {{ preview()!.submittedAt | date: 'short' }}</p>
       }
 
-      <h3>Conteo de efectivo</h3>
+      <div class="handover-guide">
+        <p class="handover-guide__title">En 3 pasos</p>
+        <ol class="handover-guide__steps">
+          <li><strong>Efectivo:</strong> cuente billetes y monedas de la caja.</li>
+          <li><strong>Productos:</strong> escriba cuántos hay de cada uno (o «Todo cuadra»).</li>
+          <li>
+            <strong>Guardar:</strong> si sobra plata y faltan productos, el sobrante <em>cubre</em> ese valor (no le cobra dos veces).
+          </li>
+        </ol>
+      </div>
+
+      <h3>1. Efectivo en caja</h3>
+
+      <div
+        class="handover-money-box"
+        [class.handover-money-box--ok]="cashDiff() === 0"
+        [class.handover-money-box--warn]="cashDiff() !== 0"
+      >
+        <p><span>Debería haber</span> <strong>{{ expectedCashInDrawer() | cop }}</strong></p>
+        <p><span>Usted contó</span> <strong>{{ cashTotal() | cop }}</strong></p>
+        @if (cashDiff() === 0) {
+          <p class="handover-money-box__result ok">Cuadra</p>
+        } @else if (cashDiff() > 0) {
+          <p class="handover-money-box__result">Sobra <strong>{{ cashDiff() | cop }}</strong> en efectivo</p>
+        } @else {
+          <p class="handover-money-box__result warn">Falta <strong>{{ -cashDiff() | cop }}</strong> en efectivo</p>
+        }
+      </div>
 
       <div class="denom-section bills-section">
         <h4 class="denom-section-title">Billetes</h4>
@@ -124,9 +151,145 @@
         <p class="denom-subtotal">Subtotal monedas: <strong>{{ coinTotal() | cop }}</strong></p>
       </div>
 
-      <p class="cash-total">Total efectivo contado: <strong>{{ cashTotal() | cop }}</strong></p>
+      @if (inventoryProducts().length > 0 && !alreadySubmitted()) {
+        <section class="handover-inventory">
+          <h3>2. Productos en bodega</h3>
+          <p class="handover-inventory__hint">
+            Lo que escriba en «Cuántos hay» queda guardado como stock real del gym.
+          </p>
+
+          <div class="handover-inventory__summary">
+            @if (inventorySummary().allMatch && pendingInventoryDebt() <= 0) {
+              <p class="handover-inventory__status ok">Todo cuadra con el sistema.</p>
+            } @else {
+              @if (inventorySummary().missingUnits > 0) {
+                <p>
+                  En el conteo faltan <strong>{{ inventorySummary().missingUnits }}</strong> unidades
+                  (valor <strong>{{ inventorySummary().missingValue | cop }}</strong>)
+                  @if (
+                    inventoryCrossPreview().credit >=
+                    inventorySummary().missingValue + pendingInventoryDebt()
+                  ) {
+                    <span class="handover-inventory__covered"> — el sobrante en caja lo cubre al guardar</span>
+                  }
+                </p>
+              }
+              @if (inventorySummary().surplusUnits > 0) {
+                <p>
+                  Sobran <strong>{{ inventorySummary().surplusUnits }}</strong> unidades
+                  (<strong>{{ inventorySummary().surplusValue | cop }}</strong>)
+                </p>
+              }
+              @if (pendingInventoryDebt() > 0) {
+                <p class="handover-inventory__old-debt">
+                  Ya debía por productos de antes: <strong>{{ pendingInventoryDebt() | cop }}</strong>
+                </p>
+              }
+            }
+          </div>
+
+          @if (inventoryCrossPreview().credit > 0 && inventoryCrossPreview().pending > 0) {
+            <div class="handover-inventory__result">
+              <p class="handover-inventory__result-title">Al guardar (no es un cobro extra):</p>
+              @if (inventoryCrossPreview().remainingDebt > 0) {
+                <p>
+                  El sobrante de <strong>{{ inventoryCrossPreview().credit | cop }}</strong> cubre
+                  <strong>{{ inventoryCrossPreview().applied | cop }}</strong> del faltante de productos.
+                </p>
+                <p class="warn">
+                  Solo queda por cobrar al mes <strong>{{ inventoryCrossPreview().remainingDebt | cop }}</strong>
+                  (en Descuadres de caja).
+                </p>
+              } @else {
+                <p class="ok">
+                  El sobrante de <strong>{{ inventoryCrossPreview().credit | cop }}</strong> cubre los
+                  <strong>{{ inventoryCrossPreview().applied | cop }}</strong> de productos faltantes.
+                  <strong>No queda deuda</strong> por esas aguas/productos en Descuadres.
+                </p>
+              }
+            </div>
+          } @else if (inventoryCrossPreview().credit > 0 && inventoryCrossPreview().pending === 0) {
+            <p class="handover-inventory__note">Hay sobrante en efectivo y no hay faltante de productos que cruzar.</p>
+          }
+
+          <div class="handover-inventory__toolbar">
+            <button type="button" class="btn btn-primary btn-sm" (click)="fillInventoryExpected()">
+              Todo cuadra (usar sistema)
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="toggleInventoryFilter()">
+              {{
+                showOnlyInventoryDiff()
+                  ? 'Ver todos (' + inventorySummary().totalProducts + ')'
+                  : 'Solo con diferencia'
+              }}
+            </button>
+          </div>
+
+          @if (showOnlyInventoryDiff() && inventoryLinesToShow().length === 0) {
+            <p class="handover-inventory__empty-filter muted">
+              Ningún producto con falta o sobra. Pulse «Ver todos» para revisar el listado completo.
+            </p>
+          }
+
+          <div class="handover-inventory__table-wrap">
+            <table class="handover-inventory__table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>En sistema</th>
+                  <th>Cuántos hay</th>
+                  <th>Faltan</th>
+                  <th>Sobran</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of inventoryLinesToShow(); track line.productId) {
+                  <tr
+                    [class.has-variance]="
+                      inventoryMissingQty(line.productId) > 0 ||
+                      inventorySurplusQty(line.productId, line.expectedQuantity) > 0
+                    "
+                  >
+                    <td>{{ line.productName }}</td>
+                    <td>{{ line.expectedQuantity }}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="handover-inventory__input"
+                        [disabled]="alreadySubmitted()"
+                        [value]="inventoryCounts()[line.productId]"
+                        (input)="setInventoryCount(line.productId, $any($event.target).value)"
+                      />
+                    </td>
+                    <td>
+                      @if (inventoryMissingQty(line.productId) > 0) {
+                        <strong class="miss">{{ inventoryMissingQty(line.productId) }}</strong>
+                      } @else {
+                        —
+                      }
+                    </td>
+                    <td>
+                      @if (inventorySurplusQty(line.productId, line.expectedQuantity) > 0) {
+                        <strong class="plus">{{
+                          inventorySurplusQty(line.productId, line.expectedQuantity)
+                        }}</strong>
+                      } @else {
+                        —
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
 
       @if (preview()?.shiftDetail?.summary) {
+        <details class="cash-expected-details">
+          <summary>Ver cómo se calcula el efectivo esperado</summary>
         <div
           class="cash-expected"
           [class.cash-ok]="cashMatchesDeclared()"
@@ -153,7 +316,7 @@
             </p>
             @if (previousShiftShortfallsDeducted() > 0) {
               <p class="cash-expected__line cash-expected__deduct">
-                − Faltante ya registrado (no se cobra al turno actual):
+                − Faltante en efectivo ya registrado (no se cobra al turno actual):
                 <strong>{{ previousShiftShortfallsDeducted() | cop }}</strong>
               </p>
             }
@@ -186,6 +349,7 @@
             </p>
           }
         </div>
+        </details>
       }
 
       <label class="notes-field">

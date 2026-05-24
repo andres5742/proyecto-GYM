@@ -4,6 +4,7 @@ import com.gym.management.model.CashShortfallKind;
 import com.gym.management.model.CashShortfallStatus;
 import com.gym.management.model.EmployeeCashShortfall;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -108,4 +109,26 @@ public interface EmployeeCashShortfallRepository extends JpaRepository<EmployeeC
             """)
     BigDecimal sumShortfallAmountByRecordDateAndKinds(
             @Param("recordDate") LocalDate recordDate, @Param("kinds") Collection<CashShortfallKind> kinds);
+
+    /** Solo faltantes de efectivo del turno (excluye INVENTORY / productos). */
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.shortfallAmount), 0) FROM EmployeeCashShortfall s
+            WHERE s.workShift.id = :workShiftId
+            AND s.kind IN :kinds
+            """)
+    BigDecimal sumShortfallAmountByWorkShiftIdAndKinds(
+            @Param("workShiftId") Long workShiftId, @Param("kinds") Collection<CashShortfallKind> kinds);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.shortfallAmount), 0) FROM EmployeeCashShortfall s
+            WHERE s.recordDate = :recordDate
+            AND s.kind IN :kinds
+            AND s.createdAt > :after
+            """)
+    BigDecimal sumShortfallAmountByRecordDateAndKindsAfter(
+            @Param("recordDate") LocalDate recordDate,
+            @Param("kinds") Collection<CashShortfallKind> kinds,
+            @Param("after") Instant after);
 }

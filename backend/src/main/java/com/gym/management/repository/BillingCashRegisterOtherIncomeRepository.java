@@ -3,6 +3,7 @@ package com.gym.management.repository;
 import com.gym.management.model.BillingCashRegisterOtherIncome;
 import com.gym.management.model.PaymentMethod;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -85,4 +86,14 @@ public interface BillingCashRegisterOtherIncomeRepository
             WHERE i.id = :id
             """)
     java.util.Optional<BillingCashRegisterOtherIncome> findByIdWithDetails(@Param("id") Long id);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(i.amount), 0) FROM BillingCashRegisterOtherIncome i
+            WHERE i.cashRegister.id = :registerId
+              AND i.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+              AND i.createdAt > :after
+            """)
+    BigDecimal sumCashAmountByCashRegisterIdAfter(
+            @Param("registerId") Long registerId, @Param("after") Instant after);
 }

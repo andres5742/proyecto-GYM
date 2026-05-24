@@ -39,6 +39,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ShiftHandoverService {
 
+    private static final java.util.Set<com.gym.management.model.CashShortfallKind> CASH_ONLY_SHORTFALL_KINDS =
+            java.util.EnumSet.of(
+                    com.gym.management.model.CashShortfallKind.CASH_HANDOVER,
+                    com.gym.management.model.CashShortfallKind.CASH_REGISTER,
+                    com.gym.management.model.CashShortfallKind.CASH_SHIFT_OPEN);
+
     private final ShiftHandoverRepository handoverRepository;
     private final WorkShiftService workShiftService;
     private final SaleService saleService;
@@ -49,6 +55,7 @@ public class ShiftHandoverService {
     private final EmployeeCashShortfallRepository shortfallRepository;
     private final ProductCreditService productCreditService;
     private final InventorySurplusResolutionService inventorySurplusResolutionService;
+    private final ShiftInventoryService shiftInventoryService;
 
     private record ExpectedCashTotals(
             BigDecimal billingCashInDrawer,
@@ -149,15 +156,26 @@ public class ShiftHandoverService {
             workShiftService.close(shift.getId());
         }
 
+        com.gym.management.dto.HandoverInventoryResult inventoryResult =
+                shiftInventoryService.processAtHandover(shift, request.inventoryCounts());
+
         ShiftDetailResponse detail = saleService.getShiftDetail(shift.getId());
         ExpectedCashTotals expected = computeExpectedCash(shift.getId(), detail.summary());
         BigDecimal declared = CashCountUtil.totalCash(saved);
+
+        BigDecimal cashSurplus = declared.compareTo(expected.total()) > 0
+                ? MoneyUtil.roundPesos(declared.subtract(expected.total()))
+                : BigDecimal.ZERO;
+        BigDecimal inventoryCredit = MoneyUtil.roundPesos(
+                cashSurplus.add(inventoryResult.productSurplusCredit()));
         Optional<String> surplusNote = Optional.empty();
-        if (declared.compareTo(expected.total()) > 0) {
-            BigDecimal surplus = MoneyUtil.roundPesos(declared.subtract(expected.total()));
-            surplusNote = inventorySurplusResolutionService.tryResolveHandoverSurplus(
-                    saved.getEmployee(), shift.getShiftDate(), surplus, saved.getEmployee());
+        if (inventoryCredit.compareTo(BigDecimal.ZERO) > 0) {
+            surplusNote = inventorySurplusResolutionService
+                    .applyCreditToPendingInventory(
+                            saved.getEmployee(), shift.getShiftDate(), inventoryCredit, saved.getEmployee())
+                    .userMessage();
         }
+
         java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall =
                 cashShortfallService.registerFromHandover(saved, expected.total(), declared);
 
@@ -224,6 +242,7 @@ public class ShiftHandoverService {
                     existing.map(com.gym.management.dto.CashShortfallResponse::shortfallAmount).orElse(null);
             shortfallId = existing.map(com.gym.management.dto.CashShortfallResponse::id).orElse(null);
         }
+        InventoryPreviewContext inventory = inventoryPreviewContext(handover.getWorkShift());
         return ShiftHandoverMapper.toResponse(
                 handover,
                 expensesTotal,
@@ -239,11 +258,25 @@ public class ShiftHandoverService {
                 expected.previousShiftCreditPaymentsCash(),
                 expected.creditPaymentsCash(),
                 expected.total(),
+                inventory.products(),
+                inventory.pendingTotal(),
                 buildComparisons(handover, detail.summary(), expected),
                 registeredShortfall,
                 shortfallId,
                 surplusResolutionNote.isPresent(),
                 surplusResolutionNote.orElse(null));
+    }
+
+    private record InventoryPreviewContext(
+            java.util.List<com.gym.management.dto.ProductInventoryLineResponse> products,
+            BigDecimal pendingTotal) {}
+
+    private InventoryPreviewContext inventoryPreviewContext(WorkShift shift) {
+        java.util.List<com.gym.management.dto.ProductInventoryLineResponse> products =
+                shiftInventoryService.listActiveProductLines();
+        BigDecimal pending = shiftInventoryService.sumPendingInventoryShortfallForEmployee(
+                shift.getShiftDate(), shift.getEmployee().getId());
+        return new InventoryPreviewContext(products, pending);
     }
 
     private ShiftHandoverResponse toFullResponse(ShiftHandover handover) {
@@ -259,6 +292,7 @@ public class ShiftHandoverService {
                 .submittedAt(Instant.now())
                 .build();
         ExpectedCashTotals expected = computeExpectedCash(shift.getId(), detail.summary());
+        InventoryPreviewContext inventory = inventoryPreviewContext(shift);
         return ShiftHandoverMapper.toResponse(
                 empty,
                 BigDecimal.ZERO,
@@ -274,6 +308,8 @@ public class ShiftHandoverService {
                 expected.previousShiftCreditPaymentsCash(),
                 expected.creditPaymentsCash(),
                 expected.total(),
+                inventory.products(),
+                inventory.pendingTotal(),
                 buildComparisons(empty, detail.summary(), expected),
                 null,
                 null,
@@ -326,10 +362,8 @@ public class ShiftHandoverService {
             if (cash == null) {
                 cash = BigDecimal.ZERO;
             }
-            BigDecimal shortfall = shortfallRepository
-                    .findByWorkShiftId(shift.getId())
-                    .map(EmployeeCashShortfall::getShortfallAmount)
-                    .orElse(BigDecimal.ZERO);
+            BigDecimal shortfall = shortfallRepository.sumShortfallAmountByWorkShiftIdAndKinds(
+                    shift.getId(), CASH_ONLY_SHORTFALL_KINDS);
             deductedTotal = deductedTotal.add(shortfall);
             BigDecimal net = cash.subtract(shortfall);
             if (net.compareTo(BigDecimal.ZERO) > 0) {

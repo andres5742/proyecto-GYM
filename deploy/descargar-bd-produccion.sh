@@ -31,5 +31,6 @@ REMOTE
 echo "OK: $OUT"
 ls -lh "$OUT"
 echo ""
-echo "Restaurar en local:"
-echo "  ./deploy/restaurar-bd-local.sh $OUT"
+echo "Restaurar en local (use --latest o la ruta exacta; no use gym_produccion_*.sql.gz):"
+echo "  ./deploy/restaurar-bd-local.sh --latest"
+echo "  ./deploy/restaurar-bd-local.sh \"$OUT\""

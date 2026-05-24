@@ -43,6 +43,8 @@ public record ShiftHandoverResponse(
         List<ShiftHandoverExpenseResponse> expenses,
         List<ShiftHandoverPriorPaymentResponse> priorPayments,
         ShiftDetailResponse shiftDetail,
+        List<ProductInventoryLineResponse> inventoryProducts,
+        java.math.BigDecimal pendingInventoryShortfallTotal,
         List<ShiftHandoverComparisonResponse> comparisons,
         BigDecimal registeredShortfallAmount,
         Long cashShortfallId,

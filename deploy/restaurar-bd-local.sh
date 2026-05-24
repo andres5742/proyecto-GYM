@@ -3,15 +3,30 @@
 #
 #   docker compose up -d          # postgres local
 #   ./deploy/restaurar-bd-local.sh backups/gym_produccion_....sql.gz
+#   ./deploy/restaurar-bd-local.sh --latest    # el .sql.gz más reciente en backups/
 #
 # ADVERTENCIA: borra y recrea el esquema public de gym_db local.
+# No use comodín * con varios archivos: bash pasa solo el primero (alfabético).
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DUMP="${1:-}"
+ARG="${1:-}"
 
-if [[ -z "$DUMP" || ! -f "$DUMP" ]]; then
-  echo "Uso: $0 <archivo.sql o archivo.sql.gz>"
+if [[ "$ARG" == "--latest" || "$ARG" == "-l" ]]; then
+  DUMP="$(ls -t "$ROOT/backups"/gym_produccion_*.sql.gz 2>/dev/null | head -1)"
+  if [[ -z "$DUMP" ]]; then
+    echo "No hay backups/gym_produccion_*.sql.gz. Ejecute primero ./deploy/descargar-bd-produccion.sh"
+    exit 1
+  fi
+  echo "==> Usando el volcado más reciente: $DUMP"
+elif [[ -n "$ARG" && -f "$ARG" ]]; then
+  DUMP="$ARG"
+elif [[ -n "$ARG" ]]; then
+  echo "No existe: $ARG"
+  exit 1
+else
+  echo "Uso: $0 <archivo.sql|.sql.gz>"
+  echo "     $0 --latest"
   exit 1
 fi
 

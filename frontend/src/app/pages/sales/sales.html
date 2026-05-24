@@ -566,100 +566,9 @@
 
         @if (preview.cash; as cash) {
           <section class="inventory-open-modal__cash">
-            <h4 class="inventory-open-modal__section-title">Efectivo en caja</h4>
+            <h4 class="inventory-open-modal__section-title">1. Cuente el efectivo (billetes y monedas)</h4>
 
-            <div class="inventory-open-compare" [class.inventory-open-compare--ok]="openCashMatches()">
-              <article class="inventory-open-compare__card">
-                <span class="inventory-open-compare__label">Usted contó</span>
-                <strong class="inventory-open-compare__value">{{ openCashTotal() | cop }}</strong>
-                <span class="inventory-open-compare__meta"
-                  >Billetes {{ openBillTotal() | cop }} · Monedas {{ openCoinTotal() | cop }}</span
-                >
-              </article>
-              <span class="inventory-open-compare__vs" aria-hidden="true">=</span>
-              <article class="inventory-open-compare__card inventory-open-compare__card--expected">
-                <span class="inventory-open-compare__label">Debe haber</span>
-                <strong class="inventory-open-compare__value">{{ cash.expectedCashTotal | cop }}</strong>
-                @if (openCashMatches()) {
-                  <span class="inventory-open-compare__status inventory-open-compare__status--ok">Cuadra</span>
-                } @else if (openCashDiff() < 0) {
-                  <span class="inventory-open-compare__status inventory-open-compare__status--warn">
-                    Falta {{ -openCashDiff() | cop }}
-                  </span>
-                } @else {
-                  <span class="inventory-open-compare__status inventory-open-compare__status--info">
-                    Sobra {{ openCashDiff() | cop }}
-                  </span>
-                }
-              </article>
-            </div>
-
-            <dl class="inventory-open-breakdown">
-              <div class="inventory-open-breakdown__row">
-                <dt>Efectivo inicial</dt>
-                <dd>+ {{ cash.openingCashAmount | cop }}</dd>
-              </div>
-              @if (cash.productCashTotal > 0) {
-                <div class="inventory-open-breakdown__row">
-                  <dt>Productos vendidos (efectivo)</dt>
-                  <dd>+ {{ cash.productCashTotal | cop }}</dd>
-                </div>
-              }
-              @if (billingCashConceptTotal(cash) > 0) {
-                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--group">
-                  <dt>Efectivo por concepto</dt>
-                  <dd>+ {{ billingCashConceptTotal(cash) | cop }}</dd>
-                </div>
-                @if (cash.cashMembership > 0) {
-                  <div class="inventory-open-breakdown__chip-row">
-                    <span>Membresías</span>
-                    <span>{{ cash.cashMembership | cop }}</span>
-                  </div>
-                }
-                @if (cash.cashDayWorkout > 0) {
-                  <div class="inventory-open-breakdown__chip-row">
-                    <span>Entrenos</span>
-                    <span>{{ cash.cashDayWorkout | cop }}</span>
-                  </div>
-                }
-                @if (cash.cashSportsDance > 0) {
-                  <div class="inventory-open-breakdown__chip-row">
-                    <span>Bailes</span>
-                    <span>{{ cash.cashSportsDance | cop }}</span>
-                  </div>
-                }
-              }
-              @if (cash.fiadoCashTotal > 0) {
-                <div class="inventory-open-breakdown__row">
-                  <dt>Fiado cobrado hoy (efectivo)</dt>
-                  <dd>+ {{ cash.fiadoCashTotal | cop }}</dd>
-                </div>
-              }
-              @if (cash.otherIncomesCash > 0) {
-                <div class="inventory-open-breakdown__row">
-                  <dt>Otros ingresos (efectivo)</dt>
-                  <dd>+ {{ cash.otherIncomesCash | cop }}</dd>
-                </div>
-              }
-              @if (cash.cashExpenses > 0) {
-                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
-                  <dt>Gastos en efectivo</dt>
-                  <dd>− {{ cash.cashExpenses | cop }}</dd>
-                </div>
-              }
-              @if ((cash.cashShortfallsDeducted ?? 0) > 0) {
-                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
-                  <dt>Faltante ya registrado (no se exige otra vez)</dt>
-                  <dd>− {{ cash.cashShortfallsDeducted | cop }}</dd>
-                </div>
-              }
-              <div class="inventory-open-breakdown__row inventory-open-breakdown__row--total">
-                <dt>Debe haber en caja</dt>
-                <dd>{{ cash.expectedCashTotal | cop }}</dd>
-              </div>
-            </dl>
-
-            <div class="inventory-open-denom">
+            <div class="inventory-open-denom inventory-open-denom--first">
               <div class="inventory-open-denom__col">
                 <h5>Billetes</h5>
                 <div class="inventory-open-denom__grid">
@@ -697,11 +606,144 @@
                 </div>
               </div>
             </div>
+
+            <p class="inventory-open-cash-total">
+              Total que contó: <strong>{{ openCashTotal() | cop }}</strong>
+            </p>
+
+            <h4 class="inventory-open-modal__section-title inventory-open-modal__section-title--sub">
+              2. Compare con lo que debe haber en caja
+            </h4>
+            @if (cash.lastHandoverCashTotal > 0) {
+              <p class="inventory-open-hint inventory-open-hint--neutral">
+                Se usa el efectivo que se <strong>entregó en el turno anterior</strong>
+                ({{ cash.lastHandoverCashTotal | cop }}), no un cálculo distinto al de la entrega.
+              </p>
+            }
+
+            <div class="inventory-open-compare" [class.inventory-open-compare--ok]="openCashMatches()">
+              <article class="inventory-open-compare__card">
+                <span class="inventory-open-compare__label">Usted contó</span>
+                <strong class="inventory-open-compare__value">{{ openCashTotal() | cop }}</strong>
+              </article>
+              <span class="inventory-open-compare__vs" aria-hidden="true">↔</span>
+              <article class="inventory-open-compare__card inventory-open-compare__card--expected">
+                <span class="inventory-open-compare__label">Debe haber (sistema)</span>
+                <strong class="inventory-open-compare__value">{{ cash.expectedCashTotal | cop }}</strong>
+              </article>
+            </div>
+
+            @if (openCashTotal() === 0) {
+              <p class="inventory-open-hint">Escriba arriba cuántos billetes y monedas hay. Aún no ha contado el efectivo.</p>
+            } @else if (openCashDiff() > 0) {
+              <p class="inventory-open-hint inventory-open-hint--ok">
+                Hay <strong>{{ openCashDiff() | cop }} de más</strong> en la caja. No es un error: es sobrante en efectivo
+                (igual que en la entrega de turno).
+              </p>
+            } @else if (openCashDiff() < 0) {
+              <p class="inventory-open-hint inventory-open-hint--warn">
+                Falta <strong>{{ -openCashDiff() | cop }}</strong> en efectivo. Al confirmar se registra en Descuadres de caja.
+              </p>
+            } @else {
+              <p class="inventory-open-hint inventory-open-hint--ok">El efectivo cuadra con el sistema.</p>
+            }
+
+            <details class="inventory-open-breakdown-details">
+              <summary>Ver detalle del cálculo</summary>
+            <dl class="inventory-open-breakdown">
+              @if (cash.lastHandoverCashTotal > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--highlight">
+                  <dt>Efectivo entregado en turno anterior</dt>
+                  <dd>{{ cash.lastHandoverCashTotal | cop }}</dd>
+                </div>
+                @if (cash.cashSinceLastHandover !== 0) {
+                  <div class="inventory-open-breakdown__row">
+                    <dt>Movimientos en Facturación desde la entrega</dt>
+                    <dd>
+                      @if (cash.cashSinceLastHandover > 0) {
+                        + {{ cash.cashSinceLastHandover | cop }}
+                      } @else {
+                        − {{ -cash.cashSinceLastHandover | cop }}
+                      }
+                    </dd>
+                  </div>
+                }
+              } @else {
+              <div class="inventory-open-breakdown__row">
+                <dt>Efectivo inicial</dt>
+                <dd>+ {{ cash.openingCashAmount | cop }}</dd>
+              </div>
+              @if (cash.closedShiftsCashNet > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Ventas en efectivo (turnos cerrados hoy)</dt>
+                  <dd>+ {{ cash.closedShiftsCashNet | cop }}</dd>
+                </div>
+              } @else if (cash.productCashTotal > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Productos vendidos hoy (efectivo, todos los turnos)</dt>
+                  <dd>+ {{ cash.productCashTotal | cop }}</dd>
+                </div>
+              }
+              }
+              @if (cash.lastHandoverCashTotal <= 0 && billingCashConceptTotal(cash) > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--group">
+                  <dt>Efectivo por concepto</dt>
+                  <dd>+ {{ billingCashConceptTotal(cash) | cop }}</dd>
+                </div>
+                @if (cash.cashMembership > 0) {
+                  <div class="inventory-open-breakdown__chip-row">
+                    <span>Membresías</span>
+                    <span>{{ cash.cashMembership | cop }}</span>
+                  </div>
+                }
+                @if (cash.cashDayWorkout > 0) {
+                  <div class="inventory-open-breakdown__chip-row">
+                    <span>Entrenos</span>
+                    <span>{{ cash.cashDayWorkout | cop }}</span>
+                  </div>
+                }
+                @if (cash.cashSportsDance > 0) {
+                  <div class="inventory-open-breakdown__chip-row">
+                    <span>Bailes</span>
+                    <span>{{ cash.cashSportsDance | cop }}</span>
+                  </div>
+                }
+              }
+              @if (cash.lastHandoverCashTotal <= 0 && cash.fiadoCashTotal > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Fiado cobrado hoy (efectivo)</dt>
+                  <dd>+ {{ cash.fiadoCashTotal | cop }}</dd>
+                </div>
+              }
+              @if (cash.lastHandoverCashTotal <= 0 && cash.otherIncomesCash > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Otros ingresos (efectivo)</dt>
+                  <dd>+ {{ cash.otherIncomesCash | cop }}</dd>
+                </div>
+              }
+              @if (cash.lastHandoverCashTotal <= 0 && cash.cashExpenses > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
+                  <dt>Gastos en efectivo</dt>
+                  <dd>− {{ cash.cashExpenses | cop }}</dd>
+                </div>
+              }
+              @if (cash.cashShortfallsDeducted > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
+                  <dt>Faltante en efectivo ya registrado (no se exige otra vez)</dt>
+                  <dd>− {{ cash.cashShortfallsDeducted | cop }}</dd>
+                </div>
+              }
+              <div class="inventory-open-breakdown__row inventory-open-breakdown__row--total">
+                <dt>Debe haber en caja</dt>
+                <dd>{{ cash.expectedCashTotal | cop }}</dd>
+              </div>
+            </dl>
+            </details>
           </section>
         }
 
         <section class="inventory-open-modal__products">
-          <h4 class="inventory-open-modal__section-title">Inventario de productos</h4>
+          <h4 class="inventory-open-modal__section-title">3. Inventario de productos</h4>
 
           @if (preview.products.length === 0) {
             <div class="inventory-open-modal__empty">

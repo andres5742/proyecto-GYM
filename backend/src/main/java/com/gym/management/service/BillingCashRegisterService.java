@@ -12,8 +12,11 @@ import com.gym.management.dto.BillingCashRegisterResponse;
 import com.gym.management.dto.CashShortfallResponse;
 import com.gym.management.dto.CloseBillingCashRegisterRequest;
 import com.gym.management.dto.OpenBillingCashRegisterRequest;
+import com.gym.management.model.ShiftHandover;
 import com.gym.management.model.WorkShift;
 import com.gym.management.repository.ProductCreditPaymentRepository;
+import com.gym.management.repository.ShiftHandoverRepository;
+import com.gym.management.util.CashCountUtil;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.BillingCashRegisterExpenseMapper;
@@ -38,6 +41,7 @@ import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.MoneyUtil;
 import com.gym.management.util.TreasuryAccess;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -70,6 +74,7 @@ public class BillingCashRegisterService {
     private final EmployeeService employeeService;
     private final CashShortfallService cashShortfallService;
     private final EmployeeCashShortfallRepository shortfallRepository;
+    private final ShiftHandoverRepository handoverRepository;
     private final PaymentAccountBalanceService paymentAccountBalanceService;
 
     @Lazy
@@ -109,9 +114,30 @@ public class BillingCashRegisterService {
         Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
         BigDecimal fiadoCash = sumFiadoCashCollected(date);
         BillingHandoverCashBreakdown billingCash = computeHandoverCashBreakdown(register);
-        BigDecimal systemCash = computeCashInDrawer(register, true);
-        BigDecimal deducted = sumRegisteredCashShortfallsForDate(date);
-        BigDecimal expected = netCashExpectedAfterShortfalls(systemCash, deducted);
+        BigDecimal closedShiftsNet = sumClosedShiftsCashNet(date);
+
+        BigDecimal lastHandoverCash = BigDecimal.ZERO;
+        BigDecimal cashSinceHandover = BigDecimal.ZERO;
+        BigDecimal systemCash;
+        BigDecimal deducted;
+        BigDecimal expected;
+
+        Optional<ShiftHandover> lastHandover =
+                handoverRepository.findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(date);
+        if (lastHandover.isPresent()) {
+            lastHandoverCash = MoneyUtil.roundPesos(CashCountUtil.totalCash(lastHandover.get()));
+            Instant after = lastHandover.get().getSubmittedAt();
+            cashSinceHandover = computeCashSinceHandover(id, date, after);
+            systemCash = MoneyUtil.roundPesos(lastHandoverCash.add(cashSinceHandover));
+            deducted = sumCashShortfallsAfter(date, after);
+            expected = netCashExpectedAfterShortfalls(systemCash, deducted);
+        } else {
+            systemCash = MoneyUtil.roundPesos(
+                    billingCash.total().add(closedShiftsNet).add(fiadoCash));
+            deducted = sumRegisteredCashShortfallsForDate(date);
+            expected = netCashExpectedAfterShortfalls(systemCash, deducted);
+        }
+
         Employee opener = register.getOpenedBy();
         String openerName = opener.getFirstName() + " " + opener.getLastName();
         return new ShiftOpenCashPreviewResponse(
@@ -120,6 +146,9 @@ public class BillingCashRegisterService {
                 register.getOpeningCashAmount(),
                 cashExpenses,
                 productTotals.cashTotal(),
+                lastHandoverCash,
+                cashSinceHandover,
+                closedShiftsNet,
                 fiadoCash,
                 cashByType.getOrDefault(BillingPaymentType.MEMBERSHIP, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.DAY_WORKOUT, BigDecimal.ZERO),
@@ -128,6 +157,44 @@ public class BillingCashRegisterService {
                 systemCash,
                 deducted,
                 expected);
+    }
+
+    private BigDecimal computeCashSinceHandover(Long registerId, LocalDate date, Instant after) {
+        BigDecimal billingIn = nullToZero(billingPaymentRepository.sumCashAmountByCashRegisterIdAfter(registerId, after));
+        BigDecimal otherIn = nullToZero(otherIncomeRepository.sumCashAmountByCashRegisterIdAfter(registerId, after));
+        BigDecimal fiadoIn = nullToZero(productCreditPaymentRepository.sumCashAmountByShiftDateAfter(date, after));
+        BigDecimal cashOut = nullToZero(expenseRepository.sumCashAmountByCashRegisterIdAfter(registerId, after));
+        return MoneyUtil.roundPesos(billingIn.add(otherIn).add(fiadoIn).subtract(cashOut));
+    }
+
+    private BigDecimal sumCashShortfallsAfter(LocalDate date, Instant after) {
+        BigDecimal sum = shortfallRepository.sumShortfallAmountByRecordDateAndKindsAfter(
+                date, CASH_DRAWER_SHORTFALL_KINDS, after);
+        return sum != null ? MoneyUtil.roundPesos(sum) : BigDecimal.ZERO;
+    }
+
+    private static BigDecimal nullToZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    /** Efectivo de ventas en turnos ya cerrados hoy (neto, sin faltantes de efectivo ya registrados). */
+    private BigDecimal sumClosedShiftsCashNet(LocalDate date) {
+        List<WorkShift> closed =
+                workShiftRepository.findByShiftDateAndStatusOrderByOpenedAtAsc(date, ShiftStatus.CLOSED);
+        BigDecimal netTotal = BigDecimal.ZERO;
+        for (WorkShift shift : closed) {
+            BigDecimal cash = saleRepository.sumTotalByPaymentMethodAndShift(PaymentMethod.CASH, shift.getId());
+            if (cash == null) {
+                cash = BigDecimal.ZERO;
+            }
+            BigDecimal shortfall = shortfallRepository.sumShortfallAmountByWorkShiftIdAndKinds(
+                    shift.getId(), CASH_DRAWER_SHORTFALL_KINDS);
+            BigDecimal net = MoneyUtil.roundPesos(cash.subtract(shortfall));
+            if (net.compareTo(BigDecimal.ZERO) > 0) {
+                netTotal = netTotal.add(net);
+            }
+        }
+        return MoneyUtil.roundPesos(netTotal);
     }
 
     @Transactional(readOnly = true)

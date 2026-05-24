@@ -52,6 +52,110 @@ export class ShiftHandoverPage implements OnInit {
 
   protected readonly cash = signal<ShiftHandoverCashForm>(emptyCashForm());
   protected readonly notes = signal('');
+  protected readonly inventoryCounts = signal<Record<number, number>>({});
+  /** Por defecto solo productos con falta o sobra (lista larga). */
+  protected readonly showOnlyInventoryDiff = signal(true);
+
+  protected readonly inventoryProducts = computed(
+    () => this.preview()?.inventoryProducts ?? [],
+  );
+  protected readonly pendingInventoryDebt = computed(
+    () => this.preview()?.pendingInventoryShortfallTotal ?? 0,
+  );
+  protected readonly handoverMissingInventoryValue = computed(() => {
+    let total = 0;
+    for (const line of this.inventoryProducts()) {
+      const missing = this.inventoryMissingQty(line.productId);
+      if (missing > 0) {
+        total += missing * line.unitPrice;
+      }
+    }
+    return Math.round(total);
+  });
+  protected readonly handoverSurplusInventoryValue = computed(() => {
+    let total = 0;
+    for (const line of this.inventoryProducts()) {
+      const surplus = this.inventorySurplusQty(line.productId, line.expectedQuantity);
+      if (surplus > 0) {
+        total += surplus * line.unitPrice;
+      }
+    }
+    return Math.round(total);
+  });
+  protected readonly cashSurplusForInventory = computed(() => {
+    const diff = this.cashTotal() - this.expectedCashInDrawer();
+    return diff > 0 ? Math.round(diff) : 0;
+  });
+  protected readonly inventoryCreditPreview = computed(() =>
+    Math.round(this.cashSurplusForInventory() + this.handoverSurplusInventoryValue()),
+  );
+  protected readonly inventoryCrossPreview = computed(() => {
+    const credit = this.inventoryCreditPreview();
+    const pending =
+      this.pendingInventoryDebt() + this.handoverMissingInventoryValue();
+    return {
+      credit,
+      pending,
+      applied: Math.min(credit, pending),
+      remainingDebt: Math.max(0, pending - credit),
+      remainingCash: Math.max(0, credit - pending),
+    };
+  });
+  protected readonly hasInventoryVariance = computed(() => {
+    for (const line of this.inventoryProducts()) {
+      if (this.inventoryMissingQty(line.productId) > 0) {
+        return true;
+      }
+      if (this.inventorySurplusQty(line.productId, line.expectedQuantity) > 0) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  protected readonly inventorySummary = computed(() => {
+    let missingUnits = 0;
+    let surplusUnits = 0;
+    let missingValue = 0;
+    let surplusValue = 0;
+    let diffProducts = 0;
+    for (const line of this.inventoryProducts()) {
+      const miss = this.inventoryMissingQty(line.productId);
+      const sur = this.inventorySurplusQty(line.productId, line.expectedQuantity);
+      if (miss > 0 || sur > 0) {
+        diffProducts++;
+      }
+      missingUnits += miss;
+      surplusUnits += sur;
+      missingValue += miss * line.unitPrice;
+      surplusValue += sur * line.unitPrice;
+    }
+    return {
+      totalProducts: this.inventoryProducts().length,
+      diffProducts,
+      missingUnits,
+      surplusUnits,
+      missingValue: Math.round(missingValue),
+      surplusValue: Math.round(surplusValue),
+      allMatch: diffProducts === 0,
+    };
+  });
+
+  protected readonly inventoryLinesToShow = computed(() => {
+    const lines = this.inventoryProducts();
+    if (!this.showOnlyInventoryDiff()) {
+      return lines;
+    }
+    return lines.filter(
+      (line) =>
+        this.inventoryMissingQty(line.productId) > 0 ||
+        this.inventorySurplusQty(line.productId, line.expectedQuantity) > 0,
+    );
+  });
+
+  protected readonly cashDiff = computed(
+    () => this.cashTotal() - this.expectedCashInDrawer(),
+  );
 
   protected readonly alreadySubmitted = computed(() => !!this.preview()?.id);
   protected readonly billTotal = computed(() =>
@@ -146,6 +250,8 @@ export class ShiftHandoverPage implements OnInit {
         this.preview.set(data);
         if (data.id) {
           this.patchFromHandover(data);
+        } else {
+          this.initInventoryCounts(data);
         }
         this.loading.set(false);
       },
@@ -179,11 +285,59 @@ export class ShiftHandoverPage implements OnInit {
     this.cash.update((c) => ({ ...c, [key]: Math.max(0, value || 0) }));
   }
 
+  protected inventoryMissingQty(productId: number): number {
+    const line = this.inventoryProducts().find((p) => p.productId === productId);
+    if (!line) {
+      return 0;
+    }
+    const counted = this.inventoryCounts()[productId] ?? 0;
+    return Math.max(0, line.expectedQuantity - counted);
+  }
+
+  protected inventorySurplusQty(productId: number, expected: number): number {
+    const counted = this.inventoryCounts()[productId] ?? 0;
+    return Math.max(0, counted - expected);
+  }
+
+  protected setInventoryCount(productId: number, raw: string): void {
+    const qty = Math.max(0, parseInt(String(raw), 10) || 0);
+    this.inventoryCounts.update((m) => ({ ...m, [productId]: qty }));
+  }
+
+  protected fillInventoryExpected(): void {
+    const counts: Record<number, number> = {};
+    for (const line of this.inventoryProducts()) {
+      counts[line.productId] = line.expectedQuantity;
+    }
+    this.inventoryCounts.set(counts);
+  }
+
+  protected toggleInventoryFilter(): void {
+    this.showOnlyInventoryDiff.update((v) => !v);
+  }
+
+  private initInventoryCounts(data: ShiftHandover): void {
+    const counts: Record<number, number> = {};
+    for (const line of data.inventoryProducts ?? []) {
+      counts[line.productId] = line.expectedQuantity;
+    }
+    this.inventoryCounts.set(counts);
+  }
+
   submit(): void {
     const shift = this.openShift();
     if (!shift || this.alreadySubmitted()) {
       return;
     }
+
+    const products = this.inventoryProducts();
+    const inventoryCounts =
+      products.length > 0
+        ? products.map((p) => ({
+            productId: p.productId,
+            countedQuantity: this.inventoryCounts()[p.productId] ?? 0,
+          }))
+        : undefined;
 
     this.saving.set(true);
     this.handoverService
@@ -193,11 +347,12 @@ export class ShiftHandoverPage implements OnInit {
         notes: this.notes() || undefined,
         expenses: [],
         priorPayments: [],
+        inventoryCounts,
       })
       .subscribe({
         next: (result) => {
           let msg = 'Entrega de turno registrada. El turno fue cerrado.';
-          if (result.inventorySurplusResolved && result.inventorySurplusResolutionNote) {
+          if (result.inventorySurplusResolutionNote) {
             msg += ' ' + result.inventorySurplusResolutionNote;
           } else if (result.registeredShortfallAmount && result.registeredShortfallAmount > 0) {
             msg +=

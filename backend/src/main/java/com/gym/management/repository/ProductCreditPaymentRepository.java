@@ -3,6 +3,7 @@ package com.gym.management.repository;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.ProductCreditPayment;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -30,6 +31,17 @@ public interface ProductCreditPaymentRepository extends JpaRepository<ProductCre
             """)
     BigDecimal sumAmountByShiftDateAndMethod(
             @Param("date") LocalDate date, @Param("method") PaymentMethod method);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM ProductCreditPayment p
+            WHERE p.workShift.shiftDate = :date
+              AND p.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+              AND p.createdAt > :after
+            """)
+    BigDecimal sumCashAmountByShiftDateAfter(
+            @Param("date") LocalDate date, @Param("after") Instant after);
 
     @Query(
             """

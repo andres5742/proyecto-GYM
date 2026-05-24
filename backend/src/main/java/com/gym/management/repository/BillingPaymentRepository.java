@@ -4,6 +4,7 @@ import com.gym.management.model.BillingPayment;
 import com.gym.management.model.BillingPaymentType;
 import com.gym.management.model.PaymentMethod;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -75,6 +76,16 @@ public interface BillingPaymentRepository extends JpaRepository<BillingPayment, 
             GROUP BY p.paymentType
             """)
     List<Object[]> sumCashByPaymentTypeByCashRegisterId(@Param("registerId") Long registerId);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.amount), 0) FROM BillingPayment p
+            WHERE p.billingCashRegister.id = :registerId
+              AND p.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+              AND p.createdAt > :after
+            """)
+    BigDecimal sumCashAmountByCashRegisterIdAfter(
+            @Param("registerId") Long registerId, @Param("after") Instant after);
 
     @Query(
             """

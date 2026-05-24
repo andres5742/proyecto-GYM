@@ -36,6 +36,12 @@ export interface ShiftOpenCashPreview {
   openingCashAmount: number;
   cashExpenses: number;
   productCashTotal: number;
+  /** Efectivo contado en la última entrega de turno del día. */
+  lastHandoverCashTotal: number;
+  /** Movimientos en efectivo en Facturación después de esa entrega. */
+  cashSinceLastHandover: number;
+  /** Ventas en efectivo de turnos cerrados hoy (igual que entrega de turno). */
+  closedShiftsCashNet: number;
   fiadoCashTotal: number;
   cashMembership: number;
   cashDayWorkout: number;

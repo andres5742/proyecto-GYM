@@ -1,5 +1,6 @@
 import { PaymentMethod } from './sale.model';
-import { ProductSalesRow, ShiftDetail } from './shift.model';
+import { ProductInventoryCountItem } from './billing-close.model';
+import { ProductInventoryLine, ProductSalesRow, ShiftDetail } from './shift.model';
 
 export interface CashDenomination {
   key: keyof ShiftHandoverCashForm;
@@ -35,6 +36,7 @@ export interface ShiftHandoverRequest extends ShiftHandoverCashForm {
   /** Siempre vacío; los gastos del turno ya no se registran aquí. */
   expenses?: { description: string; amount: number }[];
   priorPayments: ShiftHandoverPriorPaymentLine[];
+  inventoryCounts?: ProductInventoryCountItem[];
 }
 
 export interface ShiftHandoverComparison {
@@ -97,6 +99,8 @@ export interface ShiftHandover {
     notes?: string;
   }[];
   shiftDetail: ShiftDetail;
+  inventoryProducts?: ProductInventoryLine[];
+  pendingInventoryShortfallTotal?: number;
   comparisons: ShiftHandoverComparison[];
   registeredShortfallAmount?: number | null;
   cashShortfallId?: number | null;

@@ -38,6 +38,9 @@ public interface WorkShiftRepository extends JpaRepository<WorkShift, Long> {
             LocalDate shiftDate, ShiftStatus status);
 
     @EntityGraph(attributePaths = "employee")
+    List<WorkShift> findByShiftDateAndStatusOrderByOpenedAtAsc(LocalDate shiftDate, ShiftStatus status);
+
+    @EntityGraph(attributePaths = "employee")
     Optional<WorkShift> findFirstByShiftDateAndStatusOrderByOpenedAtDesc(
             LocalDate shiftDate, ShiftStatus status);
 }

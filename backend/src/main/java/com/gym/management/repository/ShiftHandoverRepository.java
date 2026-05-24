@@ -1,6 +1,7 @@
 package com.gym.management.repository;
 
 import com.gym.management.model.ShiftHandover;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -20,4 +21,7 @@ public interface ShiftHandoverRepository extends JpaRepository<ShiftHandover, Lo
 
     @EntityGraph(attributePaths = {"workShift", "workShift.employee", "employee"})
     List<ShiftHandover> findByEmployeeIdOrderBySubmittedAtDesc(Long employeeId);
+
+    @EntityGraph(attributePaths = {"workShift", "workShift.employee", "employee"})
+    Optional<ShiftHandover> findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(LocalDate shiftDate);
 }
