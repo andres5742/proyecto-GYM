@@ -92,7 +92,7 @@ def _parse_lock_bytes() -> list[bytes]:
     single = os.environ.get("TURNSTILE_LOCK_CHAR", "").strip()
     if single:
         return [single.encode("ascii")[:1]]
-    return [ch.encode("ascii")[:1] for ch in "hil"]
+    return [ch.encode("ascii")[:1] for ch in "d"]
 
 
 def _read_config() -> None:
@@ -220,14 +220,8 @@ def _apply_lock_payloads() -> bool:
         return False
     payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_LOCK_CHARS=hil y TURNSTILE_UNLOCK_CHAR=a")
+        _log("Configure TURNSTILE_LOCK_CHARS=d y TURNSTILE_UNLOCK_CHAR=a")
         return False
-    if GATE_PROTOCOL in ("atp", "atp-acceso", "atp4", "atp-acceso-4"):
-        burst = b"".join(payloads)
-        burst_ok = _send_serial(burst, "PONER seguro (burst)")
-        time.sleep(0.14)
-        reinforce_ok = _send_serial(b"h", "Refuerzo seguro (h)")
-        return burst_ok or reinforce_ok
     ok = True
     for index, payload in enumerate(payloads):
         label = "PONER seguro" if index == 0 else f"PONER seguro ({chr(payload[0])})"
