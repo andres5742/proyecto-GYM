@@ -21,7 +21,7 @@ for /L %%I in (1,1,%LOCK_RETRIES%) do (
     "try {" ^
     "  $sp = New-Object System.IO.Ports.SerialPort($p,$b,[System.IO.Ports.Parity]::None,8,[System.IO.Ports.StopBits]::One);" ^
     "  $sp.ReadTimeout = 500; $sp.WriteTimeout = 500; $sp.Open();" ^
-    "  $sp.Write($chars); Start-Sleep -Milliseconds 180; $sp.Write('h');" ^
+    "  $sp.Write($chars);" ^
     "  $sp.Close(); exit 0" ^
     "} catch { exit 1 }"
   if not errorlevel 1 (

@@ -3,8 +3,8 @@
 Control del SEGURO del torniquete (placa CAFE en COM3 @ 19200, protocolo ATP).
 
 Reglas:
-  - Al arrancar: bloquear (h + i).
-  - Acceso GRANTED + gateOpened: liberar (a) unos segundos y volver a bloquear.
+  - Al arrancar: bloquear (d).
+  - Acceso GRANTED + gateOpened: liberar (a + h) unos segundos y volver a bloquear.
   - Denegado / inactivo / sin afiliado: mantener bloqueado.
 """
 from __future__ import annotations
@@ -39,6 +39,7 @@ GATE_PROTOCOL = ""
 LOCK_BYTES_LIST: list[bytes] = []
 LOCK_BYTES = b""
 UNLOCK_BYTES = b""
+UNLOCK_FOLLOW_BYTES = b""
 UNLOCK_MS = 8000
 HTTP_LOCK = ""
 HTTP_UNLOCK = ""
@@ -96,7 +97,7 @@ def _parse_lock_bytes() -> list[bytes]:
 
 
 def _read_config() -> None:
-    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, UNLOCK_BYTES, UNLOCK_MS
+    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, UNLOCK_BYTES, UNLOCK_FOLLOW_BYTES, UNLOCK_MS
     global GATE_PROTOCOL, READER_BAUD, HTTP_LOCK, HTTP_UNLOCK
     _load_gate_env_file()
     MODE = os.environ.get("TURNSTILE_GATE_MODE", "serial").lower().strip()
@@ -110,6 +111,9 @@ def _read_config() -> None:
         LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b"h"
         unlock_ch = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").strip() or "a"
         UNLOCK_BYTES = unlock_ch.encode("ascii")[:1]
+        # ATP historico: abre con 'a' y manda una segunda letra (normalmente 'h').
+        follow = os.environ.get("TURNSTILE_UNLOCK_FOLLOW_CHAR", "h").strip()
+        UNLOCK_FOLLOW_BYTES = follow.encode("ascii")[:1] if follow else b""
     else:
         LOCK_BYTES_LIST = _parse_lock_bytes()
         LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b""
@@ -119,6 +123,10 @@ def _read_config() -> None:
         UNLOCK_BYTES = _hex_bytes("TURNSTILE_UNLOCK_BYTES")
         if not UNLOCK_BYTES and os.environ.get("TURNSTILE_UNLOCK_CHAR", "").strip():
             UNLOCK_BYTES = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").encode("ascii")[:1]
+        follow_bytes = _hex_bytes("TURNSTILE_UNLOCK_FOLLOW_BYTES")
+        if not follow_bytes and os.environ.get("TURNSTILE_UNLOCK_FOLLOW_CHAR", "").strip():
+            follow_bytes = os.environ.get("TURNSTILE_UNLOCK_FOLLOW_CHAR", "").encode("ascii")[:1]
+        UNLOCK_FOLLOW_BYTES = follow_bytes
         if not LOCK_BYTES_LIST and LOCK_BYTES:
             LOCK_BYTES_LIST = [LOCK_BYTES]
 
@@ -220,7 +228,7 @@ def _apply_lock_payloads() -> bool:
         return False
     payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_LOCK_CHARS=d y TURNSTILE_UNLOCK_CHAR=a")
+        _log("Configure TURNSTILE_LOCK_CHARS=d, TURNSTILE_UNLOCK_CHAR=a y TURNSTILE_UNLOCK_FOLLOW_CHAR=h")
         return False
     ok = True
     for index, payload in enumerate(payloads):
@@ -257,6 +265,9 @@ def unlock_gate(ms: int | None = None) -> bool:
     if MODE == "serial":
         if UNLOCK_BYTES:
             ok = _send_serial(UNLOCK_BYTES, "QUITAR seguro")
+            if ok and UNLOCK_FOLLOW_BYTES:
+                time.sleep(0.08)
+                ok = _send_serial(UNLOCK_FOLLOW_BYTES, "COMANDO posterior apertura")
         else:
             _log("Configure TURNSTILE_UNLOCK_CHAR=a")
             return False
