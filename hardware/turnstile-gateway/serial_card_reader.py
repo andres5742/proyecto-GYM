@@ -204,7 +204,7 @@ def main() -> None:
             if set_active_serial:
                 set_active_serial(ser)
                 if startup_lock:
-                    startup_lock(3)
+                    startup_lock(10)
                 elif lock_gate:
                     lock_gate()
             ser.reset_input_buffer()

@@ -23,6 +23,11 @@ If fso.FileExists(gw & "\preparar-com3.bat") Then
   sh.Run "cmd /c call """ & gw & "\preparar-com3.bat""", 0, True
 End If
 
+' Bloqueo preventivo del torniquete al iniciar (aunque la app aun no abra)
+If fso.FileExists(gw & "\turnstile_gate.py") Then
+  sh.Run "cmd /c cd /d """ & gw & """ && python turnstile_gate.py startup", 0, True
+End If
+
 ' Siempre iniciar lector COM3 primero (tarjetas + seguro fisico hi/a)
 sh.Run "cmd /k call """ & gw & "\iniciar-lector-tarjeta.bat""", 1, False
 WScript.Sleep 8000

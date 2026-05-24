@@ -382,7 +382,7 @@ def main() -> None:
     elif cmd == "unlock":
         unlock_gate()
     elif cmd == "startup":
-        ok = lock_standalone(3)
+        ok = lock_standalone(15)
         sys.exit(0 if ok else 1)
     elif cmd == "after-api" and len(sys.argv) > 2:
         after_api_response(sys.argv[2])
