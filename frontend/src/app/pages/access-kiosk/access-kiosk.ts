@@ -341,6 +341,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       deviceUserId: res.deviceUserId,
       credentialType: res.credentialType,
     });
+    this.syncLocalGate(res);
 
     this.lastResult.set(res);
     if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {
@@ -420,6 +421,21 @@ export class AccessKiosk implements OnInit, OnDestroy {
       return pin;
     }
     return null;
+  }
+
+  private syncLocalGate(res: AccessVerifyResponse): void {
+    if (window.sportGymDesktop?.syncAccessResult) {
+      return;
+    }
+    const body = JSON.stringify({
+      result: res.result,
+      gateOpened: Boolean(res.gateOpened),
+    });
+    fetch('http://127.0.0.1:8765/gate/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    }).catch(() => undefined);
   }
 
   private scheduleRelease(ms: number): void {

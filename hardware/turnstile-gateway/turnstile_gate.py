@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 """
-Control del SEGURO del torniquete (placa CAFÉ; la azul es solo I/O del PC).
+Control del SEGURO del torniquete (placa CAFE en COM3 @ 19200, protocolo ATP).
 
-Comportamiento deseado:
-  - Al iniciar la app: PONER seguro (bloqueado).
-  - Usuario activo + GRANTED: QUITAR seguro unos segundos, luego volver a poner.
-  - Denegado o inactivo: mantener seguro.
-
-Configure turnstile-gate.env (copie turnstile-gate.env.example) o iniciar-lector-tarjeta.bat:
-  TURNSTILE_GATE_MODE=serial|http|none
-  TURNSTILE_GATE_PORT=COMx          (solo si la placa CAFÉ tiene serial al PC; NO COM3 lector)
-  ATP gym: LOCK_CHARS=hi (bloqueo)  UNLOCK_CHAR=a (liberar)  BAUD=19200
-  TURNSTILE_UNLOCK_MS=8000          (tiempo libre para pasar empujando)
+Reglas:
+  - Al arrancar: bloquear (h + i).
+  - Acceso GRANTED + gateOpened: liberar (a) unos segundos y volver a bloquear.
+  - Denegado / inactivo / sin afiliado: mantener bloqueado.
 """
 from __future__ import annotations
 
@@ -30,12 +24,25 @@ except ImportError:
 
 _GATE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PENDING_FILE = os.path.join(_GATE_DIR, ".gate-pending.json")
+_LOG_FILE = os.path.join(_GATE_DIR, "gate.log")
 _relock_timer: threading.Timer | None = None
-_active_ser = None  # mismo COM3 que serial_card_reader (placa cafe -> PC)
+_active_ser = None
+_serial_lock = threading.Lock()
+
+MODE = "none"
+GATE_PORT = ""
+GATE_BAUD = 9600
+READER_BAUD = 9600
+GATE_PROTOCOL = ""
+LOCK_BYTES_LIST: list[bytes] = []
+LOCK_BYTES = b""
+UNLOCK_BYTES = b""
+UNLOCK_MS = 8000
+HTTP_LOCK = ""
+HTTP_UNLOCK = ""
 
 
 def set_active_serial(ser) -> None:
-    """Usar el puerto ya abierto por el lector (evita 'acceso denegado' en COM3)."""
     global _active_ser
     _active_ser = ser
 
@@ -46,8 +53,16 @@ def clear_active_serial() -> None:
 
 
 def _load_gate_env_file() -> None:
-    """Carga turnstile-gate.env (Sport Gym Acceso no hereda variables del .bat)."""
     path = os.path.join(_GATE_DIR, "turnstile-gate.env")
+    if not os.path.isfile(path):
+        example = os.path.join(_GATE_DIR, "turnstile-gate.env.example")
+        if os.path.isfile(example):
+            try:
+                with open(example, encoding="utf-8") as src, open(path, "w", encoding="utf-8") as dst:
+                    dst.write(src.read())
+            except OSError:
+                pass
+        path = os.path.join(_GATE_DIR, "turnstile-gate.env")
     if not os.path.isfile(path):
         return
     with open(path, encoding="utf-8") as fh:
@@ -57,7 +72,7 @@ def _load_gate_env_file() -> None:
                 continue
             key, value = line.split("=", 1)
             key, value = key.strip(), value.strip()
-            if key and key not in os.environ:
+            if key:
                 os.environ[key] = value
 
 
@@ -69,7 +84,6 @@ def _hex_bytes(name: str) -> bytes:
 
 
 def _parse_lock_bytes() -> list[bytes]:
-    """Letras de bloqueo ATP. TURNSTILE_LOCK_CHARS=hi envia h e i."""
     multi = os.environ.get("TURNSTILE_LOCK_CHARS", "").strip()
     if multi:
         return [ch.encode("ascii")[:1] for ch in multi if ch.strip()]
@@ -80,19 +94,16 @@ def _parse_lock_bytes() -> list[bytes]:
 
 
 def _read_config() -> None:
-    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, UNLOCK_BYTES, UNLOCK_MS, HTTP_LOCK, HTTP_UNLOCK
-    global GATE_PROTOCOL, READER_BAUD
+    global MODE, GATE_PORT, GATE_BAUD, LOCK_BYTES, LOCK_BYTES_LIST, UNLOCK_BYTES, UNLOCK_MS
+    global GATE_PROTOCOL, READER_BAUD, HTTP_LOCK, HTTP_UNLOCK
     _load_gate_env_file()
-    MODE = os.environ.get("TURNSTILE_GATE_MODE", "none").lower().strip()
-    GATE_PORT = os.environ.get("TURNSTILE_GATE_PORT", "").strip()
-    if not GATE_PORT:
-        GATE_PORT = os.environ.get("SERIAL_PORT", "").strip()
-    GATE_PROTOCOL = os.environ.get("TURNSTILE_GATE_PROTOCOL", "").lower().strip()
+    MODE = os.environ.get("TURNSTILE_GATE_MODE", "serial").lower().strip()
+    GATE_PORT = os.environ.get("TURNSTILE_GATE_PORT", "").strip() or os.environ.get("SERIAL_PORT", "COM3").strip()
+    GATE_PROTOCOL = os.environ.get("TURNSTILE_GATE_PROTOCOL", "atp-acceso").lower().strip()
     READER_BAUD = int(os.environ.get("SERIAL_BAUD", "9600"))
-    GATE_BAUD = int(os.environ.get("TURNSTILE_GATE_BAUD", "9600"))
+    GATE_BAUD = int(os.environ.get("TURNSTILE_GATE_BAUD", "19200"))
 
     if GATE_PROTOCOL in ("atp", "atp-acceso", "atp4", "atp-acceso-4"):
-        GATE_BAUD = int(os.environ.get("TURNSTILE_GATE_BAUD", "19200"))
         LOCK_BYTES_LIST = _parse_lock_bytes()
         LOCK_BYTES = LOCK_BYTES_LIST[0] if LOCK_BYTES_LIST else b"h"
         unlock_ch = os.environ.get("TURNSTILE_UNLOCK_CHAR", "a").strip() or "a"
@@ -124,45 +135,63 @@ def _payload_label(payload: bytes) -> str:
 
 
 def _log(msg: str) -> None:
-    print(f"[{time.strftime('%H:%M:%S')}] SEGURO: {msg}", flush=True)
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] SEGURO: {msg}"
+    print(line, flush=True)
+    try:
+        with open(_LOG_FILE, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+    except OSError:
+        pass
 
 
-def _send_serial(payload: bytes, label: str) -> bool:
-    if not payload:
-        return False
-    if not GATE_PORT:
-        _log(f"{label}: falta TURNSTILE_GATE_PORT (mismo que SERIAL_PORT/COM3 si cafe->PC)")
+def _write_on_serial(ser, payload: bytes) -> None:
+    ser.reset_output_buffer()
+    ser.reset_input_buffer()
+    ser.write(payload)
+    ser.flush()
+    time.sleep(0.28)
+
+
+def _send_serial_once(payload: bytes, label: str) -> bool:
+    if not payload or not GATE_PORT:
         return False
     if serial is None:
         _log("Instale pyserial: pip install pyserial")
         return False
-    if _active_ser is not None and getattr(_active_ser, "is_open", False):
+
+    with _serial_lock:
+        if _active_ser is not None and getattr(_active_ser, "is_open", False):
+            try:
+                old_baud = _active_ser.baudrate
+                if GATE_BAUD != old_baud:
+                    _active_ser.baudrate = GATE_BAUD
+                    time.sleep(0.22)
+                _write_on_serial(_active_ser, payload)
+                if GATE_BAUD != old_baud:
+                    _active_ser.baudrate = old_baud
+                    time.sleep(0.12)
+                _log(f"{label} -> {GATE_PORT} @ {GATE_BAUD} via lector ({_payload_label(payload)})")
+                return True
+            except serial.SerialException as ex:
+                _log(f"{label} error puerto compartido: {ex}")
+                return False
+
         try:
-            old_baud = _active_ser.baudrate
-            switched = GATE_BAUD != old_baud
-            if switched:
-                _active_ser.baudrate = GATE_BAUD
-                time.sleep(0.1)
-            _active_ser.write(payload)
-            _active_ser.flush()
-            time.sleep(0.15)
-            if switched:
-                _active_ser.baudrate = old_baud
-            _log(f"{label} → {GATE_PORT} @ {GATE_BAUD} via lector ({_payload_label(payload)})")
+            with serial.Serial(GATE_PORT, GATE_BAUD, timeout=1, write_timeout=2) as ser:
+                _write_on_serial(ser, payload)
+            _log(f"{label} -> {GATE_PORT} @ {GATE_BAUD} directo ({_payload_label(payload)})")
             return True
         except serial.SerialException as ex:
-            _log(f"{label} error en puerto compartido: {ex}")
+            _log(f"{label} error en {GATE_PORT}: {ex}")
             return False
-    try:
-        with serial.Serial(GATE_PORT, GATE_BAUD, timeout=1) as ser:
-            ser.write(payload)
-            ser.flush()
-        _log(f"{label} → {GATE_PORT} @ {GATE_BAUD} ({_payload_label(payload)})")
-        return True
-    except serial.SerialException as ex:
-        _log(f"{label} error en {GATE_PORT}: {ex}")
-        _log("Si el lector ya usa COM3, deje solo iniciar-lector-tarjeta.bat abierto.")
-        return False
+
+
+def _send_serial(payload: bytes, label: str) -> bool:
+    for attempt in range(1, 4):
+        if _send_serial_once(payload, label if attempt == 1 else f"{label} (intento {attempt})"):
+            return True
+        time.sleep(0.35)
+    return False
 
 
 def _post_http(url: str, label: str) -> bool:
@@ -177,56 +206,64 @@ def _post_http(url: str, label: str) -> bool:
     )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
-            _log(f"{label} → {url} ({resp.status})")
+            _log(f"{label} -> {url} ({resp.status})")
             return True
     except Exception as ex:
         _log(f"{label} HTTP error {url}: {ex}")
         return False
 
 
-def lock_gate() -> None:
-    """Pone el seguro (torniquete bloqueado)."""
+def _apply_lock_payloads() -> bool:
+    if MODE != "serial":
+        return False
+    payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
+    if not payloads:
+        _log("Configure TURNSTILE_LOCK_CHARS=hi y TURNSTILE_UNLOCK_CHAR=a")
+        return False
+    ok = True
+    for index, payload in enumerate(payloads):
+        label = "PONER seguro" if index == 0 else f"PONER seguro ({chr(payload[0])})"
+        if not _send_serial(payload, label):
+            ok = False
+        if index < len(payloads) - 1:
+            time.sleep(0.28)
+    return ok
+
+
+def lock_gate() -> bool:
     global _relock_timer
     _read_config()
     if _relock_timer:
         _relock_timer.cancel()
         _relock_timer = None
     if MODE == "serial":
-        payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
-        if payloads:
-            for index, payload in enumerate(payloads):
-                label = "PONER seguro" if index == 0 else f"PONER seguro ({chr(payload[0])})"
-                _send_serial(payload, label)
-                if index < len(payloads) - 1:
-                    time.sleep(0.12)
-        elif UNLOCK_BYTES:
-            _log("Configure TURNSTILE_LOCK_CHARS o TURNSTILE_LOCK_CHAR")
-        else:
-            _log("Configure TURNSTILE_LOCK_CHARS y TURNSTILE_UNLOCK_CHAR")
-        return
+        return _apply_lock_payloads()
     if MODE == "http":
-        _post_http(HTTP_LOCK, "PONER seguro")
-        return
-    _log("Modo none — ponga TURNSTILE_GATE_MODE=serial y LOCK/UNLOCK_BYTES en turnstile-gate.env")
+        return _post_http(HTTP_LOCK, "PONER seguro")
+    if MODE == "none":
+        _log("Modo none — revise turnstile-gate.env (TURNSTILE_GATE_MODE=serial)")
+    return False
 
 
-def unlock_gate(ms: int | None = None) -> None:
-    """Quita el seguro; tras ms vuelve a ponerlo."""
+def unlock_gate(ms: int | None = None) -> bool:
     global _relock_timer
     _read_config()
     duration = UNLOCK_MS if ms is None else ms
+    ok = False
     if MODE == "serial":
         if UNLOCK_BYTES:
-            _send_serial(UNLOCK_BYTES, "QUITAR seguro")
+            ok = _send_serial(UNLOCK_BYTES, "QUITAR seguro")
         else:
-            _log("Configure TURNSTILE_UNLOCK_BYTES")
-            return
+            _log("Configure TURNSTILE_UNLOCK_CHAR=a")
+            return False
     elif MODE == "http":
-        if not _post_http(HTTP_UNLOCK, "QUITAR seguro"):
-            return
+        ok = _post_http(HTTP_UNLOCK, "QUITAR seguro")
     else:
         _log("Modo none — no se puede quitar seguro")
-        return
+        return False
+
+    if not ok:
+        return False
 
     if _relock_timer:
         _relock_timer.cancel()
@@ -235,13 +272,43 @@ def unlock_gate(ms: int | None = None) -> None:
         lock_gate()
 
     _relock_timer = threading.Timer(max(1, duration) / 1000.0, _relock)
-    _relock_timer.daemon = False
+    _relock_timer.daemon = True
     _relock_timer.start()
-    _log(f"Re-seguro en {duration} ms")
+    _log(f"Re-seguro automatico en {duration} ms")
+    return True
+
+
+def lock_standalone(retries: int = 3) -> bool:
+    """Bloqueo inicial antes de abrir el lector (COM3 libre)."""
+    _read_config()
+    if MODE != "serial":
+        return False
+    if _active_ser is not None and getattr(_active_ser, "is_open", False):
+        return lock_gate()
+    for attempt in range(1, retries + 1):
+        _log(f"Bloqueo inicial torniquete (intento {attempt}/{retries})")
+        if _apply_lock_payloads():
+            return True
+        time.sleep(0.6)
+    return False
+
+
+def startup_lock(retries: int = 3) -> bool:
+    """Al abrir el lector: asegurar torniquete bloqueado."""
+    ok = False
+    for attempt in range(1, retries + 1):
+        if lock_gate():
+            ok = True
+            break
+        time.sleep(0.5)
+    if ok:
+        _log("Torniquete bloqueado al iniciar lector")
+    else:
+        _log("AVISO: no se pudo bloquear torniquete al iniciar")
+    return ok
 
 
 def queue_gate_command(cmd: str, data: dict | None = None) -> None:
-    """Cola orden para el lector (Sport Gym Acceso usa COM3 sin abrirlo dos veces)."""
     payload = {"cmd": cmd, "data": data, "ts": time.time()}
     try:
         with open(_PENDING_FILE, "w", encoding="utf-8") as fh:
@@ -250,8 +317,23 @@ def queue_gate_command(cmd: str, data: dict | None = None) -> None:
         _log(f"No se pudo encolar {cmd}: {ex}")
 
 
+def request_lock() -> None:
+    """CLI / scripts externos: bloquea o encola si COM3 esta ocupado."""
+    if not lock_gate():
+        queue_gate_command("lock")
+
+
+def sync_access_result(result: str, gate_opened: bool = False) -> None:
+    result_u = str(result or "").upper()
+    if result_u == "SELECT_MEMBER":
+        lock_gate()
+    elif result_u == "GRANTED" and gate_opened:
+        unlock_gate()
+    else:
+        lock_gate()
+
+
 def consume_pending_gate() -> bool:
-    """Aplica una orden pendiente (llamar desde el bucle del lector)."""
     if not os.path.isfile(_PENDING_FILE):
         return False
     try:
@@ -273,36 +355,20 @@ def consume_pending_gate() -> bool:
         unlock_gate()
     elif cmd == "sync":
         data = payload.get("data") or {}
-        result = str(data.get("result", "")).upper()
-        gate_opened = bool(data.get("gateOpened", False))
-        if result == "SELECT_MEMBER":
-            lock_gate()
-        elif result == "GRANTED" and gate_opened:
-            unlock_gate()
-        else:
-            lock_gate()
+        sync_access_result(str(data.get("result", "")), bool(data.get("gateOpened", False)))
     else:
         _log(f"Orden pendiente desconocida: {cmd}")
     return True
 
 
 def after_api_response(body: str) -> None:
-    """Interpreta respuesta JSON del API y aplica seguro."""
     _read_config()
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
         lock_gate()
         return
-    result = str(data.get("result", "")).upper()
-    gate_opened = bool(data.get("gateOpened", False))
-    if result == "SELECT_MEMBER":
-        lock_gate()
-        return
-    if result == "GRANTED" and gate_opened:
-        unlock_gate()
-    else:
-        lock_gate()
+    sync_access_result(str(data.get("result", "")), bool(data.get("gateOpened", False)))
 
 
 def main() -> None:
@@ -312,13 +378,16 @@ def main() -> None:
         sys.exit(0)
     cmd = sys.argv[1].lower()
     if cmd == "lock":
-        lock_gate()
+        request_lock()
     elif cmd == "unlock":
         unlock_gate()
+    elif cmd == "startup":
+        ok = lock_standalone(3)
+        sys.exit(0 if ok else 1)
     elif cmd == "after-api" and len(sys.argv) > 2:
         after_api_response(sys.argv[2])
     else:
-        print("Uso: turnstile_gate.py lock|unlock|after-api '{json}'")
+        print("Uso: turnstile_gate.py lock|unlock|startup|after-api '{json}'")
         sys.exit(1)
 
 

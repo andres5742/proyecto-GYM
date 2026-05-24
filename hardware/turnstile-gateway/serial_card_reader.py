@@ -23,9 +23,11 @@ import os
 import re
 import signal
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 try:
     import serial
@@ -41,6 +43,43 @@ DEBUG = os.environ.get("SERIAL_DEBUG", "").lower() in ("1", "true", "yes", "si",
 # Tarjetas ZKT por COM suelen ser binario: hex=218AE2, decimal=2198114
 PIN_FORMAT = os.environ.get("SERIAL_PIN_FORMAT", "hex").lower()
 PID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".lector-tarjeta.pid")
+GATE_HTTP_PORT = int(os.environ.get("GATE_HTTP_PORT", "8765"))
+
+
+class _GateSyncHandler(BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args) -> None:
+        return
+
+    def do_POST(self) -> None:
+        if self.path != "/gate/sync":
+            self.send_response(404)
+            self.end_headers()
+            return
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        raw = self.rfile.read(length).decode("utf-8", errors="ignore") if length else "{}"
+        try:
+            data = json.loads(raw or "{}")
+            from turnstile_gate import sync_access_result
+
+            sync_access_result(str(data.get("result", "")), bool(data.get("gateOpened", False)))
+            self.send_response(204)
+        except Exception as ex:
+            print(f"[gate-sync] error: {ex}", file=sys.stderr)
+            self.send_response(500)
+        self.end_headers()
+
+
+def start_gate_http_server() -> None:
+    def _run() -> None:
+        try:
+            server = HTTPServer(("127.0.0.1", GATE_HTTP_PORT), _GateSyncHandler)
+            print(f"Gate sync local: http://127.0.0.1:{GATE_HTTP_PORT}/gate/sync")
+            server.serve_forever()
+        except OSError as ex:
+            print(f"No se pudo abrir gate HTTP {GATE_HTTP_PORT}: {ex}", file=sys.stderr)
+
+    thread = threading.Thread(target=_run, name="gate-http", daemon=True)
+    thread.start()
 
 
 def release_port() -> None:
@@ -149,10 +188,11 @@ def main() -> None:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, stop_handler)
     claim_port()
+    start_gate_http_server()
     try:
-        from turnstile_gate import clear_active_serial, lock_gate, set_active_serial
+        from turnstile_gate import clear_active_serial, lock_gate, set_active_serial, startup_lock
     except ImportError:
-        clear_active_serial = lock_gate = set_active_serial = None  # type: ignore
+        clear_active_serial = lock_gate = set_active_serial = startup_lock = None  # type: ignore
 
     print(f"Escuchando {PORT} @ {BAUD} baud → {API}")
     if DEBUG:
@@ -163,7 +203,10 @@ def main() -> None:
         with serial.Serial(PORT, BAUD, timeout=0.1) as ser:
             if set_active_serial:
                 set_active_serial(ser)
-                lock_gate()
+                if startup_lock:
+                    startup_lock(3)
+                elif lock_gate:
+                    lock_gate()
             ser.reset_input_buffer()
             pending = bytearray()
             idle_since: float | None = None

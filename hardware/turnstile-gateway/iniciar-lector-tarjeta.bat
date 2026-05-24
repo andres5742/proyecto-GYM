@@ -13,13 +13,9 @@ echo.
 
 if not exist "serial_card_reader.py" (
   echo Falta serial_card_reader.py. Descargando desde GitHub...
-  echo.
   call "%~dp0descargar-lector-recepcion.bat"
   if not exist "serial_card_reader.py" (
-    echo.
     echo ERROR: No se pudo obtener serial_card_reader.py
-    echo Copie TODA la carpeta turnstile-gateway a este PC
-    echo o ejecute descargar-lector-recepcion.bat con internet.
     pause
     exit /b 1
   )
@@ -35,18 +31,18 @@ if errorlevel 1 (
 
 pip install pyserial -q
 
+if exist "%~dp0preparar-com3.bat" call "%~dp0preparar-com3.bat"
+
+if not exist "turnstile-gate.env" if exist "turnstile-gate.env.example" (
+  copy /Y "turnstile-gate.env.example" "turnstile-gate.env" >nul
+)
+
 set ACCESS_DEVICE_KEY=clave-torniquete-produccion-2026
 set GYM_ACCESS_API=https://sportgymr10.com/api/access/zkt/event
 set SERIAL_PORT=COM3
 set SERIAL_BAUD=9600
-REM hex = UID del chip (ej. A5AD8AE2), como el sistema anterior.
-REM decimal = solo numeros (ej. 2198114). Solo si ZKAccess muestra solo numeros.
 set SERIAL_PIN_FORMAT=hex
 set SERIAL_DEBUG=0
-
-REM Seguro torniquete: edite turnstile-gate.env (copie .example) o variables aqui:
-REM Seguro: protocolo ATP-ACCESO (copie turnstile-gate.env.example -> turnstile-gate.env)
-REM Cierre ATP-ACCESO 4.0.exe antes de abrir este lector (mismo COM3).
 set TURNSTILE_GATE_MODE=serial
 set TURNSTILE_GATE_PROTOCOL=atp-acceso
 set TURNSTILE_GATE_PORT=COM3
@@ -54,23 +50,17 @@ set TURNSTILE_GATE_BAUD=19200
 set TURNSTILE_LOCK_CHARS=hi
 set TURNSTILE_UNLOCK_CHAR=a
 set TURNSTILE_UNLOCK_MS=8000
+set GATE_HTTP_PORT=8765
 
-echo Puerto lector: %SERIAL_PORT%  Velocidad: %SERIAL_BAUD%
-echo Seguro torniquete: %TURNSTILE_GATE_MODE% en %TURNSTILE_GATE_PORT%
+echo Puerto lector: %SERIAL_PORT% @ %SERIAL_BAUD%
+echo Seguro torniquete: %TURNSTILE_GATE_MODE% %TURNSTILE_LOCK_CHARS% en %TURNSTILE_GATE_PORT% @ %TURNSTILE_GATE_BAUD%
 echo API: %GYM_ACCESS_API%
 echo.
-if not exist "turnstile-gate.env" if exist "turnstile-gate.env.example" (
-  copy /Y "turnstile-gate.env.example" "turnstile-gate.env" >nul
-  echo Creado turnstile-gate.env desde ejemplo.
-)
-if not exist "turnstile_gate.py" (
-  echo ERROR: Falta turnstile_gate.py en %CD%
-  pause
-  exit /b 1
-)
+echo Bloqueo inicial del torniquete (h + i)...
+python turnstile_gate.py startup
+echo.
 echo Al iniciar debe verse: SEGURO: PONER seguro ...
-echo Pase una tarjeta en el lector...
-echo Si no aparece numero: iniciar-lector-debug.bat o iniciar-lector-115200.bat
+echo Pase una tarjeta. Solo se libera con acceso GRANTED activo.
 echo.
 
 python serial_card_reader.py

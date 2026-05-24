@@ -116,7 +116,10 @@ function syncGateFromPayload(payload) {
 
   if (config.spawnCardReader) {
     if (shouldUnlock) {
-      queueGateCommand('unlock');
+      queueGateCommand('sync', {
+        result: payload?.result,
+        gateOpened: payload?.gateOpened,
+      });
     } else {
       queueGateCommand('lock');
     }
@@ -307,11 +310,16 @@ app.whenReady().then(async () => {
     callback({ requestHeaders: details.requestHeaders });
   });
   spawnCardReader();
-  if (config.spawnCardReader) {
-    queueGateCommand('lock');
-  } else {
-    runGateCommand('lock');
-  }
+  const scheduleStartupLock = () => {
+    if (!config.spawnCardReader) {
+      runGateCommand('lock');
+      return;
+    }
+    for (const ms of [2000, 5000, 9000, 15000]) {
+      setTimeout(() => queueGateCommand('lock'), ms);
+    }
+  };
+  scheduleStartupLock();
   createWindow();
   registerExitShortcuts();
 });
