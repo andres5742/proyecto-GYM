@@ -1,9 +1,11 @@
 package com.gym.management.mapper;
 
 import com.gym.management.dto.BillingCashRegisterResponse;
+import com.gym.management.dto.DigitalAccountBalanceLine;
 import com.gym.management.model.BillingCashRegister;
 import com.gym.management.model.PaymentMethod;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 public final class BillingCashRegisterMapper {
@@ -34,7 +36,8 @@ public final class BillingCashRegisterMapper {
             long dayOtherIncomeCount,
             Map<PaymentMethod, BigDecimal> dayIncomeByMethod,
             BigDecimal dayIncomeTotal,
-            BigDecimal cashInDrawer) {
+            BigDecimal cashInDrawer,
+            List<DigitalAccountBalanceLine> digitalAccounts) {
         String employeeName = register.getOpenedBy() != null
                 ? register.getOpenedBy().getFirstName() + " " + register.getOpenedBy().getLastName()
                 : "—";
@@ -45,6 +48,10 @@ public final class BillingCashRegisterMapper {
                 employeeId,
                 employeeName,
                 register.getOpeningCashAmount(),
+                register.getOpeningNequiAmount() != null ? register.getOpeningNequiAmount() : BigDecimal.ZERO,
+                register.getOpeningBancolombiaAmount() != null
+                        ? register.getOpeningBancolombiaAmount()
+                        : BigDecimal.ZERO,
                 register.getOpenedAt(),
                 register.getClosedAt(),
                 register.getStatus(),
@@ -70,6 +77,7 @@ public final class BillingCashRegisterMapper {
                 dayOtherIncomeCount,
                 dayIncomeByMethod != null ? dayIncomeByMethod : Map.of(),
                 dayIncomeTotal != null ? dayIncomeTotal : BigDecimal.ZERO,
-                cashInDrawer != null ? cashInDrawer : BigDecimal.ZERO);
+                cashInDrawer != null ? cashInDrawer : BigDecimal.ZERO,
+                digitalAccounts != null ? digitalAccounts : List.of());
     }
 }

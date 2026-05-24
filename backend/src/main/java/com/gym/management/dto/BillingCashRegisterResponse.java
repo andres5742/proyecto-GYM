@@ -5,6 +5,7 @@ import com.gym.management.model.ShiftStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 public record BillingCashRegisterResponse(
@@ -13,6 +14,8 @@ public record BillingCashRegisterResponse(
         Long openedByEmployeeId,
         String openedByEmployeeName,
         BigDecimal openingCashAmount,
+        BigDecimal openingNequiAmount,
+        BigDecimal openingBancolombiaAmount,
         LocalDateTime openedAt,
         LocalDateTime closedAt,
         ShiftStatus status,
@@ -42,4 +45,5 @@ public record BillingCashRegisterResponse(
         Map<PaymentMethod, BigDecimal> dayIncomeByMethod,
         BigDecimal dayIncomeTotal,
         /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos en efectivo. */
-        BigDecimal cashInDrawer) {}
+        BigDecimal cashInDrawer,
+        List<DigitalAccountBalanceLine> digitalAccounts) {}

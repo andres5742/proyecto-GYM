@@ -3,11 +3,13 @@ package com.gym.management.service;
 import com.gym.management.dto.BillingTypeReportSection;
 import com.gym.management.dto.BusinessReportBreakdown;
 import com.gym.management.dto.DailyBusinessReportResponse;
+import com.gym.management.dto.DigitalAccountBalanceLine;
 import com.gym.management.dto.MembershipPlanReportLine;
 import com.gym.management.dto.MonthlyBusinessReportResponse;
 import com.gym.management.dto.ProductInventoryReportLine;
 import com.gym.management.dto.ProductSaleByPaymentLine;
 import com.gym.management.dto.ProductSalesReportSection;
+import com.gym.management.exception.BusinessException;
 import com.gym.management.model.BillingPaymentType;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Product;
@@ -18,6 +20,7 @@ import com.gym.management.repository.BillingPaymentRepository;
 import com.gym.management.repository.ProductCreditPaymentRepository;
 import com.gym.management.repository.ProductRepository;
 import com.gym.management.repository.SaleRepository;
+import com.gym.management.util.TreasuryAccess;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -45,14 +48,18 @@ public class BusinessReportService {
     private final BillingCashRegisterOtherIncomeRepository otherIncomeRepository;
     private final BillingCashRegisterRepository cashRegisterRepository;
     private final ProductRepository productRepository;
+    private final PaymentAccountBalanceService paymentAccountBalanceService;
 
     @Transactional(readOnly = true)
     public DailyBusinessReportResponse dailyReport(LocalDate date) {
+        requireTreasuryAccess();
         LocalDate target = date != null ? date : LocalDate.now(GYM_ZONE);
         PeriodTotals totals = loadPeriodTotals(target, target);
         CashRegisterSnapshot cashRegister = resolveCashRegister(target);
         List<ProductInventoryReportLine> inventory = buildInventoryForSingleDate(target);
         BusinessReportBreakdown breakdown = loadBreakdown(target, target);
+        List<DigitalAccountBalanceLine> digitalAccounts = paymentAccountBalanceService.computeDailyBalances(
+                target, totals.totalIncomeByMethod(), totals.expensesByMethod());
 
         return new DailyBusinessReportResponse(
                 target,
@@ -71,11 +78,13 @@ public class BusinessReportService {
                 totals.totalIncomeByMethod(),
                 totals.netResult(),
                 inventory,
-                breakdown);
+                breakdown,
+                digitalAccounts);
     }
 
     @Transactional(readOnly = true)
     public MonthlyBusinessReportResponse monthlyReport(int year, int month) {
+        requireTreasuryAccess();
         YearMonth period = YearMonth.of(year, month);
         LocalDate start = period.atDay(1);
         LocalDate end = period.atEndOfMonth();
@@ -83,6 +92,8 @@ public class BusinessReportService {
         long cashRegisterDays = cashRegisterRepository.countByRegisterDateBetween(start, end);
         List<ProductInventoryReportLine> inventory = buildInventoryForDateRange(start, end);
         BusinessReportBreakdown breakdown = loadBreakdown(start, end);
+        List<DigitalAccountBalanceLine> digitalAccounts = paymentAccountBalanceService.computePeriodBalances(
+                start, end, totals.totalIncomeByMethod(), totals.expensesByMethod());
 
         return new MonthlyBusinessReportResponse(
                 year,
@@ -103,7 +114,14 @@ public class BusinessReportService {
                 totals.totalIncomeByMethod(),
                 totals.netResult(),
                 inventory,
-                breakdown);
+                breakdown,
+                digitalAccounts);
+    }
+
+    private static void requireTreasuryAccess() {
+        if (!TreasuryAccess.canViewTreasuryBalances()) {
+            throw new BusinessException("Solo administración puede ver reportes de tesorería");
+        }
     }
 
     private BusinessReportBreakdown loadBreakdown(LocalDate start, LocalDate end) {

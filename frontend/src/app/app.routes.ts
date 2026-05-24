@@ -31,6 +31,7 @@ import { Login } from './pages/login/login';
 import { MyAccount } from './pages/my-account/my-account';
 
 const superAdminRoles = ['SUPER_ADMIN'] as const;
+const adminRoles = ['ADMIN', 'SUPER_ADMIN'] as const;
 
 export const routes: Routes = [
   {
@@ -172,7 +173,7 @@ export const routes: Routes = [
         path: 'reportes',
         component: ReportsPage,
         canActivate: [roleGuard],
-        data: { roles: superAdminRoles },
+        data: { roles: adminRoles },
       },
     ],
   },

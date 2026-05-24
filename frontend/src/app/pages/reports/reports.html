@@ -1,7 +1,7 @@
 <div class="reports-page">
   <header class="report-hero no-print">
     <div class="report-hero__intro">
-      <p class="report-hero__eyebrow">Super administrador</p>
+      <p class="report-hero__eyebrow">Administración</p>
       <h1>Reportes</h1>
       <p class="report-hero__lead">
         Resumen {{ viewMode() === 'daily' ? 'del día' : 'mensual' }}: inventario, ventas, ingresos por medio de
@@ -171,6 +171,50 @@
         </div>
       }
     </section>
+
+    @if (r.digitalAccounts?.length) {
+      <section class="report-card report-card--digital">
+        <header class="section-head">
+          <span class="section-head__icon" aria-hidden="true">📱</span>
+          <div>
+            <h2>Cuentas Nequi y Bancolombia</h2>
+            <p>
+              Saldo del período = apertura + ingresos − gastos. El acumulado incluye el saldo inicial global y todo el
+              historial.
+            </p>
+          </div>
+        </header>
+        <div class="digital-accounts-grid">
+          @for (acc of r.digitalAccounts; track acc.paymentMethod) {
+            <article class="digital-account-card">
+              <h3>{{ acc.paymentMethodLabel }}</h3>
+              <dl class="digital-account-card__rows">
+                <div>
+                  <dt>Apertura del período</dt>
+                  <dd>{{ acc.openingBalance | cop }}</dd>
+                </div>
+                <div>
+                  <dt>+ Ingresos</dt>
+                  <dd class="pos">+ {{ acc.incomeTotal | cop }}</dd>
+                </div>
+                <div>
+                  <dt>− Gastos</dt>
+                  <dd class="neg">− {{ acc.expenseTotal | cop }}</dd>
+                </div>
+                <div class="digital-account-card__total">
+                  <dt>Saldo al cierre</dt>
+                  <dd><strong>{{ acc.closingBalance | cop }}</strong></dd>
+                </div>
+                <div>
+                  <dt>Acumulado total</dt>
+                  <dd>{{ acc.cumulativeBalance | cop }}</dd>
+                </div>
+              </dl>
+            </article>
+          }
+        </div>
+      </section>
+    }
 
     <div class="split-panels">
       <section class="report-card">

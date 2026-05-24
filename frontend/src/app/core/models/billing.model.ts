@@ -144,6 +144,8 @@ export interface BillingCashRegister {
   openedByEmployeeId: number;
   openedByEmployeeName: string;
   openingCashAmount: number;
+  openingNequiAmount: number;
+  openingBancolombiaAmount: number;
   openedAt: string;
   closedAt?: string | null;
   status: BillingCashRegisterStatus;
@@ -173,6 +175,22 @@ export interface BillingCashRegister {
   dayIncomeTotal?: number;
   /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos. */
   cashInDrawer: number;
+  digitalAccounts?: DigitalAccountBalanceLine[];
+}
+
+export interface DigitalAccountBalanceLine {
+  paymentMethod: PaymentMethod;
+  paymentMethodLabel: string;
+  openingBalance: number;
+  incomeTotal: number;
+  expenseTotal: number;
+  closingBalance: number;
+  cumulativeBalance: number;
+}
+
+export interface PaymentAccountSettings {
+  nequiInitialBalance: number;
+  bancolombiaInitialBalance: number;
 }
 
 export interface BillingCashRegisterExpense {
@@ -215,6 +233,8 @@ export interface BillingCashRegisterOtherIncomeRequest {
 
 export interface OpenBillingCashRegisterRequest {
   openingCashAmount: number;
+  openingNequiAmount: number;
+  openingBancolombiaAmount: number;
 }
 
 export interface BillingMonthlySummary {

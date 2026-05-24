@@ -2,7 +2,10 @@
   <header class="billing-hero panel">
     <div class="billing-hero__row">
       <h2>Facturación</h2>
-      @if (isSuperAdmin()) {
+      @if (canViewTreasury()) {
+        <button type="button" class="btn btn-secondary" (click)="openAccountSettingsModal()">
+          Saldos iniciales Nequi / Banco
+        </button>
         <a routerLink="/panel/reportes" class="btn btn-secondary billing-hero__report">Reporte del día</a>
       }
       <button type="button" class="btn btn-secondary billing-hero__monthly" (click)="openMonthlyModal()">
@@ -19,6 +22,35 @@
 @if (message()) {
   <p class="billing-toast" role="status">{{ message() }}</p>
 }
+
+  @if (canViewTreasury()) {
+    <section class="treasury-setup panel" aria-labelledby="treasury-setup-title">
+      <div class="treasury-setup__head">
+        <div>
+          <h3 id="treasury-setup-title">Cuentas Nequi y Bancolombia</h3>
+          <p class="treasury-setup__lead">
+            Configure aquí los <strong>saldos iniciales globales</strong>. Al abrir la caja del día también puede
+            indicar cuánto hay en cada cuenta ese día; el sistema suma ingresos y resta gastos por medio de pago.
+          </p>
+        </div>
+        <button type="button" class="btn btn-primary" (click)="openAccountSettingsModal()">
+          Configurar saldos iniciales
+        </button>
+      </div>
+      @if (paymentAccountSettings(); as settings) {
+        <dl class="treasury-setup__values">
+          <div>
+            <dt>Nequi (inicial global)</dt>
+            <dd>{{ settings.nequiInitialBalance | cop }}</dd>
+          </div>
+          <div>
+            <dt>Bancolombia (inicial global)</dt>
+            <dd>{{ settings.bancolombiaInitialBalance | cop }}</dd>
+          </div>
+        </dl>
+      }
+    </section>
+  }
 
   <section class="billing-caja panel caja-day-card">
   <header class="caja-day-card__head">
@@ -339,7 +371,7 @@
           }
         </div>
       </article>
-      @if (efectivoEnCaja(); as neto) {
+      @if (canViewTreasury() && efectivoEnCaja(); as neto) {
         <article class="kpi-card kpi-card--net">
           <div class="kpi-card__body">
             <span class="kpi-card__label">Efectivo en caja</span>
@@ -380,11 +412,63 @@
             </ul>
             @if (sessionNonCashIncome(reg) > 0) {
               <span class="kpi-card__sub kpi-card__sub--aside">
-                No incluye cobros digitales (Nequi, etc.): {{ sessionNonCashIncome(reg) | cop }}.
+                Cobros digitales hoy (sin base inicial): {{ sessionNonCashIncome(reg) | cop }}.
               </span>
             }
           </div>
         </article>
+      }
+      @if (canViewTreasury()) {
+        @if (digitalAccount(reg, 'NEQUI'); as nequiAcc) {
+          <article class="kpi-card kpi-card--digital">
+            <div class="kpi-card__body">
+              <span class="kpi-card__label">Saldo {{ nequiAcc.paymentMethodLabel }}</span>
+              <strong class="kpi-card__value">{{ nequiAcc.closingBalance | cop }}</strong>
+              <ul class="kpi-cash-breakdown" [attr.aria-label]="'Movimientos ' + nequiAcc.paymentMethodLabel">
+                <li>
+                  <span>Apertura del día</span>
+                  <strong>{{ nequiAcc.openingBalance | cop }}</strong>
+                </li>
+                <li>
+                  <span>+ Ingresos hoy</span>
+                  <strong>+ {{ nequiAcc.incomeTotal | cop }}</strong>
+                </li>
+                @if (nequiAcc.expenseTotal > 0) {
+                  <li>
+                    <span>− Gastos hoy</span>
+                    <strong>− {{ nequiAcc.expenseTotal | cop }}</strong>
+                  </li>
+                }
+              </ul>
+              <span class="kpi-card__sub">Acumulado total: {{ nequiAcc.cumulativeBalance | cop }}</span>
+            </div>
+          </article>
+        }
+        @if (digitalAccount(reg, 'BANCOLOMBIA'); as bancoAcc) {
+          <article class="kpi-card kpi-card--digital">
+            <div class="kpi-card__body">
+              <span class="kpi-card__label">Saldo {{ bancoAcc.paymentMethodLabel }}</span>
+              <strong class="kpi-card__value">{{ bancoAcc.closingBalance | cop }}</strong>
+              <ul class="kpi-cash-breakdown" [attr.aria-label]="'Movimientos ' + bancoAcc.paymentMethodLabel">
+                <li>
+                  <span>Apertura del día</span>
+                  <strong>{{ bancoAcc.openingBalance | cop }}</strong>
+                </li>
+                <li>
+                  <span>+ Ingresos hoy</span>
+                  <strong>+ {{ bancoAcc.incomeTotal | cop }}</strong>
+                </li>
+                @if (bancoAcc.expenseTotal > 0) {
+                  <li>
+                    <span>− Gastos hoy</span>
+                    <strong>− {{ bancoAcc.expenseTotal | cop }}</strong>
+                  </li>
+                }
+              </ul>
+              <span class="kpi-card__sub">Acumulado total: {{ bancoAcc.cumulativeBalance | cop }}</span>
+            </div>
+          </article>
+        }
       }
     </div>
       </div>
@@ -1409,6 +1493,65 @@
   }
 }
 
+@if (canViewTreasury() && accountSettingsModalOpen()) {
+  <div class="modal-backdrop" (click)="closeAccountSettingsModal()">
+    <div class="modal-panel modal-panel--open-caja" role="dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">🏦</span>
+          <h3>Saldos iniciales Nequi y Bancolombia</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeAccountSettingsModal()">×</button>
+      </header>
+      <p class="modal-lead">
+        Monto con el que arrancaron las cuentas del gimnasio. Se usa para el saldo acumulado en reportes y como
+        sugerencia al abrir la caja si no indica otro valor.
+      </p>
+      <label class="modal-field modal-field--money">
+        <span>Saldo inicial global Nequi</span>
+        <div class="money-input-wrap">
+          <span class="money-input-prefix">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            class="money-input"
+            [ngModel]="nequiInitialInput()"
+            (ngModelChange)="nequiInitialInput.set(+$event)"
+          />
+        </div>
+      </label>
+      <label class="modal-field modal-field--money">
+        <span>Saldo inicial global Bancolombia</span>
+        <div class="money-input-wrap">
+          <span class="money-input-prefix">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            class="money-input"
+            [ngModel]="bancolombiaInitialInput()"
+            (ngModelChange)="bancolombiaInitialInput.set(+$event)"
+          />
+        </div>
+      </label>
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="savingAccountSettings()"
+          (click)="closeAccountSettingsModal()"
+        >
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="savingAccountSettings()" (click)="saveAccountSettings()">
+          {{ savingAccountSettings() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 @if (openCajaModal()) {
   <div class="modal-backdrop" (click)="closeOpenCajaModal()">
     <div class="modal-panel modal-panel--open-caja" role="dialog" (click)="$event.stopPropagation()">
@@ -1419,6 +1562,16 @@
         </div>
         <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeOpenCajaModal()">×</button>
       </header>
+      @if (canViewTreasury()) {
+        <p class="modal-lead modal-lead--treasury">
+          <strong>Efectivo, Nequi y Bancolombia:</strong> indique cuánto hay al iniciar el día. Los saldos globales de
+          referencia están en
+          <button type="button" class="btn-link" (click)="closeOpenCajaModal(); openAccountSettingsModal()">
+            Configurar saldos iniciales Nequi / Banco
+          </button>
+          .
+        </p>
+      }
       <p class="modal-lead">
         @if (reopeningCaja()) {
           Solo el super administrador puede reabrir la caja cerrada hoy. Se conservan los movimientos ya registrados.
@@ -1440,6 +1593,43 @@
           />
         </div>
       </label>
+      @if (canViewTreasury()) {
+      <label class="modal-field modal-field--money">
+        <span>Saldo inicial Nequi (apertura del día)</span>
+        <div class="money-input-wrap">
+          <span class="money-input-prefix">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            class="money-input"
+            [ngModel]="openingNequiInput()"
+            (ngModelChange)="openingNequiInput.set(+$event)"
+          />
+        </div>
+      </label>
+      <label class="modal-field modal-field--money">
+        <span>Saldo inicial Bancolombia (apertura del día)</span>
+        <div class="money-input-wrap">
+          <span class="money-input-prefix">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            class="money-input"
+            [ngModel]="openingBancolombiaInput()"
+            (ngModelChange)="openingBancolombiaInput.set(+$event)"
+          />
+        </div>
+      </label>
+        <p class="modal-hint">
+          Los saldos globales de referencia se configuran en
+          <button type="button" class="btn-link" (click)="closeOpenCajaModal(); openAccountSettingsModal()">
+            Saldos iniciales Nequi / Banco
+          </button>
+          .
+        </p>
+      }
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" [disabled]="openingCaja()" (click)="closeOpenCajaModal()">
           Cancelar

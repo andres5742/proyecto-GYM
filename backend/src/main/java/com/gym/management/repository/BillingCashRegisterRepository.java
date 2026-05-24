@@ -36,4 +36,8 @@ public interface BillingCashRegisterRepository extends JpaRepository<BillingCash
             WHERE r.registerDate BETWEEN :start AND :end
             """)
     long countByRegisterDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @EntityGraph(attributePaths = "openedBy")
+    Optional<BillingCashRegister> findFirstByRegisterDateBetweenOrderByRegisterDateAsc(
+            LocalDate start, LocalDate end);
 }

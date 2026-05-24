@@ -25,6 +25,7 @@ import {
   MembershipPaymentOutcome,
   MembershipPaymentRequest,
   OpenBillingCashRegisterRequest,
+  PaymentAccountSettings,
 } from '../models/billing.model';
 
 @Injectable({ providedIn: 'root' })
@@ -167,6 +168,19 @@ export class BillingService {
   ): Observable<BillingCashRegisterOtherIncome> {
     return this.http.post<BillingCashRegisterOtherIncome>(
       `${this.baseUrl}/cash-registers/other-incomes`,
+      request,
+    );
+  }
+
+  getPaymentAccountSettings(): Observable<PaymentAccountSettings> {
+    return this.http.get<PaymentAccountSettings>(`${this.baseUrl}/payment-account-settings`);
+  }
+
+  updatePaymentAccountSettings(
+    request: PaymentAccountSettings,
+  ): Observable<PaymentAccountSettings> {
+    return this.http.put<PaymentAccountSettings>(
+      `${this.baseUrl}/payment-account-settings`,
       request,
     );
   }

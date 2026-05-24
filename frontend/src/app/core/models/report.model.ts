@@ -52,6 +52,16 @@ export interface BusinessReportBreakdown {
   productSalesByPayment: ProductSaleByPaymentLine[];
 }
 
+export interface DigitalAccountBalanceLine {
+  paymentMethod: PaymentMethod;
+  paymentMethodLabel: string;
+  openingBalance: number;
+  incomeTotal: number;
+  expenseTotal: number;
+  closingBalance: number;
+  cumulativeBalance: number;
+}
+
 export interface BusinessReportCore {
   billingPaymentCount: number;
   billingIncomeTotal: number;
@@ -67,6 +77,7 @@ export interface BusinessReportCore {
   netResult: number;
   inventory: ProductInventoryReportLine[];
   breakdown: BusinessReportBreakdown;
+  digitalAccounts: DigitalAccountBalanceLine[];
 }
 
 export interface DailyBusinessReport extends BusinessReportCore {

@@ -27,4 +27,5 @@ public record MonthlyBusinessReportResponse(
         Map<PaymentMethod, BigDecimal> totalIncomeByMethod,
         @JsonSerialize(using = PesosJsonSerializer.class) BigDecimal netResult,
         List<ProductInventoryReportLine> inventory,
-        BusinessReportBreakdown breakdown) {}
+        BusinessReportBreakdown breakdown,
+        List<DigitalAccountBalanceLine> digitalAccounts) {}

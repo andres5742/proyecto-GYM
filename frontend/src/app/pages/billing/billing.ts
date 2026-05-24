@@ -11,6 +11,7 @@ import {
   BillingCashRegister,
   BillingCashRegisterExpense,
   BillingCashRegisterOtherIncome,
+  PaymentAccountSettings,
   BillingPayment,
   BillingDailySummary,
   BillingMonthlySummary,
@@ -161,6 +162,8 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly section = signal<'membership' | 'summary'>('summary');
   protected readonly tablePageSizes = [10, 20, 30] as const;
   protected readonly isSuperAdmin = () => this.auth.isSuperAdmin();
+  /** Administración y super admin: saldos efectivo total, Nequi y Bancolombia. */
+  protected readonly canViewTreasury = () => this.auth.isAdmin();
   protected readonly deletingPaymentId = signal<number | null>(null);
 
   protected readonly openCajaModal = signal(false);
@@ -179,6 +182,13 @@ export class BillingPage implements OnInit, OnDestroy {
   protected readonly expensesDayModalOpen = signal(false);
   protected readonly otherIncomesDayModalOpen = signal(false);
   protected readonly openingCashInput = signal(0);
+  protected readonly openingNequiInput = signal(0);
+  protected readonly openingBancolombiaInput = signal(0);
+  protected readonly accountSettingsModalOpen = signal(false);
+  protected readonly savingAccountSettings = signal(false);
+  protected readonly nequiInitialInput = signal(0);
+  protected readonly bancolombiaInitialInput = signal(0);
+  protected readonly paymentAccountSettings = signal<PaymentAccountSettings | null>(null);
   protected readonly dayExpenses = signal<BillingCashRegisterExpense[]>([]);
   protected readonly dayOtherIncomes = signal<BillingCashRegisterOtherIncome[]>([]);
   protected readonly savingExpense = signal(false);
@@ -598,6 +608,9 @@ export class BillingPage implements OnInit, OnDestroy {
   }
 
   protected readonly efectivoEnCaja = computed(() => {
+    if (!this.canViewTreasury()) {
+      return null;
+    }
     const reg = this.activeRegister();
     if (!reg) {
       return null;
@@ -644,6 +657,7 @@ export class BillingPage implements OnInit, OnDestroy {
     });
     this.refreshCashRegister();
     this.loadToday();
+    this.loadPaymentAccountSettings();
 
     const ctxMember = this.billingContext.memberId();
     if (ctxMember != null) {
@@ -716,7 +730,80 @@ export class BillingPage implements OnInit, OnDestroy {
     const closed = this.closedRegisterToday();
     this.reopeningCaja.set(closed != null);
     this.openingCashInput.set(closed?.openingCashAmount ?? 0);
+    this.openingNequiInput.set(closed?.openingNequiAmount ?? 0);
+    this.openingBancolombiaInput.set(closed?.openingBancolombiaAmount ?? 0);
+    if (!closed && this.canViewTreasury()) {
+      this.billingService.getPaymentAccountSettings().subscribe({
+        next: (s) => {
+          if ((this.openingNequiInput() ?? 0) <= 0) {
+            this.openingNequiInput.set(s.nequiInitialBalance ?? 0);
+          }
+          if ((this.openingBancolombiaInput() ?? 0) <= 0) {
+            this.openingBancolombiaInput.set(s.bancolombiaInitialBalance ?? 0);
+          }
+        },
+      });
+    }
     this.openCajaModal.set(true);
+  }
+
+  loadPaymentAccountSettings(): void {
+    if (!this.canViewTreasury()) {
+      return;
+    }
+    this.billingService.getPaymentAccountSettings().subscribe({
+      next: (s) => this.paymentAccountSettings.set(s),
+      error: () => this.paymentAccountSettings.set(null),
+    });
+  }
+
+  openAccountSettingsModal(): void {
+    this.billingService.getPaymentAccountSettings().subscribe({
+      next: (s) => {
+        this.nequiInitialInput.set(s.nequiInitialBalance ?? 0);
+        this.bancolombiaInitialInput.set(s.bancolombiaInitialBalance ?? 0);
+        this.paymentAccountSettings.set(s);
+        this.accountSettingsModalOpen.set(true);
+      },
+      error: (err) => this.message.set(httpErrorMessage(err)),
+    });
+  }
+
+  closeAccountSettingsModal(): void {
+    if (!this.savingAccountSettings()) {
+      this.accountSettingsModalOpen.set(false);
+    }
+  }
+
+  saveAccountSettings(): void {
+    const nequi = this.nequiInitialInput();
+    const bancolombia = this.bancolombiaInitialInput();
+    if (nequi < 0 || bancolombia < 0) {
+      this.message.set('Los saldos iniciales no pueden ser negativos');
+      return;
+    }
+    this.savingAccountSettings.set(true);
+    this.billingService
+      .updatePaymentAccountSettings({
+        nequiInitialBalance: nequi,
+        bancolombiaInitialBalance: bancolombia,
+      })
+      .subscribe({
+        next: () => {
+          this.message.set('Saldos iniciales de Nequi y Bancolombia guardados');
+          this.savingAccountSettings.set(false);
+          this.accountSettingsModalOpen.set(false);
+          this.loadPaymentAccountSettings();
+        },
+        error: (err) => {
+          this.message.set(httpErrorMessage(err));
+          this.savingAccountSettings.set(false);
+        },
+      });
+  }
+
+  digitalAccount(reg: BillingCashRegister, method: 'NEQUI' | 'BANCOLOMBIA') {
+    return reg.digitalAccounts?.find((a) => a.paymentMethod === method) ?? null;
   }
 
   closeOpenCajaModal(): void {
@@ -834,12 +921,20 @@ export class BillingPage implements OnInit, OnDestroy {
 
   confirmOpenCaja(): void {
     const amount = this.openingCashInput();
-    if (amount < 0) {
-      this.message.set('El efectivo inicial no puede ser negativo');
+    const nequi = this.openingNequiInput();
+    const bancolombia = this.openingBancolombiaInput();
+    if (amount < 0 || nequi < 0 || bancolombia < 0) {
+      this.message.set('Los saldos iniciales no pueden ser negativos');
       return;
     }
     this.openingCaja.set(true);
-    this.billingService.openCashRegister({ openingCashAmount: amount }).subscribe({
+    this.billingService
+      .openCashRegister({
+        openingCashAmount: amount,
+        openingNequiAmount: this.canViewTreasury() ? nequi : 0,
+        openingBancolombiaAmount: this.canViewTreasury() ? bancolombia : 0,
+      })
+      .subscribe({
       next: (reg) => {
         this.message.set(this.reopeningCaja() ? 'Caja reabierta' : 'Caja del día abierta');
         this.openingCaja.set(false);

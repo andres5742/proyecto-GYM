@@ -45,6 +45,14 @@ public class BillingCashRegister {
     @Column(name = "opening_cash_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal openingCashAmount;
 
+    @Column(name = "opening_nequi_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal openingNequiAmount = BigDecimal.ZERO;
+
+    @Column(name = "opening_bancolombia_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal openingBancolombiaAmount = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private LocalDateTime openedAt;
 

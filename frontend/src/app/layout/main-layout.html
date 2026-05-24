@@ -125,6 +125,11 @@
         </a>
       }
 
+      @if (auth.isAdmin()) {
+        <a routerLink="/panel/reportes" routerLinkActive="active">
+          <span class="nav-icon">📊</span> Reportes
+        </a>
+      }
       @if (auth.isSuperAdmin()) {
         <span class="nav-group-label">Sistema</span>
         <a routerLink="/panel/modulos" routerLinkActive="active">
@@ -132,9 +137,6 @@
         </a>
         <a routerLink="/panel/limpieza-datos" routerLinkActive="active">
           <span class="nav-icon">🗑️</span> Limpieza de datos
-        </a>
-        <a routerLink="/panel/reportes" routerLinkActive="active">
-          <span class="nav-icon">📊</span> Reportes
         </a>
       }
     </nav>

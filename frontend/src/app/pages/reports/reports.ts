@@ -224,6 +224,18 @@ export class ReportsPage implements OnInit {
     for (const bar of this.incomeBars()) {
       lines.push(`${bar.label},${bar.amount}`);
     }
+    if (r.digitalAccounts?.length) {
+      lines.push(
+        '',
+        'Cuentas digitales',
+        'Cuenta,Apertura,Ingresos,Gastos,Saldo cierre,Acumulado',
+      );
+      for (const acc of r.digitalAccounts) {
+        lines.push(
+          `${acc.paymentMethodLabel},${acc.openingBalance},${acc.incomeTotal},${acc.expenseTotal},${acc.closingBalance},${acc.cumulativeBalance}`,
+        );
+      }
+    }
     const b = r.breakdown;
     lines.push(
       '',

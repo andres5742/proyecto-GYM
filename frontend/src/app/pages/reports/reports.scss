@@ -277,6 +277,66 @@
   border-color: var(--color-trust-border);
 }
 
+.report-card--digital {
+  border-left: 4px solid var(--color-trust);
+}
+
+.digital-accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.digital-account-card {
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+
+  h3 {
+    margin: 0 0 0.65rem;
+    font-size: 1rem;
+  }
+
+  &__rows {
+    margin: 0;
+    font-size: 0.85rem;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.2rem 0;
+    }
+
+    dt {
+      margin: 0;
+      font-weight: 500;
+      color: var(--color-text-muted);
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+
+      &.pos {
+        color: var(--color-success);
+      }
+
+      &.neg {
+        color: var(--color-danger);
+      }
+    }
+  }
+
+  &__total {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
 .report-card--expense {
   border-left: 4px solid var(--color-danger);
 }

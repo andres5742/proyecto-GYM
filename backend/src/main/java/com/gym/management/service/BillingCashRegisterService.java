@@ -36,6 +36,7 @@ import com.gym.management.repository.SaleRepository;
 import com.gym.management.repository.WorkShiftRepository;
 import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.MoneyUtil;
+import com.gym.management.util.TreasuryAccess;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -69,6 +70,7 @@ public class BillingCashRegisterService {
     private final EmployeeService employeeService;
     private final CashShortfallService cashShortfallService;
     private final EmployeeCashShortfallRepository shortfallRepository;
+    private final PaymentAccountBalanceService paymentAccountBalanceService;
 
     @Lazy
     @Autowired
@@ -152,14 +154,22 @@ public class BillingCashRegisterService {
                     "La caja de hoy ya fue cerrada. Solo el super administrador puede volver a abrirla el mismo día.");
         }
         Employee opener = resolveCurrentEmployee();
+        BigDecimal openingNequi = TreasuryAccess.canViewTreasuryBalances()
+                ? MoneyUtil.roundPesos(request.openingNequiAmount())
+                : BigDecimal.ZERO;
+        BigDecimal openingBancolombia = TreasuryAccess.canViewTreasuryBalances()
+                ? MoneyUtil.roundPesos(request.openingBancolombiaAmount())
+                : BigDecimal.ZERO;
         BillingCashRegister register = BillingCashRegister.builder()
                 .registerDate(today)
                 .openedBy(opener)
                 .openingCashAmount(request.openingCashAmount())
+                .openingNequiAmount(openingNequi)
+                .openingBancolombiaAmount(openingBancolombia)
                 .openedAt(LocalDateTime.now(GYM_ZONE))
                 .status(ShiftStatus.OPEN)
                 .build();
-        return BillingCashRegisterMapper.toResponse(
+        return TreasuryAccess.maskRegisterResponse(BillingCashRegisterMapper.toResponse(
                 cashRegisterRepository.save(register),
                 BigDecimal.ZERO,
                 BillingPaymentMethodTotals.emptyBillableMap(),
@@ -183,7 +193,8 @@ public class BillingCashRegisterService {
                 0L,
                 BillingPaymentMethodTotals.emptyBillableMap(),
                 BigDecimal.ZERO,
-                request.openingCashAmount());
+                request.openingCashAmount(),
+                List.of()));
     }
 
     @Transactional(readOnly = true)
@@ -244,11 +255,11 @@ public class BillingCashRegisterService {
         }
         BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register, true));
         BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
-        return new BillingCashRegisterClosePreviewResponse(
+        return TreasuryAccess.maskClosePreview(new BillingCashRegisterClosePreviewResponse(
                 cashInDrawer,
                 fiadoCash,
                 cashInDrawer,
-                shiftInventoryService.listActiveProductLines());
+                shiftInventoryService.listActiveProductLines()));
     }
 
     @Transactional
@@ -305,6 +316,10 @@ public class BillingCashRegisterService {
         register.setStatus(ShiftStatus.OPEN);
         register.setClosedAt(null);
         register.setOpeningCashAmount(request.openingCashAmount());
+        if (TreasuryAccess.canViewTreasuryBalances()) {
+            register.setOpeningNequiAmount(MoneyUtil.roundPesos(request.openingNequiAmount()));
+            register.setOpeningBancolombiaAmount(MoneyUtil.roundPesos(request.openingBancolombiaAmount()));
+        }
         return toResponseWithTotals(cashRegisterRepository.save(register));
     }
 
@@ -429,6 +444,14 @@ public class BillingCashRegisterService {
     }
 
     private BillingCashRegisterResponse toResponseWithTotals(BillingCashRegister register) {
+        return maskTreasury(buildRegisterResponseWithTotals(register));
+    }
+
+    private BillingCashRegisterResponse maskTreasury(BillingCashRegisterResponse response) {
+        return TreasuryAccess.maskRegisterResponse(response);
+    }
+
+    private BillingCashRegisterResponse buildRegisterResponseWithTotals(BillingCashRegister register) {
         Long id = register.getId();
         Map<PaymentMethod, BigDecimal> incomeByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
@@ -455,6 +478,8 @@ public class BillingCashRegisterService {
                 incomeByMethod, fiadoTotals.byMethod(), productSalesByMethod, otherIncomesByMethod);
         BigDecimal dayIncomeTotal = BillingPaymentMethodTotals.sum(dayIncomeByMethod);
         BigDecimal cashInDrawer = computeCashInDrawer(register, true);
+        List<com.gym.management.dto.DigitalAccountBalanceLine> digitalAccounts =
+                paymentAccountBalanceService.computeForOpenRegister(register);
         return BillingCashRegisterMapper.toResponse(
                 register,
                 total,
@@ -479,7 +504,8 @@ public class BillingCashRegisterService {
                 otherIncomeCount,
                 dayIncomeByMethod,
                 dayIncomeTotal,
-                cashInDrawer);
+                cashInDrawer,
+                digitalAccounts);
     }
 
     private FiadoDayTotals loadFiadoTotalsForDate(LocalDate date) {
