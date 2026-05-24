@@ -47,8 +47,8 @@ set TURNSTILE_GATE_MODE=serial
 set TURNSTILE_GATE_PROTOCOL=atp-acceso
 set TURNSTILE_GATE_PORT=COM3
 set TURNSTILE_GATE_BAUD=19200
-set TURNSTILE_LOCK_CHARS=d
-set TURNSTILE_RELOCK_CHARS=d
+set TURNSTILE_LOCK_CHARS=g
+set TURNSTILE_RELOCK_CHARS=g
 set TURNSTILE_UNLOCK_CHAR=a
 set TURNSTILE_UNLOCK_FOLLOW_CHAR=
 set TURNSTILE_UNLOCK_MS=3500
@@ -64,7 +64,7 @@ if defined TURNSTILE_UNLOCK_FOLLOW_CHAR (
 )
 echo API: %GYM_ACCESS_API%
 echo.
-echo Bloqueo inicial del torniquete (d)...
+echo Bloqueo inicial del torniquete (g)...
 python turnstile_gate.py startup
 echo.
 echo Al iniciar debe verse: SEGURO: PONER seguro ...

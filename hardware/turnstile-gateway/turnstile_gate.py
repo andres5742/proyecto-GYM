@@ -94,7 +94,7 @@ def _parse_lock_bytes() -> list[bytes]:
     single = os.environ.get("TURNSTILE_LOCK_CHAR", "").strip()
     if single:
         return [single.encode("ascii")[:1]]
-    return [ch.encode("ascii")[:1] for ch in "d"]
+    return [ch.encode("ascii")[:1] for ch in "g"]
 
 
 def _parse_relock_bytes() -> list[bytes]:
@@ -105,7 +105,7 @@ def _parse_relock_bytes() -> list[bytes]:
     single = os.environ.get("TURNSTILE_RELOCK_CHAR", "").strip()
     if single:
         return [single.encode("ascii")[:1]]
-    return [ch.encode("ascii")[:1] for ch in "d"]
+    return [ch.encode("ascii")[:1] for ch in "g"]
 
 
 def _read_config() -> None:
@@ -243,7 +243,7 @@ def _apply_lock_payloads() -> bool:
         return False
     payloads = LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_LOCK_CHARS=d y TURNSTILE_UNLOCK_CHAR=a")
+        _log("Configure TURNSTILE_LOCK_CHARS=g y TURNSTILE_UNLOCK_CHAR=a")
         return False
     ok = True
     for index, payload in enumerate(payloads):
@@ -260,7 +260,7 @@ def _apply_relock_payloads() -> bool:
         return False
     payloads = RELOCK_BYTES_LIST or LOCK_BYTES_LIST or ([LOCK_BYTES] if LOCK_BYTES else [])
     if not payloads:
-        _log("Configure TURNSTILE_RELOCK_CHARS=d (o TURNSTILE_LOCK_CHARS=d)")
+        _log("Configure TURNSTILE_RELOCK_CHARS=g (o TURNSTILE_LOCK_CHARS=g)")
         return False
     ok = True
     for index, payload in enumerate(payloads):
