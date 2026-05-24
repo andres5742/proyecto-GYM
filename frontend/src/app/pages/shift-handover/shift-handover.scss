@@ -212,6 +212,21 @@
     }
   }
 
+  &__surplus-resolved {
+    margin: 0.5rem 0 0;
+    padding: 0.4rem 0.5rem;
+    border-radius: 4px;
+    background: #dbeafe;
+    color: #1e40af;
+    font-size: 0.8rem;
+  }
+
+  &__sub {
+    margin-left: 0.5rem;
+    font-size: 0.78rem;
+    opacity: 0.95;
+  }
+
   &__total {
     margin-top: 0.35rem;
     padding-top: 0.35rem;

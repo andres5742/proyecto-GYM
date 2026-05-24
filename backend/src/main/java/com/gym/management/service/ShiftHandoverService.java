@@ -1,5 +1,6 @@
 package com.gym.management.service;
 
+import com.gym.management.dto.BillingHandoverCashBreakdown;
 import com.gym.management.dto.ShiftDetailResponse;
 import com.gym.management.dto.ShiftHandoverComparisonResponse;
 import com.gym.management.dto.ShiftHandoverExpenseRequest;
@@ -24,10 +25,12 @@ import com.gym.management.repository.WorkShiftRepository;
 import com.gym.management.security.AuthenticatedUser;
 import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.CashCountUtil;
+import com.gym.management.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,9 +48,12 @@ public class ShiftHandoverService {
     private final CashShortfallService cashShortfallService;
     private final EmployeeCashShortfallRepository shortfallRepository;
     private final ProductCreditService productCreditService;
+    private final InventorySurplusResolutionService inventorySurplusResolutionService;
 
     private record ExpectedCashTotals(
             BigDecimal billingCashInDrawer,
+            BigDecimal billingCashBase,
+            BigDecimal billingOtherIncomesCash,
             BigDecimal previousShiftSalesCash,
             BigDecimal previousShiftShortfallsDeducted,
             BigDecimal previousShiftCreditPaymentsCash,
@@ -70,7 +76,7 @@ public class ShiftHandoverService {
             }
         }
         return list.stream()
-                .map(h -> toSummaryResponse(h, java.util.Optional.empty()))
+                .map(h -> toSummaryResponse(h, java.util.Optional.empty(), Optional.empty()))
                 .toList();
     }
 
@@ -146,10 +152,16 @@ public class ShiftHandoverService {
         ShiftDetailResponse detail = saleService.getShiftDetail(shift.getId());
         ExpectedCashTotals expected = computeExpectedCash(shift.getId(), detail.summary());
         BigDecimal declared = CashCountUtil.totalCash(saved);
+        Optional<String> surplusNote = Optional.empty();
+        if (declared.compareTo(expected.total()) > 0) {
+            BigDecimal surplus = MoneyUtil.roundPesos(declared.subtract(expected.total()));
+            surplusNote = inventorySurplusResolutionService.tryResolveHandoverSurplus(
+                    saved.getEmployee(), shift.getShiftDate(), surplus, saved.getEmployee());
+        }
         java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall =
                 cashShortfallService.registerFromHandover(saved, expected.total(), declared);
 
-        return toSummaryResponse(saved, shortfall);
+        return toSummaryResponse(saved, shortfall, surplusNote);
     }
 
     private void applyExpenses(ShiftHandover handover, List<ShiftHandoverExpenseRequest> expenses) {
@@ -194,7 +206,9 @@ public class ShiftHandoverService {
     }
 
     private ShiftHandoverResponse toSummaryResponse(
-            ShiftHandover handover, java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall) {
+            ShiftHandover handover,
+            java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall,
+            Optional<String> surplusResolutionNote) {
         BigDecimal expensesTotal = sumExpenses(handover);
         BigDecimal priorTotal = sumPriorPayments(handover);
         ShiftDetailResponse detail = saleService.getShiftDetail(handover.getWorkShift().getId());
@@ -216,6 +230,8 @@ public class ShiftHandoverService {
                 priorTotal,
                 detail,
                 expected.billingCashInDrawer(),
+                expected.billingCashBase(),
+                expected.billingOtherIncomesCash(),
                 expected.previousShiftSalesCash(),
                 expected.previousShiftShortfallsDeducted(),
                 expected.previousShiftName(),
@@ -225,12 +241,14 @@ public class ShiftHandoverService {
                 expected.total(),
                 buildComparisons(handover, detail.summary(), expected),
                 registeredShortfall,
-                shortfallId);
+                shortfallId,
+                surplusResolutionNote.isPresent(),
+                surplusResolutionNote.orElse(null));
     }
 
     private ShiftHandoverResponse toFullResponse(ShiftHandover handover) {
         ShiftHandover loaded = getHandoverWithDetails(handover.getId());
-        return toSummaryResponse(loaded, java.util.Optional.empty());
+        return toSummaryResponse(loaded, java.util.Optional.empty(), Optional.empty());
     }
 
     private ShiftHandoverResponse buildPreviewResponse(WorkShift shift) {
@@ -247,6 +265,8 @@ public class ShiftHandoverService {
                 BigDecimal.ZERO,
                 detail,
                 expected.billingCashInDrawer(),
+                expected.billingCashBase(),
+                expected.billingOtherIncomesCash(),
                 expected.previousShiftSalesCash(),
                 expected.previousShiftShortfallsDeducted(),
                 expected.previousShiftName(),
@@ -256,11 +276,14 @@ public class ShiftHandoverService {
                 expected.total(),
                 buildComparisons(empty, detail.summary(), expected),
                 null,
+                null,
+                false,
                 null);
     }
 
     private ExpectedCashTotals computeExpectedCash(Long handoverShiftId, SalesSummaryResponse sales) {
-        BigDecimal billing = billingCashRegisterService.billingCashExpectedForHandover();
+        BillingHandoverCashBreakdown billingBreakdown = billingCashRegisterService.billingHandoverCashBreakdown();
+        BigDecimal billing = billingBreakdown.total();
         BigDecimal handoverShiftCash =
                 sales.amountByPaymentMethod().getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal creditCash = productCreditService.sumCashPaymentsForShift(handoverShiftId);
@@ -272,6 +295,8 @@ public class ShiftHandoverService {
                 .add(creditCash);
         return new ExpectedCashTotals(
                 billing,
+                billingBreakdown.cashBase(),
+                billingBreakdown.otherIncomesCash(),
                 previous.netSalesCash(),
                 previous.shortfallsDeducted(),
                 previous.creditPaymentsCash(),

@@ -2,6 +2,9 @@
   <header class="billing-hero panel">
     <div class="billing-hero__row">
       <h2>Facturación</h2>
+      @if (isSuperAdmin()) {
+        <a routerLink="/panel/reportes" class="btn btn-secondary billing-hero__report">Reporte del día</a>
+      }
       <button type="button" class="btn btn-secondary billing-hero__monthly" (click)="openMonthlyModal()">
         Ingresos por mes
       </button>
@@ -32,6 +35,12 @@
       </div>
     </div>
     <div class="caja-day-card__actions">
+      <button type="button" class="btn btn-secondary" (click)="openOtherIncomesDayModal()">
+        Otros ingresos
+        @if (dayOtherIncomes().length > 0) {
+          <span class="btn-count">({{ dayOtherIncomes().length }})</span>
+        }
+      </button>
       <button type="button" class="btn btn-secondary" (click)="openExpensesDayModal()">
         Gastos del día
         @if (dayExpenses().length > 0) {
@@ -85,6 +94,106 @@
   }
 
   @if (activeRegister(); as reg) {
+    <section class="day-income-summary" aria-label="Total ingresado en el día">
+      <div class="day-income-summary__head">
+        <div>
+          <h4 class="day-income-summary__title">Ingresado en el día</h4>
+          <p class="day-income-summary__hint">
+            Total cobrado hoy (facturación, productos, fiado y otros ingresos). No incluye el efectivo
+            inicial de la caja.
+          </p>
+        </div>
+        <strong class="day-income-summary__total">{{ dayIncomeTotal(reg) | cop }}</strong>
+      </div>
+      <div class="day-income-summary__methods">
+        @for (pm of incomeSummaryMethods; track pm.value) {
+          <article class="day-income-summary__item">
+            <span class="day-income-summary__item-label">{{ pm.label }}</span>
+            <strong class="day-income-summary__item-value" [class]="methodChipClass(pm.value)">
+              {{ dayIncomeByMethodAmount(reg, pm.value) | cop }}
+            </strong>
+          </article>
+        }
+      </div>
+    </section>
+    @if (hasDayOtherIncomes()) {
+      <section class="day-other-incomes-summary" aria-label="Otros ingresos del día">
+        <div class="day-other-incomes-summary__head">
+          <div>
+            <h4 class="day-other-incomes-summary__title">Otros ingresos del día</h4>
+            <p class="day-other-incomes-summary__hint">
+              Entradas adicionales (no facturación ni ventas de productos). Suman al total «Ingresado».
+            </p>
+          </div>
+          <strong class="day-other-incomes-summary__total">{{ dayOtherIncomesDisplayTotal(reg) | cop }}</strong>
+        </div>
+        <div class="day-other-incomes-summary__methods">
+          @for (pm of incomeSummaryMethods; track pm.value) {
+            @if (hasMethodAmount(reg.dayOtherIncomesByMethod, pm.value)) {
+              <article class="day-other-incomes-summary__item">
+                <span class="day-other-incomes-summary__item-label">{{ pm.label }}</span>
+                <strong class="day-other-incomes-summary__item-value">
+                  {{ methodTotal(reg.dayOtherIncomesByMethod, pm.value) | cop }}
+                </strong>
+              </article>
+            }
+          }
+        </div>
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm day-other-incomes-summary__btn"
+          (click)="openOtherIncomesDayModal()"
+        >
+          Ver y registrar otros ingresos
+          @if (dayOtherIncomes().length > 0) {
+            <span class="btn-count">({{ dayOtherIncomes().length }})</span>
+          }
+        </button>
+      </section>
+    }
+    @if (hasDayExpenses()) {
+      <section class="day-expenses-summary" aria-label="Gastos del día">
+        <div class="day-expenses-summary__head">
+          <div>
+            <h4 class="day-expenses-summary__title">Gastos del día</h4>
+            <p class="day-expenses-summary__hint">
+              Salidas de dinero registradas hoy. No se restan del total «Ingresado»; sí afectan el efectivo en
+              caja.
+            </p>
+          </div>
+          <strong class="day-expenses-summary__total">{{ dayExpensesDisplayTotal(reg) | cop }}</strong>
+        </div>
+        <div class="day-expenses-summary__methods">
+          @for (pm of incomeSummaryMethods; track pm.value) {
+            @if (hasMethodAmount(reg.sessionExpensesByMethod, pm.value)) {
+              <article class="day-expenses-summary__item">
+                <span class="day-expenses-summary__item-label">{{ pm.label }}</span>
+                <strong class="day-expenses-summary__item-value day-expenses-summary__item-value--expense">
+                  {{ methodTotal(reg.sessionExpensesByMethod, pm.value) | cop }}
+                </strong>
+              </article>
+            }
+          }
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm day-expenses-summary__btn" (click)="openExpensesDayModal()">
+          Ver y registrar gastos
+          @if (dayExpenses().length > 0) {
+            <span class="btn-count">({{ dayExpenses().length }})</span>
+          }
+        </button>
+      </section>
+    }
+    <details class="caja-details" [open]="hasDayExpenses() || hasDayOtherIncomes() || null">
+      <summary class="caja-details__summary">
+        Detalles de caja
+        @if (hasDayOtherIncomes()) {
+          <span class="caja-details__badge caja-details__badge--income">Otros ingresos</span>
+        }
+        @if (hasDayExpenses()) {
+          <span class="caja-details__badge">Incluye gastos</span>
+        }
+      </summary>
+      <div class="caja-details__body">
     <div class="kpi-grid">
       <article class="kpi-card kpi-card--cash">
         <div class="kpi-card__body">
@@ -111,6 +220,11 @@
               <span [class]="methodChipClass(pm.value)">Fiado {{ pm.label }} {{ methodTotal(reg.dayFiadoCollectedByMethod, pm.value) | cop }}</span>
             }
           }
+          @for (pm of paymentMethods; track pm.value) {
+            @if (hasMethodAmount(reg.dayOtherIncomesByMethod, pm.value)) {
+              <span [class]="methodChipClass(pm.value)">Otros {{ pm.label }} {{ methodTotal(reg.dayOtherIncomesByMethod, pm.value) | cop }}</span>
+            }
+          }
         </div>
       </article>
       <article class="kpi-card kpi-card--expense kpi-card--clickable" role="button" tabindex="0" (click)="openExpensesDayModal()" (keydown.enter)="openExpensesDayModal()">
@@ -127,6 +241,32 @@
           }
         </div>
       </article>
+      @if (hasDayOtherIncomes()) {
+        <article
+          class="kpi-card kpi-card--other-income kpi-card--clickable"
+          role="button"
+          tabindex="0"
+          (click)="openOtherIncomesDayModal()"
+          (keydown.enter)="openOtherIncomesDayModal()"
+        >
+          <div class="kpi-card__body">
+            <span class="kpi-card__label">Otros ingresos</span>
+            <strong class="kpi-card__value">{{ dayOtherIncomesDisplayTotal(reg) | cop }}</strong>
+            <span class="kpi-card__sub"
+              >{{ reg.dayOtherIncomeCount ?? dayOtherIncomes().length }}
+              {{ (reg.dayOtherIncomeCount ?? dayOtherIncomes().length) === 1 ? 'registro' : 'registros' }}
+              · ver detalle</span
+            >
+          </div>
+          <div class="method-chips method-chips--kpi">
+            @for (pm of paymentMethods; track pm.value) {
+              @if (hasMethodAmount(reg.dayOtherIncomesByMethod, pm.value)) {
+                <span [class]="methodChipClass(pm.value)">{{ pm.label }} {{ methodTotal(reg.dayOtherIncomesByMethod, pm.value) | cop }}</span>
+              }
+            }
+          </div>
+        </article>
+      }
       @if ((reg.dayFiadoCollectedTotal ?? 0) > 0) {
         <article class="kpi-card kpi-card--fiado">
           <div class="kpi-card__body">
@@ -225,6 +365,12 @@
                   <strong>+ {{ fiadoCashCollected(reg) | cop }}</strong>
                 </li>
               }
+              @if (otherIncomeCashCollected(reg) > 0) {
+                <li>
+                  <span>Otros ingresos (efectivo)</span>
+                  <strong>+ {{ otherIncomeCashCollected(reg) | cop }}</strong>
+                </li>
+              }
               @if (closeRegisterCashExpenses(reg) > 0) {
                 <li>
                   <span>Gastos (efectivo)</span>
@@ -241,6 +387,8 @@
         </article>
       }
     </div>
+      </div>
+    </details>
   }
 
   </section>
@@ -1095,6 +1243,12 @@
                   <dd>+ {{ preview.fiadoCashCollected | cop }}</dd>
                 </div>
               }
+              @if (otherIncomeCashCollected(reg) > 0) {
+                <div class="close-caja-breakdown__row">
+                  <dt>Otros ingresos (efectivo)</dt>
+                  <dd>+ {{ otherIncomeCashCollected(reg) | cop }}</dd>
+                </div>
+              }
               <div class="close-caja-breakdown__row close-caja-breakdown__row--sub">
                 <dt>Efectivo en caja (sistema)</dt>
                 <dd>{{ preview.cashInDrawer | cop }}</dd>
@@ -1414,6 +1568,136 @@
 
       <div class="modal-actions modal-actions--footer">
         <button type="button" class="btn btn-secondary" [disabled]="savingExpense()" (click)="closeExpensesDayModal()">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (otherIncomesDayModalOpen()) {
+  <div class="modal-backdrop" (click)="closeOtherIncomesDayModal()">
+    <div class="modal-panel modal-panel--other-incomes-day" role="dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">💵</span>
+          <h3>Otros ingresos del día</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeOtherIncomesDayModal()">×</button>
+      </header>
+      <div class="other-incomes-day-total">
+        <p>
+          Total otros ingresos: <strong>{{ dayOtherIncomesTotal() | cop }}</strong>
+          · {{ dayOtherIncomes().length }} registro{{ dayOtherIncomes().length === 1 ? '' : 's' }}
+        </p>
+        @if (dayOtherIncomes().length > 0) {
+          <div class="method-chips method-chips--other-incomes-modal">
+            @for (pm of paymentMethods; track pm.value) {
+              @if (hasMethodAmount(dayOtherIncomesByMethod(), pm.value)) {
+                <span [class]="methodChipClass(pm.value)">
+                  {{ pm.label }} {{ methodTotal(dayOtherIncomesByMethod(), pm.value) | cop }}
+                </span>
+              }
+            }
+          </div>
+        }
+      </div>
+
+      <div class="other-incomes-day-list">
+        @if (dayOtherIncomes().length === 0) {
+          <div class="empty-state empty-state--compact">
+            <p>Sin otros ingresos registrados hoy.</p>
+          </div>
+        } @else {
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th class="col-amount">Valor</th>
+                  <th>Medio</th>
+                  <th>Concepto</th>
+                  <th>Registrado por</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (inc of dayOtherIncomes(); track inc.id) {
+                  <tr>
+                    <td class="col-time">{{ inc.createdAt | date: 'HH:mm' }}</td>
+                    <td class="col-amount">{{ inc.amount | cop }}</td>
+                    <td class="col-method">{{ inc.paymentMethodLabel }}</td>
+                    <td>{{ inc.observation }}</td>
+                    <td class="col-user">{{ inc.recordedByEmployeeName }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <section class="other-incomes-day-form">
+        <h4>Registrar otro ingreso</h4>
+        @if (!canBill()) {
+          <p class="inline-alert inline-alert--warn">
+            Abra la caja del día para registrar otros ingresos.
+          </p>
+        } @else {
+          <div class="other-incomes-day-form__grid">
+            <label class="modal-field modal-field--money">
+              <span>Valor</span>
+              <div class="money-input-wrap">
+                <span class="money-input-prefix">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  class="money-input"
+                  [ngModel]="otherIncomeAmountInput()"
+                  (ngModelChange)="otherIncomeAmountInput.set(+$event)"
+                />
+              </div>
+            </label>
+            <label class="modal-field">
+              <span>Medio de pago</span>
+              <select
+                [ngModel]="otherIncomePaymentMethod()"
+                (ngModelChange)="otherIncomePaymentMethod.set($event)"
+              >
+                @for (pm of paymentMethods; track pm.value) {
+                  <option [ngValue]="pm.value">{{ pm.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="modal-field other-incomes-day-form__obs">
+              <span>Concepto</span>
+              <input
+                type="text"
+                maxlength="500"
+                placeholder="Ej. alquiler casillero, venta equipo usado…"
+                [ngModel]="otherIncomeObservationInput()"
+                (ngModelChange)="otherIncomeObservationInput.set($event)"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="savingOtherIncome()"
+            (click)="registerOtherIncome()"
+          >
+            {{ savingOtherIncome() ? 'Guardando…' : 'Agregar ingreso' }}
+          </button>
+        }
+      </section>
+
+      <div class="modal-actions modal-actions--footer">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="savingOtherIncome()"
+          (click)="closeOtherIncomesDayModal()"
+        >
           Cerrar
         </button>
       </div>

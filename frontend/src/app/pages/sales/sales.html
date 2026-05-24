@@ -635,12 +635,28 @@
                   <dd>+ {{ cash.fiadoCashTotal | cop }}</dd>
                 </div>
               }
+              @if (cash.otherIncomesCash > 0) {
+                <div class="inventory-open-breakdown__row">
+                  <dt>Otros ingresos (efectivo)</dt>
+                  <dd>+ {{ cash.otherIncomesCash | cop }}</dd>
+                </div>
+              }
               @if (cash.cashExpenses > 0) {
                 <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
                   <dt>Gastos en efectivo</dt>
                   <dd>− {{ cash.cashExpenses | cop }}</dd>
                 </div>
               }
+              @if ((cash.cashShortfallsDeducted ?? 0) > 0) {
+                <div class="inventory-open-breakdown__row inventory-open-breakdown__row--minus">
+                  <dt>Faltante ya registrado (no se exige otra vez)</dt>
+                  <dd>− {{ cash.cashShortfallsDeducted | cop }}</dd>
+                </div>
+              }
+              <div class="inventory-open-breakdown__row inventory-open-breakdown__row--total">
+                <dt>Debe haber en caja</dt>
+                <dd>{{ cash.expectedCashTotal | cop }}</dd>
+              </div>
             </dl>
 
             <div class="inventory-open-denom">

@@ -34,3 +34,8 @@ hardware/SportGym-Entrada-Instalador-32bit/
 # Env
 .env
 .env.local
+
+# Volcados de BD (no subir a git)
+backups/*.sql
+backups/*.sql.gz
+backups/*.dump

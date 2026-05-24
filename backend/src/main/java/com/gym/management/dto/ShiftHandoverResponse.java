@@ -24,6 +24,8 @@ public record ShiftHandoverResponse(
         int coin50,
         BigDecimal cashCountedTotal,
         BigDecimal billingCashExpected,
+        BigDecimal billingCashBase,
+        BigDecimal billingOtherIncomesCash,
         BigDecimal previousShiftSalesCash,
         BigDecimal previousShiftShortfallsDeducted,
         String previousShiftName,
@@ -43,4 +45,6 @@ public record ShiftHandoverResponse(
         ShiftDetailResponse shiftDetail,
         List<ShiftHandoverComparisonResponse> comparisons,
         BigDecimal registeredShortfallAmount,
-        Long cashShortfallId) {}
+        Long cashShortfallId,
+        boolean inventorySurplusResolved,
+        String inventorySurplusResolutionNote) {}

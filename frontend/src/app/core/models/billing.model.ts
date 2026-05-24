@@ -165,6 +165,12 @@ export interface BillingCashRegister {
   dayFiadoCollectedTotal: number;
   dayFiadoCollectedByMethod: Record<PaymentMethod, number>;
   dayFiadoPaymentCount: number;
+  dayOtherIncomesTotal: number;
+  dayOtherIncomesByMethod: Record<PaymentMethod, number>;
+  dayOtherIncomeCount: number;
+  /** Facturación + productos + fiado + otros ingresos del día, por medio (sin base inicial). */
+  dayIncomeByMethod?: Record<PaymentMethod, number>;
+  dayIncomeTotal?: number;
   /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos. */
   cashInDrawer: number;
 }
@@ -183,6 +189,25 @@ export interface BillingCashRegisterExpense {
 }
 
 export interface BillingCashRegisterExpenseRequest {
+  amount: number;
+  paymentMethod: PaymentMethod;
+  observation: string;
+}
+
+export interface BillingCashRegisterOtherIncome {
+  id: number;
+  cashRegisterId: number;
+  registerDate: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  paymentMethodLabel: string;
+  observation: string;
+  recordedByEmployeeId: number;
+  recordedByEmployeeName: string;
+  createdAt: string;
+}
+
+export interface BillingCashRegisterOtherIncomeRequest {
   amount: number;
   paymentMethod: PaymentMethod;
   observation: string;

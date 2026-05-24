@@ -1,10 +1,13 @@
 package com.gym.management.service;
 
 import com.gym.management.dto.BillingCashRegisterClosePreviewResponse;
+import com.gym.management.dto.BillingHandoverCashBreakdown;
 import com.gym.management.dto.BillingCashRegisterCloseResultResponse;
 import com.gym.management.dto.ShiftOpenCashPreviewResponse;
 import com.gym.management.dto.BillingCashRegisterExpenseRequest;
 import com.gym.management.dto.BillingCashRegisterExpenseResponse;
+import com.gym.management.dto.BillingCashRegisterOtherIncomeRequest;
+import com.gym.management.dto.BillingCashRegisterOtherIncomeResponse;
 import com.gym.management.dto.BillingCashRegisterResponse;
 import com.gym.management.dto.CashShortfallResponse;
 import com.gym.management.dto.CloseBillingCashRegisterRequest;
@@ -15,14 +18,19 @@ import com.gym.management.exception.BusinessException;
 import com.gym.management.exception.ResourceNotFoundException;
 import com.gym.management.mapper.BillingCashRegisterExpenseMapper;
 import com.gym.management.mapper.BillingCashRegisterMapper;
+import com.gym.management.mapper.BillingCashRegisterOtherIncomeMapper;
 import com.gym.management.model.BillingCashRegister;
 import com.gym.management.model.BillingPaymentType;
+import com.gym.management.model.CashShortfallKind;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.BillingCashRegisterExpense;
+import com.gym.management.model.BillingCashRegisterOtherIncome;
 import com.gym.management.model.Employee;
 import com.gym.management.model.ShiftStatus;
 import com.gym.management.repository.BillingCashRegisterExpenseRepository;
+import com.gym.management.repository.BillingCashRegisterOtherIncomeRepository;
 import com.gym.management.repository.BillingCashRegisterRepository;
+import com.gym.management.repository.EmployeeCashShortfallRepository;
 import com.gym.management.repository.BillingPaymentRepository;
 import com.gym.management.repository.SaleRepository;
 import com.gym.management.repository.WorkShiftRepository;
@@ -32,9 +40,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -46,15 +56,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class BillingCashRegisterService {
 
     private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
+    private static final Set<CashShortfallKind> CASH_DRAWER_SHORTFALL_KINDS = EnumSet.of(
+            CashShortfallKind.CASH_HANDOVER, CashShortfallKind.CASH_REGISTER, CashShortfallKind.CASH_SHIFT_OPEN);
 
     private final BillingCashRegisterRepository cashRegisterRepository;
     private final BillingPaymentRepository billingPaymentRepository;
     private final SaleRepository saleRepository;
     private final WorkShiftRepository workShiftRepository;
     private final BillingCashRegisterExpenseRepository expenseRepository;
+    private final BillingCashRegisterOtherIncomeRepository otherIncomeRepository;
     private final ProductCreditPaymentRepository productCreditPaymentRepository;
     private final EmployeeService employeeService;
     private final CashShortfallService cashShortfallService;
+    private final EmployeeCashShortfallRepository shortfallRepository;
 
     @Lazy
     @Autowired
@@ -92,7 +106,10 @@ public class BillingCashRegisterService {
         ProductDayTotals productTotals = loadProductTotalsForDate(date);
         Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
         BigDecimal fiadoCash = sumFiadoCashCollected(date);
-        BigDecimal expected = computeCashInDrawer(register, true);
+        BillingHandoverCashBreakdown billingCash = computeHandoverCashBreakdown(register);
+        BigDecimal systemCash = computeCashInDrawer(register, true);
+        BigDecimal deducted = sumRegisteredCashShortfallsForDate(date);
+        BigDecimal expected = netCashExpectedAfterShortfalls(systemCash, deducted);
         Employee opener = register.getOpenedBy();
         String openerName = opener.getFirstName() + " " + opener.getLastName();
         return new ShiftOpenCashPreviewResponse(
@@ -105,6 +122,9 @@ public class BillingCashRegisterService {
                 cashByType.getOrDefault(BillingPaymentType.MEMBERSHIP, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.DAY_WORKOUT, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.SPORTS_DANCE, BigDecimal.ZERO),
+                billingCash.otherIncomesCash(),
+                systemCash,
+                deducted,
                 expected);
     }
 
@@ -158,7 +178,36 @@ public class BillingCashRegisterService {
                 BigDecimal.ZERO,
                 BillingPaymentMethodTotals.emptyBillableMap(),
                 0L,
+                BigDecimal.ZERO,
+                BillingPaymentMethodTotals.emptyBillableMap(),
+                0L,
+                BillingPaymentMethodTotals.emptyBillableMap(),
+                BigDecimal.ZERO,
                 request.openingCashAmount());
+    }
+
+    @Transactional(readOnly = true)
+    public List<BillingCashRegisterOtherIncomeResponse> listOtherIncomesByDate(LocalDate date) {
+        LocalDate target = date != null ? date : today();
+        return otherIncomeRepository.findByRegisterDateWithDetails(target).stream()
+                .map(BillingCashRegisterOtherIncomeMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public BillingCashRegisterOtherIncomeResponse addOtherIncome(BillingCashRegisterOtherIncomeRequest request) {
+        BillingCashRegister register = getOpenRegisterRequired();
+        Employee recorder = resolveCurrentEmployee();
+        PaymentMethod method = request.paymentMethod();
+        BillingPaymentMethodRules.requireAllowed(method);
+        BillingCashRegisterOtherIncome income = BillingCashRegisterOtherIncome.builder()
+                .cashRegister(register)
+                .amount(request.amount())
+                .paymentMethod(method)
+                .observation(request.observation().trim())
+                .recordedBy(recorder)
+                .build();
+        return BillingCashRegisterOtherIncomeMapper.toResponse(otherIncomeRepository.save(income));
     }
 
     @Transactional(readOnly = true)
@@ -304,18 +353,28 @@ public class BillingCashRegisterService {
     }
 
     /**
-     * Base de caja para entrega de turno: apertura + cobros de facturación en efectivo − gastos en efectivo.
-     * Sin ventas de productos ni fiado (esos se suman por turno en {@link ShiftHandoverService}).
+     * Base de caja para entrega de turno: apertura + cobros de facturación en efectivo + otros ingresos en
+     * efectivo − gastos en efectivo. Sin ventas de productos ni fiado (esos se suman por turno en
+     * {@link ShiftHandoverService}).
      */
     @Transactional(readOnly = true)
     public BigDecimal billingCashExpectedForHandover() {
+        return billingHandoverCashBreakdown().total();
+    }
+
+    @Transactional(readOnly = true)
+    public BillingHandoverCashBreakdown billingHandoverCashBreakdown() {
         return cashRegisterRepository
                 .findFirstByRegisterDateOrderByOpenedAtDesc(today())
-                .map(this::computeBillingCashForHandover)
-                .orElse(BigDecimal.ZERO);
+                .map(this::computeHandoverCashBreakdown)
+                .orElse(new BillingHandoverCashBreakdown(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
     }
 
     private BigDecimal computeBillingCashForHandover(BillingCashRegister register) {
+        return computeHandoverCashBreakdown(register).total();
+    }
+
+    private BillingHandoverCashBreakdown computeHandoverCashBreakdown(BillingCashRegister register) {
         Long id = register.getId();
         Map<PaymentMethod, BigDecimal> incomeByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
@@ -323,10 +382,17 @@ public class BillingCashRegisterService {
         Map<PaymentMethod, BigDecimal> expensesByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
                         expenseRepository.sumByPaymentMethodByCashRegisterId(id));
+        Map<PaymentMethod, BigDecimal> otherIncomesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        otherIncomeRepository.sumByPaymentMethodByCashRegisterId(id));
         BigDecimal billingCashIn = incomeByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        BigDecimal otherCashIn = otherIncomesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal cashOut = expensesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
-        return MoneyUtil.roundPesos(
+        BigDecimal cashBase = MoneyUtil.roundPesos(
                 register.getOpeningCashAmount().add(billingCashIn).subtract(cashOut));
+        BigDecimal otherIncomesCash = MoneyUtil.roundPesos(otherCashIn);
+        BigDecimal total = MoneyUtil.roundPesos(cashBase.add(otherIncomesCash));
+        return new BillingHandoverCashBreakdown(cashBase, otherIncomesCash, total);
     }
 
     private BigDecimal computeCashInDrawer(BillingCashRegister register) {
@@ -347,9 +413,14 @@ public class BillingCashRegisterService {
         if (productCash == null) {
             productCash = BigDecimal.ZERO;
         }
+        Map<PaymentMethod, BigDecimal> otherIncomesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        otherIncomeRepository.sumByPaymentMethodByCashRegisterId(id));
+        BigDecimal otherCashIn = otherIncomesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal total = register.getOpeningCashAmount()
                 .add(billingCashIn)
                 .add(productCash)
+                .add(otherCashIn)
                 .subtract(cashOut);
         if (includeFiadoCash) {
             total = total.add(sumFiadoCashCollected(register.getRegisterDate()));
@@ -372,6 +443,17 @@ public class BillingCashRegisterService {
         long shiftsWithSales = workShiftRepository.countShiftsWithSalesByShiftDate(register.getRegisterDate());
         Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
         FiadoDayTotals fiadoTotals = loadFiadoTotalsForDate(register.getRegisterDate());
+        Map<PaymentMethod, BigDecimal> productSalesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        saleRepository.sumByShiftDateGroupByPaymentMethod(register.getRegisterDate()));
+        Map<PaymentMethod, BigDecimal> otherIncomesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        otherIncomeRepository.sumByPaymentMethodByCashRegisterId(id));
+        BigDecimal otherIncomesTotal = BillingPaymentMethodTotals.sum(otherIncomesByMethod);
+        long otherIncomeCount = otherIncomeRepository.countByCashRegisterId(id);
+        Map<PaymentMethod, BigDecimal> dayIncomeByMethod = BillingPaymentMethodTotals.mergeAll(
+                incomeByMethod, fiadoTotals.byMethod(), productSalesByMethod, otherIncomesByMethod);
+        BigDecimal dayIncomeTotal = BillingPaymentMethodTotals.sum(dayIncomeByMethod);
         BigDecimal cashInDrawer = computeCashInDrawer(register, true);
         return BillingCashRegisterMapper.toResponse(
                 register,
@@ -392,6 +474,11 @@ public class BillingCashRegisterService {
                 fiadoTotals.total(),
                 fiadoTotals.byMethod(),
                 fiadoTotals.paymentCount(),
+                otherIncomesTotal,
+                otherIncomesByMethod,
+                otherIncomeCount,
+                dayIncomeByMethod,
+                dayIncomeTotal,
                 cashInDrawer);
     }
 
@@ -423,6 +510,16 @@ public class BillingCashRegisterService {
             }
         }
         return map;
+    }
+
+    private BigDecimal sumRegisteredCashShortfallsForDate(LocalDate date) {
+        BigDecimal sum = shortfallRepository.sumShortfallAmountByRecordDateAndKinds(date, CASH_DRAWER_SHORTFALL_KINDS);
+        return sum != null ? MoneyUtil.roundPesos(sum) : BigDecimal.ZERO;
+    }
+
+    private static BigDecimal netCashExpectedAfterShortfalls(BigDecimal systemCash, BigDecimal deducted) {
+        BigDecimal net = MoneyUtil.roundPesos(systemCash.subtract(deducted));
+        return net.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : net;
     }
 
     private BigDecimal sumFiadoCashCollected(LocalDate date) {

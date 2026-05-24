@@ -30,4 +30,10 @@ public interface BillingCashRegisterRepository extends JpaRepository<BillingCash
             """)
     Optional<BillingCashRegister> findByIdWithEmployee(@Param("id") Long id);
 
+    @Query(
+            """
+            SELECT COUNT(r) FROM BillingCashRegister r
+            WHERE r.registerDate BETWEEN :start AND :end
+            """)
+    long countByRegisterDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }

@@ -65,6 +65,12 @@ export class ShiftHandoverPage implements OnInit {
   protected readonly billingCashExpected = computed(
     () => this.preview()?.billingCashExpected ?? 0,
   );
+  protected readonly billingCashBase = computed(
+    () => this.preview()?.billingCashBase ?? this.preview()?.billingCashExpected ?? 0,
+  );
+  protected readonly billingOtherIncomesCash = computed(
+    () => this.preview()?.billingOtherIncomesCash ?? 0,
+  );
   protected readonly previousShiftSalesCash = computed(
     () => this.preview()?.previousShiftSalesCash ?? 0,
   );
@@ -191,7 +197,9 @@ export class ShiftHandoverPage implements OnInit {
       .subscribe({
         next: (result) => {
           let msg = 'Entrega de turno registrada. El turno fue cerrado.';
-          if (result.registeredShortfallAmount && result.registeredShortfallAmount > 0) {
+          if (result.inventorySurplusResolved && result.inventorySurplusResolutionNote) {
+            msg += ' ' + result.inventorySurplusResolutionNote;
+          } else if (result.registeredShortfallAmount && result.registeredShortfallAmount > 0) {
             msg +=
               ` Se registró un faltante de ${result.registeredShortfallAmount} en Descuadres de caja para cobro al fin de mes.`;
           }

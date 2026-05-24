@@ -134,8 +134,18 @@
         >
           <p class="cash-expected__line">
             Caja del día (apertura + facturación en efectivo − gastos):
-            <strong>{{ billingCashExpected() | cop }}</strong>
+            <strong>{{ billingCashBase() | cop }}</strong>
           </p>
+          @if (billingOtherIncomesCash() > 0) {
+            <p class="cash-expected__line">
+              + Otros ingresos en efectivo (facturación):
+              <strong>{{ billingOtherIncomesCash() | cop }}</strong>
+            </p>
+            <p class="cash-expected__line cash-expected__sub">
+              = Subtotal caja facturación:
+              <strong>{{ billingCashExpected() | cop }}</strong>
+            </p>
+          }
           @if (previousShiftSalesCash() > 0 || previousShiftShortfallsDeducted() > 0 || previousShiftName()) {
             <p class="cash-expected__line">
               + Ventas en efectivo (turnos anteriores del día@if (previousShiftName(); as n) { · {{ n }} }):
@@ -170,6 +180,11 @@
           <p class="cash-expected__line">
             Debe coincidir con el dinero contado: <strong>{{ cashTotal() | cop }}</strong>
           </p>
+          @if (preview()?.inventorySurplusResolved && preview()?.inventorySurplusResolutionNote) {
+            <p class="cash-expected__surplus-resolved">
+              {{ preview()!.inventorySurplusResolutionNote }}
+            </p>
+          }
         </div>
       }
 

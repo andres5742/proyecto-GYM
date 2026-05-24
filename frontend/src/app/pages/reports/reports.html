@@ -1,0 +1,485 @@
+<div class="reports-page">
+  <header class="report-hero no-print">
+    <div class="report-hero__intro">
+      <p class="report-hero__eyebrow">Super administrador</p>
+      <h1>Reportes</h1>
+      <p class="report-hero__lead">
+        Resumen {{ viewMode() === 'daily' ? 'del día' : 'mensual' }}: inventario, ventas, ingresos por medio de
+        pago y resultado neto.
+      </p>
+    </div>
+
+    <div class="report-toolbar">
+      <div class="period-tabs" role="tablist" aria-label="Tipo de reporte">
+        <button
+          type="button"
+          role="tab"
+          class="period-tab"
+          [class.period-tab--active]="viewMode() === 'daily'"
+          (click)="setViewMode('daily')"
+        >
+          Día
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="period-tab"
+          [class.period-tab--active]="viewMode() === 'monthly'"
+          (click)="setViewMode('monthly')"
+        >
+          Mes
+        </button>
+      </div>
+
+      <div class="report-toolbar__filters">
+        @if (viewMode() === 'daily') {
+          <label class="filter-field">
+            <span>Fecha</span>
+            <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" />
+          </label>
+        } @else {
+          <label class="filter-field">
+            <span>Mes</span>
+            <select [ngModel]="selectedMonth()" (ngModelChange)="onMonthChange($event)">
+              @for (m of monthOptions; track m.value) {
+                <option [ngValue]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="filter-field">
+            <span>Año</span>
+            <select [ngModel]="selectedYear()" (ngModelChange)="onYearChange($event)">
+              @for (y of yearOptions(); track y) {
+                <option [ngValue]="y">{{ y }}</option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+
+      <div class="report-toolbar__actions">
+        <button type="button" class="btn btn-secondary btn-sm" [disabled]="loading()" (click)="load()">
+          {{ loading() ? 'Cargando…' : 'Actualizar' }}
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" [disabled]="!reportView()" (click)="downloadCsv()">
+          CSV
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" [disabled]="!reportView()" (click)="downloadPdf()">
+          PDF
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" [disabled]="!reportView()" (click)="printReport()">
+          Imprimir
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (error()) {
+    <p class="banner-error" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading() && !reportView()) {
+    <div class="report-loading" aria-live="polite">
+      <span class="report-loading__spinner"></span>
+      <p>Cargando reporte…</p>
+    </div>
+  }
+
+  @if (reportView(); as r) {
+    <p class="report-print-title print-only">{{ r.title }}</p>
+
+    <section class="kpi-grid" [attr.aria-label]="r.incomeLabel">
+      <article class="kpi-tile kpi-tile--income">
+        <span class="kpi-tile__icon" aria-hidden="true">💰</span>
+        <div class="kpi-tile__body">
+          <span class="kpi-tile__label">{{ r.incomeLabel }}</span>
+          <strong class="kpi-tile__value">{{ r.totalIncome | cop }}</strong>
+          <span class="kpi-tile__meta">Facturación, productos y fiado</span>
+        </div>
+      </article>
+      <article class="kpi-tile kpi-tile--expense">
+        <span class="kpi-tile__icon" aria-hidden="true">📤</span>
+        <div class="kpi-tile__body">
+          <span class="kpi-tile__label">Gastos</span>
+          <strong class="kpi-tile__value">{{ r.expensesTotal | cop }}</strong>
+          <span class="kpi-tile__meta">{{ r.expenseCount }} movimiento(s)</span>
+        </div>
+      </article>
+      <article
+        class="kpi-tile"
+        [class.kpi-tile--positive]="r.netResult >= 0"
+        [class.kpi-tile--negative]="r.netResult < 0"
+      >
+        <span class="kpi-tile__icon" aria-hidden="true">{{ r.netResult >= 0 ? '📈' : '📉' }}</span>
+        <div class="kpi-tile__body">
+          <span class="kpi-tile__label">{{ r.resultLabel }}</span>
+          <strong class="kpi-tile__value">{{ r.netResult | cop }}</strong>
+          <span class="kpi-tile__meta">Ingresos − gastos</span>
+        </div>
+      </article>
+      <article class="kpi-tile kpi-tile--cash">
+        <span class="kpi-tile__icon" aria-hidden="true">🏦</span>
+        <div class="kpi-tile__body">
+          <span class="kpi-tile__label">Caja</span>
+          <strong class="kpi-tile__value kpi-tile__value--sm">{{ r.cajaLabel }}</strong>
+          <span class="kpi-tile__meta">
+            @if (r.period === 'daily' && r.openingCashAmount != null) {
+              {{ r.cajaMeta }}: {{ r.openingCashAmount | cop }}
+            } @else {
+              {{ r.cajaMeta }}
+            }
+          </span>
+        </div>
+      </article>
+    </section>
+
+    <section class="report-card report-card--highlight">
+      <header class="section-head">
+        <span class="section-head__icon" aria-hidden="true">📊</span>
+        <div>
+          <h2>Ingresos por medio de pago</h2>
+          <p>Total del período: <strong>{{ r.totalIncome | cop }}</strong></p>
+        </div>
+      </header>
+
+      @if (incomeBars().length === 0) {
+        <p class="empty-state">{{ r.emptyIncomeHint }}</p>
+      } @else {
+        <div class="income-visual">
+          <div class="donut-wrap" aria-hidden="true">
+            <div class="donut" [ngStyle]="incomeDonutStyle()"></div>
+            <div class="donut__hole">
+              <span class="donut__label">Total</span>
+              <strong>{{ r.totalIncome | cop }}</strong>
+            </div>
+          </div>
+          <ul class="bar-chart bar-chart--rich" aria-label="Desglose por medio de pago">
+            @for (bar of incomeBars(); track bar.key) {
+              <li class="bar-chart__row">
+                <span class="bar-chart__label">
+                  <span class="bar-dot" [style.background]="bar.color"></span>
+                  {{ bar.label }}
+                </span>
+                <div class="bar-chart__track">
+                  <div class="bar-chart__fill" [style.width.%]="bar.percent" [style.background]="bar.color"></div>
+                </div>
+                <span class="bar-chart__amount">{{ bar.amount | cop }}</span>
+                <span class="bar-chart__pct">{{ bar.percent }}%</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </section>
+
+    <div class="split-panels">
+      <section class="report-card">
+        <header class="section-head section-head--compact">
+          <span class="section-head__icon" aria-hidden="true">🧾</span>
+          <div>
+            <h2>Facturación</h2>
+            <p>{{ r.billingIncomeTotal | cop }} · {{ r.billingPaymentCount }} pago(s)</p>
+          </div>
+        </header>
+        <ul class="bar-chart">
+          @for (bar of billingBars(); track bar.key) {
+            <li class="bar-chart__row">
+              <span class="bar-chart__label">
+                <span class="bar-dot bar-dot--billing"></span>
+                {{ bar.label }}
+              </span>
+              <div class="bar-chart__track">
+                <div class="bar-chart__fill bar-chart__fill--billing" [style.width.%]="bar.percent"></div>
+              </div>
+              <span class="bar-chart__amount">{{ bar.amount | cop }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="report-card">
+        <header class="section-head section-head--compact">
+          <span class="section-head__icon" aria-hidden="true">🛒</span>
+          <div>
+            <h2>Productos</h2>
+            <p>
+              {{ r.productSales.totalAmount | cop }} · {{ r.productSales.unitsSold }} u. ·
+              {{ r.productSales.saleCount }} venta(s)
+            </p>
+          </div>
+        </header>
+        <ul class="bar-chart">
+          @for (bar of productBars(); track bar.key) {
+            <li class="bar-chart__row">
+              <span class="bar-chart__label">
+                <span class="bar-dot bar-dot--products"></span>
+                {{ bar.label }}
+              </span>
+              <div class="bar-chart__track">
+                <div class="bar-chart__fill bar-chart__fill--products" [style.width.%]="bar.percent"></div>
+              </div>
+              <span class="bar-chart__amount">{{ bar.amount | cop }}</span>
+            </li>
+          }
+        </ul>
+        @if (r.fiadoCollectedTotal > 0) {
+          <div class="fiado-block">
+            <p class="fiado-block__title">
+              Abonos de fiado: <strong>{{ r.fiadoCollectedTotal | cop }}</strong>
+            </p>
+            <ul class="bar-chart bar-chart--fiado" aria-label="Abonos de fiado por medio de pago">
+              @for (bar of fiadoBars(); track bar.key) {
+                <li class="bar-chart__row">
+                  <span class="bar-chart__label">
+                    <span class="bar-dot bar-dot--fiado"></span>
+                    {{ bar.label }}
+                  </span>
+                  <div class="bar-chart__track">
+                    <div class="bar-chart__fill bar-chart__fill--fiado" [style.width.%]="bar.percent"></div>
+                  </div>
+                  <span class="bar-chart__amount">{{ bar.amount | cop }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </section>
+    </div>
+
+    @if (expenseBars().length > 0) {
+      <section class="report-card report-card--expense">
+        <header class="section-head section-head--compact">
+          <span class="section-head__icon" aria-hidden="true">💸</span>
+          <div>
+            <h2>Gastos</h2>
+            <p>{{ r.expensesTotal | cop }}</p>
+          </div>
+        </header>
+        <ul class="bar-chart">
+          @for (bar of expenseBars(); track bar.key) {
+            <li class="bar-chart__row">
+              <span class="bar-chart__label">
+                <span class="bar-dot bar-dot--expense"></span>
+                {{ bar.label }}
+              </span>
+              <div class="bar-chart__track">
+                <div class="bar-chart__fill bar-chart__fill--expense" [style.width.%]="bar.percent"></div>
+              </div>
+              <span class="bar-chart__amount">{{ bar.amount | cop }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="report-card">
+      <header class="section-head">
+        <span class="section-head__icon" aria-hidden="true">📋</span>
+        <div>
+          <h2>Facturación por tipo</h2>
+          <p>Membresías, entrenos y bailes con desglose por medio de pago.</p>
+        </div>
+      </header>
+      <div class="billing-type-grid">
+        <article class="type-card type-card--workout">
+          <h3>Entreno del día</h3>
+          <p class="type-card__count">{{ r.breakdown.dayWorkout.paymentCount }} pago(s)</p>
+          <strong class="type-card__total">{{ r.breakdown.dayWorkout.totalAmount | cop }}</strong>
+          <ul class="method-chips">
+            @for (pm of billingTypeMethods; track pm.value) {
+              @if (methodAmount(r.breakdown.dayWorkout.amountByMethod, pm.value) > 0) {
+                <li>
+                  <span>{{ pm.label }}</span>
+                  <strong>{{ methodAmount(r.breakdown.dayWorkout.amountByMethod, pm.value) | cop }}</strong>
+                </li>
+              }
+            }
+          </ul>
+        </article>
+        <article class="type-card type-card--dance">
+          <h3>Bailes deportivos</h3>
+          <p class="type-card__count">{{ r.breakdown.sportsDance.paymentCount }} pago(s)</p>
+          <strong class="type-card__total">{{ r.breakdown.sportsDance.totalAmount | cop }}</strong>
+          <ul class="method-chips">
+            @for (pm of billingTypeMethods; track pm.value) {
+              @if (methodAmount(r.breakdown.sportsDance.amountByMethod, pm.value) > 0) {
+                <li>
+                  <span>{{ pm.label }}</span>
+                  <strong>{{ methodAmount(r.breakdown.sportsDance.amountByMethod, pm.value) | cop }}</strong>
+                </li>
+              }
+            }
+          </ul>
+        </article>
+        <article class="type-card type-card--membership">
+          <h3>Membresías</h3>
+          <p class="type-card__count">{{ r.breakdown.membership.paymentCount }} pago(s)</p>
+          <strong class="type-card__total">{{ r.breakdown.membership.totalAmount | cop }}</strong>
+          <ul class="method-chips">
+            @for (pm of billingTypeMethods; track pm.value) {
+              @if (methodAmount(r.breakdown.membership.amountByMethod, pm.value) > 0) {
+                <li>
+                  <span>{{ pm.label }}</span>
+                  <strong>{{ methodAmount(r.breakdown.membership.amountByMethod, pm.value) | cop }}</strong>
+                </li>
+              }
+            }
+          </ul>
+        </article>
+        @if (r.breakdown.otherIncomes.paymentCount > 0 || r.breakdown.otherIncomes.totalAmount > 0) {
+          <article class="type-card type-card--other-income">
+            <h3>Otros ingresos</h3>
+            <p class="type-card__count">{{ r.breakdown.otherIncomes.paymentCount }} registro(s)</p>
+            <strong class="type-card__total">{{ r.breakdown.otherIncomes.totalAmount | cop }}</strong>
+            <ul class="method-chips">
+              @for (pm of billingTypeMethods; track pm.value) {
+                @if (methodAmount(r.breakdown.otherIncomes.amountByMethod, pm.value) > 0) {
+                  <li>
+                    <span>{{ pm.label }}</span>
+                    <strong>{{ methodAmount(r.breakdown.otherIncomes.amountByMethod, pm.value) | cop }}</strong>
+                  </li>
+                }
+              }
+            </ul>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="report-card">
+      <header class="section-head">
+        <span class="section-head__icon" aria-hidden="true">🎫</span>
+        <div>
+          <h2>Membresías por plan</h2>
+          <p>Cantidad cobrada y monto por cada plan y medio de pago.</p>
+        </div>
+      </header>
+      @if (r.breakdown.membershipByPlan.length === 0) {
+        <p class="empty-state">No hay membresías en este período.</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Plan</th>
+                <th class="num">Pagos</th>
+                <th class="num">Total</th>
+                <th class="num">Efectivo</th>
+                <th class="num">Nequi</th>
+                <th class="num">Bancolombia</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (plan of r.breakdown.membershipByPlan; track plan.planId ?? plan.planName) {
+                <tr>
+                  <td><span class="plan-name">{{ plan.planName }}</span></td>
+                  <td class="num"><span class="count-pill">{{ plan.paymentCount }}</span></td>
+                  <td class="num amount-cell">{{ plan.totalAmount | cop }}</td>
+                  <td class="num muted-cell">{{ methodAmount(plan.amountByMethod, 'CASH') | cop }}</td>
+                  <td class="num muted-cell">{{ methodAmount(plan.amountByMethod, 'NEQUI') | cop }}</td>
+                  <td class="num muted-cell">{{ methodAmount(plan.amountByMethod, 'BANCOLOMBIA') | cop }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="report-card">
+      <header class="section-head">
+        <span class="section-head__icon" aria-hidden="true">🏷️</span>
+        <div>
+          <h2>Ventas por producto y medio de pago</h2>
+          <p>Unidades y montos cobrados en cada medio (incluye fiado si aplica).</p>
+        </div>
+      </header>
+      @if (r.breakdown.productSalesByPayment.length === 0) {
+        <p class="empty-state">No hay ventas de productos en este período.</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Medio</th>
+                <th class="num">Unidades</th>
+                <th class="num">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.breakdown.productSalesByPayment; track row.productId + '-' + row.paymentMethod) {
+                <tr>
+                  <td>{{ row.productName }}</td>
+                  <td>
+                    <span [class]="paymentBadgeClass(row.paymentMethod)">
+                      {{ paymentMethodLabel(row.paymentMethod) }}
+                    </span>
+                  </td>
+                  <td class="num">{{ row.units }}</td>
+                  <td class="num amount-cell">{{ row.amount | cop }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="report-card report-card--inventory">
+      <header class="section-head">
+        <span class="section-head__icon" aria-hidden="true">📦</span>
+        <div>
+          <h2>{{ r.inventoryTitle }}</h2>
+          <p>{{ r.inventoryHint }}</p>
+        </div>
+        @if (lowStockCount() > 0) {
+          <span class="stock-alert">{{ lowStockCount() }} con stock bajo</span>
+        }
+      </header>
+      <div class="table-wrap">
+        <table class="report-table report-table--inventory">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th class="num">Stock</th>
+              <th class="num">Mín.</th>
+              <th class="num">{{ r.soldColumnLabel }}</th>
+              <th class="num">{{ r.salesColumnLabel }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of r.inventory; track line.productId) {
+              <tr [class.row-low-stock]="line.lowStock">
+                <td>
+                  <span class="product-name">{{ line.name }}</span>
+                  @if (line.lowStock) {
+                    <span class="low-stock-tag">Bajo</span>
+                  }
+                </td>
+                <td><span class="category-tag">{{ line.category || '—' }}</span></td>
+                <td class="num">{{ line.quantityInStock }}</td>
+                <td class="num">{{ line.minStock }}</td>
+                <td class="num">
+                  @if (line.unitsSoldToday > 0) {
+                    <span class="sold-pill">{{ line.unitsSoldToday }}</span>
+                  } @else {
+                    <span class="muted-cell">0</span>
+                  }
+                </td>
+                <td class="num amount-cell">
+                  @if (line.salesAmountToday > 0) {
+                    {{ line.salesAmountToday | cop }}
+                  } @else {
+                    <span class="muted-cell">—</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>

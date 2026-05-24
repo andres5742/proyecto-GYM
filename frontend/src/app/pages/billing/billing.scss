@@ -186,6 +186,342 @@
   font-size: 0.88rem;
 }
 
+.day-income-summary {
+  margin: 1rem var(--billing-pad-x) 0;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-primary-border);
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-primary-soft) 100%);
+}
+
+.day-income-summary__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.day-income-summary__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-trust);
+}
+
+.day-income-summary__hint {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.day-income-summary__total {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--color-trust);
+  white-space: nowrap;
+}
+
+.day-income-summary__methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.day-income-summary__item {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.day-income-summary__item-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.day-income-summary__item-value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+
+  &.method-chip--cash {
+    color: var(--color-success);
+  }
+
+  &.method-chip--nequi {
+    color: #7c3aed;
+  }
+
+  &.method-chip--bancolombia {
+    color: #0369a1;
+  }
+}
+
+@media (max-width: 640px) {
+  .day-income-summary__methods {
+    grid-template-columns: 1fr;
+  }
+}
+
+.day-other-incomes-summary {
+  margin: 0.75rem var(--billing-pad-x) 0;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-success-border);
+  background: linear-gradient(145deg, var(--color-surface) 0%, var(--color-success-soft) 100%);
+}
+
+.day-other-incomes-summary__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.65rem;
+}
+
+.day-other-incomes-summary__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.day-other-incomes-summary__hint {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.day-other-incomes-summary__total {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.day-other-incomes-summary__methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.day-other-incomes-summary__item {
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-success-border);
+}
+
+.day-other-incomes-summary__item-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-soft);
+  margin-bottom: 0.2rem;
+}
+
+.day-other-incomes-summary__item-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.day-other-incomes-summary__btn {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .day-other-incomes-summary__methods {
+    grid-template-columns: 1fr;
+  }
+}
+
+.other-incomes-day-total,
+.other-incomes-day-list,
+.other-incomes-day-form {
+  margin-bottom: 1rem;
+}
+
+.other-incomes-day-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.other-incomes-day-form__obs {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 520px) {
+  .other-incomes-day-form__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.method-chips--other-incomes-modal {
+  margin-top: 0.5rem;
+}
+
+.day-expenses-summary {
+  margin: 0.75rem var(--billing-pad-x) 0;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-danger-border, #fecaca);
+  background: linear-gradient(135deg, #fff5f5 0%, var(--color-surface) 100%);
+}
+
+.day-expenses-summary__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.day-expenses-summary__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.day-expenses-summary__hint {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.day-expenses-summary__total {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #b91c1c;
+  white-space: nowrap;
+}
+
+.day-expenses-summary__methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.day-expenses-summary__item {
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.day-expenses-summary__item-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.day-expenses-summary__item-value--expense {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.day-expenses-summary__btn {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .day-expenses-summary__methods {
+    grid-template-columns: 1fr;
+  }
+}
+
+.caja-details__badge {
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #fee2e2;
+  color: #b91c1c;
+
+  &--income {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+  }
+}
+
+.caja-details {
+  margin: 1rem var(--billing-pad-x) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.caja-details__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-trust);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::after {
+    content: '▸';
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    transition: transform 0.15s ease;
+  }
+}
+
+.caja-details[open] .caja-details__summary::after {
+  transform: rotate(90deg);
+}
+
+.caja-details__body {
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.caja-details .kpi-grid {
+  margin-top: 0.75rem;
+  padding: 0;
+}
+
 .status-pill {
   flex-shrink: 0;
   padding: 0.25rem 0.65rem;
@@ -325,6 +661,20 @@
   &--concept-cash {
     border-top-color: var(--color-trust);
     background: color-mix(in srgb, var(--color-trust-soft) 40%, var(--color-surface));
+  }
+
+  &--fiado {
+    border-top-color: var(--color-trust);
+    background: color-mix(in srgb, var(--color-trust-soft) 35%, var(--color-surface));
+  }
+
+  &--other-income {
+    border-top-color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success-soft) 40%, var(--color-surface));
+
+    .kpi-card__value {
+      color: var(--color-success);
+    }
   }
 
   .method-chips--kpi {

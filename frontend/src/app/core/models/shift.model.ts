@@ -40,6 +40,11 @@ export interface ShiftOpenCashPreview {
   cashMembership: number;
   cashDayWorkout: number;
   cashSportsDance: number;
+  otherIncomesCash: number;
+  /** Total según sistema (antes de descontar faltantes ya registrados). */
+  systemCashTotal: number;
+  /** Faltantes de caja ya cargados en el día (entrega, cierre, etc.). */
+  cashShortfallsDeducted: number;
   expectedCashTotal: number;
 }
 

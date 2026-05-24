@@ -72,6 +72,7 @@ public class AdminDataCleanupService {
     }
 
     private void cleanBilling(Map<String, Long> details) {
+        deleteTable(details, "billing_cash_register_other_incomes");
         deleteTable(details, "billing_cash_register_expenses");
         deleteTable(details, "billing_payments");
         deleteTable(details, "billing_cash_registers");

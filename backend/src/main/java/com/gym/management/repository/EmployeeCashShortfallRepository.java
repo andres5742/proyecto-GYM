@@ -1,9 +1,11 @@
 package com.gym.management.repository;
 
+import com.gym.management.model.CashShortfallKind;
 import com.gym.management.model.CashShortfallStatus;
 import com.gym.management.model.EmployeeCashShortfall;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -80,4 +82,30 @@ public interface EmployeeCashShortfallRepository extends JpaRepository<EmployeeC
             @Param("status") CashShortfallStatus status,
             @Param("start") LocalDate start,
             @Param("end") LocalDate end);
+
+    @EntityGraph(attributePaths = {"employee", "workShift"})
+    @Query(
+            """
+            SELECT s FROM EmployeeCashShortfall s
+            WHERE s.employee.id = :employeeId
+            AND s.recordDate = :recordDate
+            AND s.status = :status
+            AND s.kind = :kind
+            ORDER BY s.createdAt ASC
+            """)
+    List<EmployeeCashShortfall> findPendingInventoryByEmployeeAndDate(
+            @Param("employeeId") Long employeeId,
+            @Param("recordDate") LocalDate recordDate,
+            @Param("status") CashShortfallStatus status,
+            @Param("kind") CashShortfallKind kind);
+
+    /** Suma faltantes de efectivo ya registrados (entrega, cierre o apertura) para no exigirlos dos veces. */
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.shortfallAmount), 0) FROM EmployeeCashShortfall s
+            WHERE s.recordDate = :recordDate
+            AND s.kind IN :kinds
+            """)
+    BigDecimal sumShortfallAmountByRecordDateAndKinds(
+            @Param("recordDate") LocalDate recordDate, @Param("kinds") Collection<CashShortfallKind> kinds);
 }

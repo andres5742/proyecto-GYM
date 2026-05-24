@@ -1,6 +1,7 @@
 import { DatePipe, formatCurrency, formatDate, getCurrencySymbol } from '@angular/common';
 import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { DataTableComponent } from '../../components/data-table/data-table';
 import { DataTableColumn } from '../../components/data-table/data-table.model';
 import { MemberSearchSelectComponent } from '../../components/member-search-select/member-search-select';
@@ -9,6 +10,7 @@ import { CopCurrencyPipe } from '../../core/pipes/cop-currency.pipe';
 import {
   BillingCashRegister,
   BillingCashRegisterExpense,
+  BillingCashRegisterOtherIncome,
   BillingPayment,
   BillingDailySummary,
   BillingMonthlySummary,
@@ -42,6 +44,7 @@ import { BillingService } from '../../core/services/billing.service';
 import { MemberService } from '../../core/services/member.service';
 import { PlanService } from '../../core/services/plan.service';
 import { httpErrorMessage } from '../../core/utils/http-error-message';
+import { todayIsoDate } from '../../core/utils/today-date';
 import Swal from 'sweetalert2';
 
 const PAYMENT_TIME_LOCALE = 'es-CO';
@@ -109,6 +112,7 @@ const MONTH_SHORT = [
   selector: 'app-billing',
   imports: [
     FormsModule,
+    RouterLink,
     DatePipe,
     CopCurrencyPipe,
     MemberSearchSelectComponent,
@@ -126,6 +130,10 @@ export class BillingPage implements OnInit, OnDestroy {
   private readonly planService = inject(PlanService);
 
   protected readonly paymentMethods = BILLING_PAYMENT_METHODS;
+  /** Medios mostrados en el resumen global de ingresos del día. */
+  protected readonly incomeSummaryMethods = BILLING_PAYMENT_METHODS.filter((pm) =>
+    ['CASH', 'NEQUI', 'BANCOLOMBIA'].includes(pm.value),
+  );
   protected readonly monthOptions = MONTH_LABELS.map((label, i) => ({
     value: i + 1,
     label,
@@ -169,16 +177,52 @@ export class BillingPage implements OnInit, OnDestroy {
   /** true = reabrir caja cerrada hoy (solo super admin) */
   protected readonly reopeningCaja = signal(false);
   protected readonly expensesDayModalOpen = signal(false);
+  protected readonly otherIncomesDayModalOpen = signal(false);
   protected readonly openingCashInput = signal(0);
   protected readonly dayExpenses = signal<BillingCashRegisterExpense[]>([]);
+  protected readonly dayOtherIncomes = signal<BillingCashRegisterOtherIncome[]>([]);
   protected readonly savingExpense = signal(false);
+  protected readonly savingOtherIncome = signal(false);
   protected readonly expenseAmountInput = signal(0);
   protected readonly expensePaymentMethod = signal<PaymentMethod>('CASH');
   protected readonly expenseObservationInput = signal('');
+  protected readonly otherIncomeAmountInput = signal(0);
+  protected readonly otherIncomePaymentMethod = signal<PaymentMethod>('CASH');
+  protected readonly otherIncomeObservationInput = signal('');
 
   protected readonly dayExpensesTotal = computed(() =>
     this.dayExpenses().reduce((sum, e) => sum + e.amount, 0),
   );
+
+  protected readonly hasDayExpenses = computed(() => {
+    const reg = this.activeRegister();
+    return this.dayExpenses().length > 0 || (reg?.sessionExpensesTotal ?? 0) > 0;
+  });
+
+  protected dayExpensesDisplayTotal(reg: BillingCashRegister): number {
+    return roundCop(Math.max(reg.sessionExpensesTotal ?? 0, this.dayExpensesTotal()));
+  }
+
+  protected readonly dayOtherIncomesTotal = computed(() =>
+    this.dayOtherIncomes().reduce((sum, i) => sum + i.amount, 0),
+  );
+
+  protected readonly hasDayOtherIncomes = computed(() => {
+    const reg = this.activeRegister();
+    return this.dayOtherIncomes().length > 0 || (reg?.dayOtherIncomesTotal ?? 0) > 0;
+  });
+
+  protected dayOtherIncomesDisplayTotal(reg: BillingCashRegister): number {
+    return roundCop(Math.max(reg.dayOtherIncomesTotal ?? 0, this.dayOtherIncomesTotal()));
+  }
+
+  protected readonly dayOtherIncomesByMethod = computed(() => {
+    const map: Partial<Record<PaymentMethod, number>> = {};
+    for (const row of this.dayOtherIncomes()) {
+      map[row.paymentMethod] = roundCop((map[row.paymentMethod] ?? 0) + row.amount);
+    }
+    return map;
+  });
   protected readonly monthlyModalOpen = signal(false);
   protected readonly incomeByConceptModalOpen = signal(false);
   protected readonly summaryBreakdownModal = signal<{
@@ -465,15 +509,52 @@ export class BillingPage implements OnInit, OnDestroy {
     (reg.sessionCashSportsDance ?? 0);
 
   protected dayCollectedTotal(reg: BillingCashRegister): number {
-    return roundCop((reg.sessionTotal ?? 0) + (reg.dayFiadoCollectedTotal ?? 0));
+    return roundCop(
+      (reg.sessionTotal ?? 0) +
+        (reg.dayFiadoCollectedTotal ?? 0) +
+        (reg.dayOtherIncomesTotal ?? 0),
+    );
+  }
+
+  /** Total ingresado hoy (facturación + productos + fiado), sin base inicial. */
+  protected dayIncomeTotal(reg: BillingCashRegister): number {
+    if (reg.dayIncomeTotal != null && !Number.isNaN(reg.dayIncomeTotal)) {
+      return roundCop(reg.dayIncomeTotal);
+    }
+    return roundCop(
+      this.incomeSummaryMethods.reduce(
+        (sum, pm) => sum + this.dayIncomeByMethodAmount(reg, pm.value),
+        0,
+      ),
+    );
+  }
+
+  protected dayIncomeByMethodAmount(reg: BillingCashRegister, method: PaymentMethod): number {
+    if (reg.dayIncomeByMethod) {
+      return this.methodTotal(reg.dayIncomeByMethod, method);
+    }
+    return roundCop(
+      this.methodTotal(reg.sessionIncomeByMethod, method) +
+        this.methodTotal(reg.dayFiadoCollectedByMethod, method) +
+        this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, method) +
+        (method === 'CASH' ? (reg.dayProductSalesCash ?? 0) : 0),
+    );
   }
 
   protected dayMovementCount(reg: BillingCashRegister): number {
-    return (reg.paymentCount ?? 0) + (reg.dayFiadoPaymentCount ?? 0);
+    return (
+      (reg.paymentCount ?? 0) +
+      (reg.dayFiadoPaymentCount ?? 0) +
+      (reg.dayOtherIncomeCount ?? 0)
+    );
   }
 
   protected fiadoCashCollected(reg: BillingCashRegister): number {
     return this.methodTotal(reg.dayFiadoCollectedByMethod, 'CASH');
+  }
+
+  protected otherIncomeCashCollected(reg: BillingCashRegister): number {
+    return this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, 'CASH');
   }
 
   /** Efectivo físico en caja (usa el total calculado en el servidor). */
@@ -485,7 +566,8 @@ export class BillingPage implements OnInit, OnDestroy {
     const cashOut = this.methodTotal(reg.sessionExpensesByMethod, 'CASH');
     const productCash = reg.dayProductSalesCash ?? 0;
     const fiadoCash = this.fiadoCashCollected(reg);
-    return roundCop(reg.openingCashAmount + billingCash + productCash + fiadoCash - cashOut);
+    const otherCash = this.otherIncomeCashCollected(reg);
+    return roundCop(reg.openingCashAmount + billingCash + productCash + fiadoCash + otherCash - cashOut);
   }
 
   protected sessionNonCashIncome(reg: BillingCashRegister): number {
@@ -586,12 +668,24 @@ export class BillingPage implements OnInit, OnDestroy {
       },
     });
     this.loadDayExpenses();
+    this.loadDayOtherIncomes();
+  }
+
+  loadDayOtherIncomes(): void {
+    const reg = this.todayRegister();
+    const date = reg?.registerDate?.slice(0, 10) ?? todayIsoDate();
+    this.billingService.listCashRegisterOtherIncomes(date).subscribe({
+      next: (rows) => this.dayOtherIncomes.set(rows),
+      error: () => this.dayOtherIncomes.set([]),
+    });
   }
 
   loadDayExpenses(): void {
-    const today = new Date().toISOString().slice(0, 10);
-    this.billingService.listCashRegisterExpenses(today).subscribe({
+    const reg = this.todayRegister();
+    const date = reg?.registerDate?.slice(0, 10) ?? todayIsoDate();
+    this.billingService.listCashRegisterExpenses(date).subscribe({
       next: (rows) => this.dayExpenses.set(rows),
+      error: () => this.dayExpenses.set([]),
     });
   }
 
@@ -615,6 +709,7 @@ export class BillingPage implements OnInit, OnDestroy {
       error: (err) => this.message.set(httpErrorMessage(err)),
     });
     this.loadDayExpenses();
+    this.loadDayOtherIncomes();
   }
 
   openOpenCajaModal(): void {
@@ -643,6 +738,59 @@ export class BillingPage implements OnInit, OnDestroy {
     if (!this.savingExpense()) {
       this.expensesDayModalOpen.set(false);
     }
+  }
+
+  openOtherIncomesDayModal(): void {
+    this.loadDayOtherIncomes();
+    this.otherIncomeAmountInput.set(0);
+    this.otherIncomePaymentMethod.set('CASH');
+    this.otherIncomeObservationInput.set('');
+    this.otherIncomesDayModalOpen.set(true);
+  }
+
+  closeOtherIncomesDayModal(): void {
+    if (!this.savingOtherIncome()) {
+      this.otherIncomesDayModalOpen.set(false);
+    }
+  }
+
+  registerOtherIncome(): void {
+    if (!this.canBill()) {
+      this.message.set('La caja debe estar abierta para registrar otros ingresos');
+      return;
+    }
+    const amount = this.otherIncomeAmountInput();
+    const observation = this.otherIncomeObservationInput().trim();
+    if (amount <= 0) {
+      this.message.set('Indique un valor de ingreso mayor a cero');
+      return;
+    }
+    if (!observation) {
+      this.message.set('Escriba el concepto del ingreso');
+      return;
+    }
+    this.savingOtherIncome.set(true);
+    this.billingService
+      .addCashRegisterOtherIncome({
+        amount,
+        paymentMethod: this.otherIncomePaymentMethod(),
+        observation,
+      })
+      .subscribe({
+        next: () => {
+          this.message.set('Otro ingreso registrado');
+          this.savingOtherIncome.set(false);
+          this.otherIncomeAmountInput.set(0);
+          this.otherIncomePaymentMethod.set('CASH');
+          this.otherIncomeObservationInput.set('');
+          this.refreshCashRegister();
+          this.loadDayOtherIncomes();
+        },
+        error: (err) => {
+          this.message.set(httpErrorMessage(err));
+          this.savingOtherIncome.set(false);
+        },
+      });
   }
 
   registerExpense(): void {

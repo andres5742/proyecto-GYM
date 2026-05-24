@@ -83,4 +83,72 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
               AND s.paymentMethod = com.gym.management.model.PaymentMethod.CASH
             """)
     BigDecimal sumCashAmountByShiftDate(@Param("date") LocalDate date);
+
+    @Query(
+            """
+            SELECT s.paymentMethod, COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.workShift.shiftDate = :date
+            GROUP BY s.paymentMethod
+            """)
+    List<Object[]> sumByShiftDateGroupByPaymentMethod(@Param("date") LocalDate date);
+
+    @Query(
+            """
+            SELECT s.product.id, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.workShift.shiftDate = :date
+            GROUP BY s.product.id
+            """)
+    List<Object[]> aggregateQuantityByProductOnShiftDate(@Param("date") LocalDate date);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.workShift.shiftDate BETWEEN :start AND :end
+            """)
+    BigDecimal sumTotalAmountByShiftDateBetween(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query("SELECT COUNT(s) FROM Sale s WHERE s.workShift.shiftDate BETWEEN :start AND :end")
+    long countSalesByShiftDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.quantity), 0) FROM Sale s
+            WHERE s.workShift.shiftDate BETWEEN :start AND :end
+            """)
+    long sumQuantityByShiftDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT s.paymentMethod, COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.workShift.shiftDate BETWEEN :start AND :end
+            GROUP BY s.paymentMethod
+            """)
+    List<Object[]> sumByShiftDateBetweenGroupByPaymentMethod(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT s.product.id, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.workShift.shiftDate BETWEEN :start AND :end
+            GROUP BY s.product.id
+            """)
+    List<Object[]> aggregateQuantityByProductOnShiftDateBetween(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT s.product.id, s.product.name, s.paymentMethod,
+                   COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.workShift.shiftDate BETWEEN :start AND :end
+            GROUP BY s.product.id, s.product.name, s.paymentMethod
+            ORDER BY s.product.name, s.paymentMethod
+            """)
+    List<Object[]> aggregateByProductAndPaymentBetweenDates(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
 }

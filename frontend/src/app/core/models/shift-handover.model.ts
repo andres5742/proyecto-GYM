@@ -63,8 +63,12 @@ export interface ShiftHandover {
   coin100?: number;
   coin50?: number;
   cashCountedTotal: number;
-  /** Facturación del día: efectivo en caja (inicio + cobros efectivo − gastos efectivo). */
+  /** Facturación del día: apertura + cobros efectivo − gastos + otros ingresos en efectivo. */
   billingCashExpected: number;
+  /** Apertura + facturación en efectivo − gastos (sin otros ingresos). */
+  billingCashBase: number;
+  /** Otros ingresos del día en efectivo (facturación). */
+  billingOtherIncomesCash: number;
   /** Ventas en efectivo de turnos anteriores del día, ya descontados los faltantes registrados. */
   previousShiftSalesCash: number;
   /** Faltantes ya cargados a otro empleado en turnos anteriores (no se exigen otra vez). */
@@ -96,6 +100,9 @@ export interface ShiftHandover {
   comparisons: ShiftHandoverComparison[];
   registeredShortfallAmount?: number | null;
   cashShortfallId?: number | null;
+  /** true si el sobrante de efectivo coincidió con inventario faltante y se ajustó stock */
+  inventorySurplusResolved?: boolean;
+  inventorySurplusResolutionNote?: string | null;
 }
 
 export const CASH_DENOMINATIONS: CashDenomination[] = [

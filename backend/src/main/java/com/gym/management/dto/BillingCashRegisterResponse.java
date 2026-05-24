@@ -34,5 +34,12 @@ public record BillingCashRegisterResponse(
         BigDecimal dayFiadoCollectedTotal,
         Map<PaymentMethod, BigDecimal> dayFiadoCollectedByMethod,
         long dayFiadoPaymentCount,
+        /** Otros ingresos del día (no facturación ni productos). */
+        BigDecimal dayOtherIncomesTotal,
+        Map<PaymentMethod, BigDecimal> dayOtherIncomesByMethod,
+        long dayOtherIncomeCount,
+        /** Facturación + productos + fiado + otros ingresos hoy, por medio (sin base inicial). */
+        Map<PaymentMethod, BigDecimal> dayIncomeByMethod,
+        BigDecimal dayIncomeTotal,
         /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos en efectivo. */
         BigDecimal cashInDrawer) {}

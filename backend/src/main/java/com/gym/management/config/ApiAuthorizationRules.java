@@ -91,6 +91,8 @@ public final class ApiAuthorizationRules {
                 .authenticated()
                 .requestMatchers("/api/modules/**")
                 .hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/reports/**")
+                .hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**")
                 .authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/shifts/**")

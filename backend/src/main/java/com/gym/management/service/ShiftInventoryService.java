@@ -10,13 +10,16 @@ import com.gym.management.dto.ShiftOpenInventoryPreviewResponse;
 import com.gym.management.exception.BusinessException;
 import com.gym.management.model.BillingCashRegister;
 import com.gym.management.model.BillingPaymentType;
+import com.gym.management.model.CashShortfallKind;
 import com.gym.management.model.Employee;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Product;
 import com.gym.management.model.ShiftStatus;
 import com.gym.management.model.WorkShift;
 import com.gym.management.repository.BillingCashRegisterExpenseRepository;
+import com.gym.management.repository.BillingCashRegisterOtherIncomeRepository;
 import com.gym.management.repository.BillingCashRegisterRepository;
+import com.gym.management.repository.EmployeeCashShortfallRepository;
 import com.gym.management.repository.BillingPaymentRepository;
 import com.gym.management.repository.ProductCreditPaymentRepository;
 import com.gym.management.repository.ProductRepository;
@@ -27,10 +30,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,15 +45,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class ShiftInventoryService {
 
     private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
+    private static final Set<CashShortfallKind> CASH_DRAWER_SHORTFALL_KINDS = EnumSet.of(
+            CashShortfallKind.CASH_HANDOVER, CashShortfallKind.CASH_REGISTER, CashShortfallKind.CASH_SHIFT_OPEN);
 
     private final WorkShiftRepository workShiftRepository;
     private final ProductRepository productRepository;
     private final BillingCashRegisterRepository cashRegisterRepository;
     private final BillingPaymentRepository billingPaymentRepository;
     private final BillingCashRegisterExpenseRepository expenseRepository;
+    private final BillingCashRegisterOtherIncomeRepository otherIncomeRepository;
     private final SaleRepository saleRepository;
     private final ProductCreditPaymentRepository productCreditPaymentRepository;
     private final CashShortfallService cashShortfallService;
+    private final EmployeeCashShortfallRepository shortfallRepository;
 
     @Transactional(readOnly = true)
     public ShiftOpenInventoryPreviewResponse preview(LocalDate shiftDate) {
@@ -123,6 +132,7 @@ public class ShiftInventoryService {
                         product.getUnitPrice().multiply(BigDecimal.valueOf(missing)));
                 shortfallTotal = shortfallTotal.add(lineValue);
                 missingLines.add(new InventoryMissingLineDto(
+                        product.getId(),
                         product.getName(),
                         product.getCategory(),
                         expected,
@@ -208,6 +218,7 @@ public class ShiftInventoryService {
                         product.getUnitPrice().multiply(BigDecimal.valueOf(missing)));
                 shortfallTotal = shortfallTotal.add(lineValue);
                 missingLines.add(new InventoryMissingLineDto(
+                        product.getId(),
                         product.getName(),
                         product.getCategory(),
                         expected,
@@ -269,7 +280,14 @@ public class ShiftInventoryService {
         }
         Map<BillingPaymentType, BigDecimal> cashByType = loadCashByBillingType(id);
         BigDecimal fiadoCash = sumFiadoCashCollected(date);
-        BigDecimal expected = computeCashInDrawer(register, true);
+        Map<PaymentMethod, BigDecimal> otherIncomesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        otherIncomeRepository.sumByPaymentMethodByCashRegisterId(id));
+        BigDecimal otherIncomesCash =
+                otherIncomesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
+        BigDecimal systemCash = computeCashInDrawer(register, true);
+        BigDecimal deducted = sumRegisteredCashShortfallsForDate(date);
+        BigDecimal expected = netCashExpectedAfterShortfalls(systemCash, deducted);
         Employee opener = register.getOpenedBy();
         String openerName = opener.getFirstName() + " " + opener.getLastName();
         return new ShiftOpenCashPreviewResponse(
@@ -282,7 +300,20 @@ public class ShiftInventoryService {
                 cashByType.getOrDefault(BillingPaymentType.MEMBERSHIP, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.DAY_WORKOUT, BigDecimal.ZERO),
                 cashByType.getOrDefault(BillingPaymentType.SPORTS_DANCE, BigDecimal.ZERO),
+                MoneyUtil.roundPesos(otherIncomesCash),
+                systemCash,
+                deducted,
                 expected);
+    }
+
+    private BigDecimal sumRegisteredCashShortfallsForDate(LocalDate date) {
+        BigDecimal sum = shortfallRepository.sumShortfallAmountByRecordDateAndKinds(date, CASH_DRAWER_SHORTFALL_KINDS);
+        return sum != null ? MoneyUtil.roundPesos(sum) : BigDecimal.ZERO;
+    }
+
+    private static BigDecimal netCashExpectedAfterShortfalls(BigDecimal systemCash, BigDecimal deducted) {
+        BigDecimal net = MoneyUtil.roundPesos(systemCash.subtract(deducted));
+        return net.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : net;
     }
 
     private BigDecimal computeCashInDrawer(BillingCashRegister register, boolean includeFiadoCash) {
@@ -299,9 +330,14 @@ public class ShiftInventoryService {
         if (productCash == null) {
             productCash = BigDecimal.ZERO;
         }
+        Map<PaymentMethod, BigDecimal> otherIncomesByMethod =
+                BillingPaymentMethodTotals.fromAmountRows(
+                        otherIncomeRepository.sumByPaymentMethodByCashRegisterId(id));
+        BigDecimal otherCashIn = otherIncomesByMethod.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal total = register.getOpeningCashAmount()
                 .add(billingCashIn)
                 .add(productCash)
+                .add(otherCashIn)
                 .subtract(cashOut);
         if (includeFiadoCash) {
             total = total.add(sumFiadoCashCollected(register.getRegisterDate()));

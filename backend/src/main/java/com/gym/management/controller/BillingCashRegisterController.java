@@ -4,6 +4,8 @@ import com.gym.management.dto.BillingCashRegisterClosePreviewResponse;
 import com.gym.management.dto.BillingCashRegisterCloseResultResponse;
 import com.gym.management.dto.BillingCashRegisterExpenseRequest;
 import com.gym.management.dto.BillingCashRegisterExpenseResponse;
+import com.gym.management.dto.BillingCashRegisterOtherIncomeRequest;
+import com.gym.management.dto.BillingCashRegisterOtherIncomeResponse;
 import com.gym.management.dto.BillingCashRegisterResponse;
 import com.gym.management.dto.CloseBillingCashRegisterRequest;
 import com.gym.management.dto.OpenBillingCashRegisterRequest;
@@ -79,5 +81,17 @@ public class BillingCashRegisterController {
     public BillingCashRegisterExpenseResponse addExpense(
             @Valid @RequestBody BillingCashRegisterExpenseRequest request) {
         return cashRegisterService.addExpense(request);
+    }
+
+    @GetMapping("/other-incomes")
+    public List<BillingCashRegisterOtherIncomeResponse> listOtherIncomes(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return cashRegisterService.listOtherIncomesByDate(date);
+    }
+
+    @PostMapping("/other-incomes")
+    public BillingCashRegisterOtherIncomeResponse addOtherIncome(
+            @Valid @RequestBody BillingCashRegisterOtherIncomeRequest request) {
+        return cashRegisterService.addOtherIncome(request);
     }
 }

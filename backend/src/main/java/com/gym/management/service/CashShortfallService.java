@@ -305,6 +305,13 @@ public class CashShortfallService {
             WorkShift previousShift,
             BigDecimal expectedAmount,
             BigDecimal declaredAmount) {
+        if (register.getId() != null) {
+            Optional<EmployeeCashShortfall> existingShiftOpen = shortfallRepository.findByBillingCashRegisterIdAndKind(
+                    register.getId(), CashShortfallKind.CASH_SHIFT_OPEN);
+            if (existingShiftOpen.isPresent()) {
+                return existingShiftOpen.map(this::toResponse);
+            }
+        }
         BigDecimal expected = MoneyUtil.roundPesos(expectedAmount);
         BigDecimal declared = MoneyUtil.roundPesos(declaredAmount);
         if (declared.compareTo(expected) >= 0) {

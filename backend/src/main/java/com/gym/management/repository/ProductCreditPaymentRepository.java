@@ -55,4 +55,31 @@ public interface ProductCreditPaymentRepository extends JpaRepository<ProductCre
             WHERE p.workShift.shiftDate = :date
             """)
     long countByShiftDate(@Param("date") LocalDate date);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM ProductCreditPayment p
+            WHERE p.workShift.shiftDate BETWEEN :start AND :end
+            """)
+    BigDecimal sumAmountByShiftDateBetween(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT p.paymentMethod, COALESCE(SUM(p.amount), 0)
+            FROM ProductCreditPayment p
+            WHERE p.workShift.shiftDate BETWEEN :start AND :end
+            GROUP BY p.paymentMethod
+            """)
+    List<Object[]> sumByShiftDateBetweenGroupByPaymentMethod(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT COUNT(p)
+            FROM ProductCreditPayment p
+            WHERE p.workShift.shiftDate BETWEEN :start AND :end
+            """)
+    long countByShiftDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }

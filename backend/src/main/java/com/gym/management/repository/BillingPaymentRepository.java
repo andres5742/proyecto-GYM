@@ -108,4 +108,30 @@ public interface BillingPaymentRepository extends JpaRepository<BillingPayment, 
               AND p.paymentMethod <> com.gym.management.model.PaymentMethod.PENDING
             """)
     long countBetweenDatesExcludingPending(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT COUNT(p) FROM BillingPayment p
+            WHERE p.paymentDate >= :start AND p.paymentDate <= :end
+              AND p.paymentType = :type
+              AND p.paymentMethod <> com.gym.management.model.PaymentMethod.PENDING
+            """)
+    long countByTypeBetweenDates(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("type") BillingPaymentType type);
+
+    @Query(
+            """
+            SELECT COALESCE(p.plan.id, 0L), COALESCE(p.plan.name, 'Sin plan'), p.paymentMethod,
+                   COUNT(p), COALESCE(SUM(p.amount), 0)
+            FROM BillingPayment p
+            WHERE p.paymentDate >= :start AND p.paymentDate <= :end
+              AND p.paymentType = com.gym.management.model.BillingPaymentType.MEMBERSHIP
+              AND p.paymentMethod <> com.gym.management.model.PaymentMethod.PENDING
+            GROUP BY p.plan.id, p.plan.name, p.paymentMethod
+            ORDER BY p.plan.name, p.paymentMethod
+            """)
+    List<Object[]> aggregateMembershipByPlanAndMethodBetweenDates(
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
 }

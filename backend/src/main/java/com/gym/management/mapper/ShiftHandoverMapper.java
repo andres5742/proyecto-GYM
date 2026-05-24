@@ -20,6 +20,8 @@ public final class ShiftHandoverMapper {
             BigDecimal priorPaymentsTotal,
             com.gym.management.dto.ShiftDetailResponse shiftDetail,
             BigDecimal billingCashExpected,
+            BigDecimal billingCashBase,
+            BigDecimal billingOtherIncomesCash,
             BigDecimal previousShiftSalesCash,
             BigDecimal previousShiftShortfallsDeducted,
             String previousShiftName,
@@ -29,7 +31,9 @@ public final class ShiftHandoverMapper {
             BigDecimal expectedCashTotal,
             List<com.gym.management.dto.ShiftHandoverComparisonResponse> comparisons,
             BigDecimal registeredShortfallAmount,
-            Long cashShortfallId) {
+            Long cashShortfallId,
+            boolean inventorySurplusResolved,
+            String inventorySurplusResolutionNote) {
         BigDecimal cashTotal = CashCountUtil.totalCash(handover);
         BigDecimal declaredGrand = cashTotal
                 .add(nullToZero(handover.getAuxAmount()))
@@ -58,6 +62,8 @@ public final class ShiftHandoverMapper {
                 handover.getCoin50(),
                 cashTotal,
                 billingCashExpected,
+                billingCashBase,
+                billingOtherIncomesCash,
                 previousShiftSalesCash,
                 previousShiftShortfallsDeducted,
                 previousShiftName,
@@ -77,7 +83,9 @@ public final class ShiftHandoverMapper {
                 shiftDetail,
                 comparisons,
                 registeredShortfallAmount,
-                cashShortfallId);
+                cashShortfallId,
+                inventorySurplusResolved,
+                inventorySurplusResolutionNote);
     }
 
     public static ShiftHandoverExpenseResponse toExpenseResponse(ShiftHandoverExpense expense) {

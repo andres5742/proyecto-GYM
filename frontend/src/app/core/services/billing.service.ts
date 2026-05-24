@@ -12,6 +12,8 @@ import {
   BillingCashRegister,
   BillingCashRegisterExpense,
   BillingCashRegisterExpenseRequest,
+  BillingCashRegisterOtherIncome,
+  BillingCashRegisterOtherIncomeRequest,
   BillingDailySummary,
   BillingMonthlySummary,
   BillingPayment,
@@ -145,6 +147,26 @@ export class BillingService {
   ): Observable<BillingCashRegisterExpense> {
     return this.http.post<BillingCashRegisterExpense>(
       `${this.baseUrl}/cash-registers/expenses`,
+      request,
+    );
+  }
+
+  listCashRegisterOtherIncomes(date?: string): Observable<BillingCashRegisterOtherIncome[]> {
+    let params = new HttpParams();
+    if (date) {
+      params = params.set('date', date);
+    }
+    return this.http.get<BillingCashRegisterOtherIncome[]>(
+      `${this.baseUrl}/cash-registers/other-incomes`,
+      { params },
+    );
+  }
+
+  addCashRegisterOtherIncome(
+    request: BillingCashRegisterOtherIncomeRequest,
+  ): Observable<BillingCashRegisterOtherIncome> {
+    return this.http.post<BillingCashRegisterOtherIncome>(
+      `${this.baseUrl}/cash-registers/other-incomes`,
       request,
     );
   }
