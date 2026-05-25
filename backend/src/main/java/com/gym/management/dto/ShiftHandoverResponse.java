@@ -2,12 +2,14 @@ package com.gym.management.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 public record ShiftHandoverResponse(
         Long id,
         Long workShiftId,
         String workShiftName,
+        LocalDate shiftDate,
         Long employeeId,
         String employeeName,
         Instant submittedAt,
@@ -33,6 +35,9 @@ public record ShiftHandoverResponse(
         BigDecimal previousShiftCreditPaymentsCash,
         BigDecimal creditPaymentsCashExpected,
         BigDecimal expectedCashTotal,
+        /** Si no es null, el total viene de Facturación (entrega + movimientos). */
+        BigDecimal lastHandoverCashTotal,
+        BigDecimal cashSinceLastHandover,
         BigDecimal auxAmount,
         BigDecimal nequiAmount,
         BigDecimal bankAmount,
@@ -44,9 +49,15 @@ public record ShiftHandoverResponse(
         List<ShiftHandoverPriorPaymentResponse> priorPayments,
         ShiftDetailResponse shiftDetail,
         List<ProductInventoryLineResponse> inventoryProducts,
+        int inventoryUnitsDelivered,
+        int inventoryProductKindsDelivered,
+        List<HandoverDeliveredProductLine> deliveredInventory,
         java.math.BigDecimal pendingInventoryShortfallTotal,
         List<ShiftHandoverComparisonResponse> comparisons,
         BigDecimal registeredShortfallAmount,
         Long cashShortfallId,
         boolean inventorySurplusResolved,
-        String inventorySurplusResolutionNote) {}
+        String inventorySurplusResolutionNote,
+        boolean cashSurplusRegistered,
+        BigDecimal registeredSurplusAmount,
+        Long cashSurplusOtherIncomeId) {}

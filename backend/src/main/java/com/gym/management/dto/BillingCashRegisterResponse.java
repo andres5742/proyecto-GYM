@@ -40,10 +40,19 @@ public record BillingCashRegisterResponse(
         /** Otros ingresos del día (no facturación ni productos). */
         BigDecimal dayOtherIncomesTotal,
         Map<PaymentMethod, BigDecimal> dayOtherIncomesByMethod,
+        /** Parte de otros ingresos marcada automáticamente como sobrante. */
+        Map<PaymentMethod, BigDecimal> dayAutoSurplusByMethod,
         long dayOtherIncomeCount,
         /** Facturación + productos + fiado + otros ingresos hoy, por medio (sin base inicial). */
         Map<PaymentMethod, BigDecimal> dayIncomeByMethod,
         BigDecimal dayIncomeTotal,
-        /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos en efectivo. */
+        /**
+         * Efectivo físico esperado en caja: si hubo entrega de turno, último conteo entregado + movimientos en
+         * Facturación desde entonces; si no, inicio + cobros − gastos (efectivo).
+         */
         BigDecimal cashInDrawer,
+        /** Efectivo contado en la última entrega de turno (null si aún no hay entrega hoy). */
+        BigDecimal lastHandoverCashTotal,
+        /** Cobros/gastos en efectivo en Facturación después de esa entrega. */
+        BigDecimal cashSinceLastHandover,
         List<DigitalAccountBalanceLine> digitalAccounts) {}

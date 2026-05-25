@@ -45,6 +45,13 @@ public class BillingCashRegister {
     @Column(name = "opening_cash_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal openingCashAmount;
 
+    /** Efectivo físico contado en la última entrega de turno del día (base para abrir siguiente turno). */
+    @Column(name = "last_handover_cash_amount", precision = 12, scale = 2)
+    private BigDecimal lastHandoverCashAmount;
+
+    @Column(name = "last_handover_at")
+    private Instant lastHandoverAt;
+
     @Column(name = "opening_nequi_amount", precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal openingNequiAmount = BigDecimal.ZERO;

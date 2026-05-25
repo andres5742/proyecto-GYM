@@ -26,13 +26,14 @@ public class WallPostService {
 
     private final WallPostRepository wallPostRepository;
     private final EmployeeService employeeService;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public List<WallPostResponse> findActive() {
         Instant now = Instant.now();
         wallPostRepository.deleteExpired(now);
         return wallPostRepository.findActivePosts(now).stream()
-                .map(WallPostMapper::toPublicResponse)
+                .map(post -> WallPostMapper.toPublicResponse(post, fileStorageService::localUploadExists))
                 .toList();
     }
 

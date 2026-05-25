@@ -96,4 +96,25 @@ public interface BillingCashRegisterOtherIncomeRepository
             """)
     BigDecimal sumCashAmountByCashRegisterIdAfter(
             @Param("registerId") Long registerId, @Param("after") Instant after);
+
+    /**
+     * Suma otros ingresos en efectivo posteriores a un instante, sin contar sobrantes automáticos de
+     * entrega/apertura (ya están incluidos en el efectivo contado en caja).
+     */
+    @Query(
+            """
+            SELECT COALESCE(SUM(i.amount), 0) FROM BillingCashRegisterOtherIncome i
+            WHERE i.cashRegister.id = :registerId
+              AND i.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+              AND i.createdAt > :after
+              AND i.observation NOT LIKE '[AUTO:SOBRANTE%'
+            """)
+    BigDecimal sumCashAmountByCashRegisterIdAfterExcludingAutoSurplus(
+            @Param("registerId") Long registerId, @Param("after") Instant after);
+
+    boolean existsByObservationStartingWith(String prefix);
+
+    java.util.List<BillingCashRegisterOtherIncome> findByObservationStartingWith(String prefix);
+
+    void deleteByObservationStartingWith(String prefix);
 }

@@ -18,6 +18,7 @@ export class HomeMediaGallery implements OnInit {
   ngOnInit(): void {
     this.homeContent.findMedia().subscribe({
       next: (items) => this.items.set(items),
+      error: () => this.items.set([]),
     });
   }
 

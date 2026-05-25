@@ -39,6 +39,18 @@ export interface ShiftHandoverRequest extends ShiftHandoverCashForm {
   inventoryCounts?: ProductInventoryCountItem[];
 }
 
+export interface HandoverDeliveredProductLine {
+  productId: number;
+  productName: string;
+  category: string;
+  /** Stock en sistema antes del conteo (registros nuevos). */
+  expectedInSystem?: number | null;
+  /** Unidades que quedaron en bodega al entregar. */
+  stockRemaining: number;
+  /** Registros antiguos solo tenían este campo. */
+  countedQuantity?: number;
+}
+
 export interface ShiftHandoverComparison {
   label: string;
   declared: number;
@@ -50,6 +62,7 @@ export interface ShiftHandover {
   id?: number;
   workShiftId: number;
   workShiftName: string;
+  shiftDate?: string;
   employeeId: number;
   employeeName: string;
   submittedAt?: string;
@@ -83,8 +96,12 @@ export interface ShiftHandover {
   previousShiftCreditPaymentsCash: number;
   /** Cobros de fiado en efectivo del turno de entrega. */
   creditPaymentsCashExpected: number;
-  /** billing + turnos anteriores + ventas + cobros fiado efectivo */
+  /** Igual que «Efectivo en caja» en Facturación. */
   expectedCashTotal: number;
+  /** Desglose Facturación: efectivo entregado en turno anterior. */
+  lastHandoverCashTotal?: number | null;
+  /** Desglose Facturación: movimientos en caja desde la última entrega. */
+  cashSinceLastHandover?: number | null;
   expensesTotal: number;
   priorPaymentsTotal: number;
   declaredGrandTotal: number;
@@ -100,6 +117,9 @@ export interface ShiftHandover {
   }[];
   shiftDetail: ShiftDetail;
   inventoryProducts?: ProductInventoryLine[];
+  inventoryUnitsDelivered?: number;
+  inventoryProductKindsDelivered?: number;
+  deliveredInventory?: HandoverDeliveredProductLine[];
   pendingInventoryShortfallTotal?: number;
   comparisons: ShiftHandoverComparison[];
   registeredShortfallAmount?: number | null;
@@ -107,6 +127,9 @@ export interface ShiftHandover {
   /** true si el sobrante de efectivo coincidió con inventario faltante y se ajustó stock */
   inventorySurplusResolved?: boolean;
   inventorySurplusResolutionNote?: string | null;
+  cashSurplusRegistered?: boolean;
+  registeredSurplusAmount?: number | null;
+  cashSurplusOtherIncomeId?: number | null;
 }
 
 export const CASH_DENOMINATIONS: CashDenomination[] = [

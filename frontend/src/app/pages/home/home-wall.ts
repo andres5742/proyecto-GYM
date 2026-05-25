@@ -97,9 +97,11 @@ export class HomeWall implements OnInit {
     this.loading.set(true);
     this.holidayService.findByMonth(this.calendarYear(), this.calendarMonth()).subscribe({
       next: (holidays) => this.holidays.set(holidays),
+      error: () => this.holidays.set([]),
     });
     this.businessHoursService.get().subscribe({
       next: (hours) => this.businessDays.set(hours.days),
+      error: () => this.businessDays.set([]),
     });
     this.wallPostService.findActive().subscribe({
       next: (posts) => {

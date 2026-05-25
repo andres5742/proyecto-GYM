@@ -6,6 +6,7 @@ import com.gym.management.service.AppModuleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -32,7 +33,18 @@ public class SecurityConfig {
         return new ModuleAccessFilter(appModuleService);
     }
 
+    /** Imágenes públicas: sin JWT; archivos inexistentes deben devolver 404, no 403. */
     @Bean
+    @Order(1)
+    SecurityFilterChain uploadsSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher("/uploads/**")
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http, ModuleAccessFilter moduleAccessFilter)
             throws Exception {
         http.cors(Customizer.withDefaults())

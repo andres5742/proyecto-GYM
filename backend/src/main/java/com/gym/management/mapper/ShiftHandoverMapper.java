@@ -29,13 +29,21 @@ public final class ShiftHandoverMapper {
             BigDecimal previousShiftCreditPaymentsCash,
             BigDecimal creditPaymentsCashExpected,
             BigDecimal expectedCashTotal,
+            BigDecimal lastHandoverCashTotal,
+            BigDecimal cashSinceLastHandover,
             java.util.List<com.gym.management.dto.ProductInventoryLineResponse> inventoryProducts,
+            int inventoryUnitsDelivered,
+            int inventoryProductKindsDelivered,
+            java.util.List<com.gym.management.dto.HandoverDeliveredProductLine> deliveredInventory,
             BigDecimal pendingInventoryShortfallTotal,
             List<com.gym.management.dto.ShiftHandoverComparisonResponse> comparisons,
             BigDecimal registeredShortfallAmount,
             Long cashShortfallId,
             boolean inventorySurplusResolved,
-            String inventorySurplusResolutionNote) {
+            String inventorySurplusResolutionNote,
+            boolean cashSurplusRegistered,
+            BigDecimal registeredSurplusAmount,
+            Long cashSurplusOtherIncomeId) {
         BigDecimal cashTotal = CashCountUtil.totalCash(handover);
         BigDecimal declaredGrand = cashTotal
                 .add(nullToZero(handover.getAuxAmount()))
@@ -48,6 +56,7 @@ public final class ShiftHandoverMapper {
                 handover.getId(),
                 handover.getWorkShift().getId(),
                 handover.getWorkShift().getName(),
+                handover.getWorkShift().getShiftDate(),
                 handover.getEmployee().getId(),
                 handover.getEmployee().getFirstName() + " " + handover.getEmployee().getLastName(),
                 handover.getSubmittedAt(),
@@ -73,6 +82,8 @@ public final class ShiftHandoverMapper {
                 previousShiftCreditPaymentsCash,
                 creditPaymentsCashExpected,
                 expectedCashTotal,
+                lastHandoverCashTotal,
+                cashSinceLastHandover,
                 handover.getAuxAmount(),
                 handover.getNequiAmount(),
                 handover.getBankAmount(),
@@ -84,12 +95,18 @@ public final class ShiftHandoverMapper {
                 handover.getPriorPayments().stream().map(ShiftHandoverMapper::toPriorPaymentResponse).toList(),
                 shiftDetail,
                 inventoryProducts != null ? inventoryProducts : java.util.List.of(),
+                inventoryUnitsDelivered,
+                inventoryProductKindsDelivered,
+                deliveredInventory != null ? deliveredInventory : java.util.List.of(),
                 pendingInventoryShortfallTotal != null ? pendingInventoryShortfallTotal : BigDecimal.ZERO,
                 comparisons,
                 registeredShortfallAmount,
                 cashShortfallId,
                 inventorySurplusResolved,
-                inventorySurplusResolutionNote);
+                inventorySurplusResolutionNote,
+                cashSurplusRegistered,
+                registeredSurplusAmount,
+                cashSurplusOtherIncomeId);
     }
 
     public static ShiftHandoverExpenseResponse toExpenseResponse(ShiftHandoverExpense expense) {

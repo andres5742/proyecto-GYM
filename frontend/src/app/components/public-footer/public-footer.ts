@@ -17,6 +17,7 @@ export class PublicFooter implements OnInit {
   ngOnInit(): void {
     this.homeContent.getFooter().subscribe({
       next: (data) => this.footer.set(data),
+      error: () => this.footer.set(null),
     });
   }
 

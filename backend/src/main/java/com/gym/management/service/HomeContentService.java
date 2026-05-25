@@ -25,10 +25,12 @@ public class HomeContentService {
     private final CarouselSlideRepository carouselSlideRepository;
     private final GymMediaItemRepository gymMediaItemRepository;
     private final SiteFooterRepository siteFooterRepository;
+    private final FileStorageService fileStorageService;
 
     @Transactional(readOnly = true)
     public List<CarouselSlideResponse> findActiveCarousel() {
         return carouselSlideRepository.findByActiveTrueOrderByDisplayOrderAscIdAsc().stream()
+                .filter(slide -> fileStorageService.localUploadExists(slide.getImageUrl()))
                 .map(this::toCarouselResponse)
                 .toList();
     }

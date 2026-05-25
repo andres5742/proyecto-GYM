@@ -24,6 +24,7 @@ export class HomeCarousel implements OnInit, OnDestroy {
           this.startAutoPlay();
         }
       },
+      error: () => this.slides.set([]),
     });
   }
 

@@ -87,6 +87,15 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     @Query(
             """
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.workShift.shiftDate = :date
+              AND s.paymentMethod = com.gym.management.model.PaymentMethod.CASH
+              AND s.createdAt > :after
+            """)
+    BigDecimal sumCashAmountByShiftDateAfter(@Param("date") LocalDate date, @Param("after") java.time.Instant after);
+
+    @Query(
+            """
             SELECT s.paymentMethod, COALESCE(SUM(s.totalAmount), 0)
             FROM Sale s
             WHERE s.workShift.shiftDate = :date

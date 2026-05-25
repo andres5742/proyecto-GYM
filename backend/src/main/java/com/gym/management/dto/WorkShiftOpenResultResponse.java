@@ -10,4 +10,7 @@ public record WorkShiftOpenResultResponse(
         String inventoryShortfallNotes,
         boolean cashShortfallRegistered,
         BigDecimal cashShortfallAmount,
-        String cashShortfallNotes) {}
+        String cashShortfallNotes,
+        boolean cashSurplusRegistered,
+        BigDecimal cashSurplusAmount,
+        String cashSurplusBillingObservation) {}

@@ -1,6 +1,6 @@
 <section class="page-header">
   <h2>Entrega de turno</h2>
-  <p>Cuente la caja y los productos. El sistema guarda el stock y cruza sobrante de plata con faltantes de productos.</p>
+  <p>Cuente la caja y los productos. El sobrante en efectivo queda en caja; si además faltan productos, el sistema cruza y define quién queda debiendo.</p>
 </section>
 
 @if (message()) {
@@ -17,7 +17,10 @@
   <div class="handover-layout">
     <form class="panel handover-form handover-form--main" (ngSubmit)="onFormSubmit($event)">
       @if (alreadySubmitted()) {
-        <p class="submitted-banner">✓ Entrega registrada el {{ preview()!.submittedAt | date: 'short' }}</p>
+        <p class="submitted-banner">
+          ✓ Entrega registrada el {{ preview()!.submittedAt | date: 'short' }}.
+          Revise el detalle en <strong>Historial de entregas</strong> más abajo.
+        </p>
       }
 
       <div class="handover-guide handover-guide--compact">
@@ -30,6 +33,9 @@
 
       <div class="handover-cash-block handover-cash-block--solo">
       <h3 class="handover-cash-title">Efectivo en caja</h3>
+      <p class="handover-cash-sync muted">
+        «Debería haber» usa el mismo total que <strong>Efectivo en caja</strong> en Facturación.
+      </p>
 
       <div
         class="handover-money-box"
@@ -42,6 +48,7 @@
           <p class="handover-money-box__result ok">Cuadra</p>
         } @else if (cashDiff() > 0) {
           <p class="handover-money-box__result">Sobra <strong>{{ cashDiff() | cop }}</strong> en efectivo</p>
+          <p class="handover-money-box__hint">Ese sobrante queda en el efectivo de caja para el siguiente turno.</p>
         } @else {
           <p class="handover-money-box__result warn">Falta <strong>{{ -cashDiff() | cop }}</strong> en efectivo</p>
         }
@@ -106,6 +113,19 @@
           [class.cash-ok]="cashMatchesDeclared()"
           [class.cash-diff]="!cashMatchesDeclared()"
         >
+          @if (usesBillingCashDrawer()) {
+            <p class="cash-expected__hint">
+              Mismo cálculo que <strong>Efectivo en caja</strong> en Facturación.
+            </p>
+            <p class="cash-expected__line">
+              Efectivo entregado en turno:
+              <strong>{{ preview()!.lastHandoverCashTotal! | cop }}</strong>
+            </p>
+            <p class="cash-expected__line">
+              Movimientos en Facturación desde la entrega:
+              <strong>{{ preview()!.cashSinceLastHandover! | cop }}</strong>
+            </p>
+          } @else {
           <p class="cash-expected__line">
             Caja del día (apertura + facturación en efectivo − gastos):
             <strong>{{ billingCashBase() | cop }}</strong>
@@ -148,8 +168,9 @@
               <strong>{{ creditPaymentsCashExpected() | cop }}</strong>
             </p>
           }
+          }
           <p class="cash-expected__line cash-expected__total">
-            = Total esperado: <strong>{{ expectedCashInDrawer() | cop }}</strong>
+            = Total esperado (Facturación): <strong>{{ expectedCashInDrawer() | cop }}</strong>
           </p>
           <p class="cash-expected__line">
             Debe coincidir con el dinero contado: <strong>{{ cashTotal() | cop }}</strong>
@@ -236,39 +257,40 @@
       </section>
     </aside>
 
-    <section class="panel compare-panel">
-      <h3>Comparación con ventas</h3>
-      <table class="compare-table">
-        <thead>
-          <tr>
-            <th>Concepto</th>
-            <th>Declarado</th>
-            <th>Esperado</th>
-            <th>Diferencia</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of liveComparisons(); track row.label) {
-            <tr [class]="diffClass(row.difference)">
-              <td>{{ row.label }}</td>
-              <td>{{ row.declared | cop }}</td>
-              <td>{{ row.expected | cop }}</td>
-              <td>{{ row.difference | cop }}</td>
+    @if (!alreadySubmitted()) {
+      <section class="panel compare-panel">
+        <h3>Cuadre de efectivo (turno actual)</h3>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Declarado</th>
+              <th>Esperado</th>
+              <th>Diferencia</th>
             </tr>
-          }
-        </tbody>
-      </table>
-      <p class="compare-hint">
-        El dinero contado debe igualar la caja del día (apertura + facturación en efectivo − gastos) más
-        las ventas en efectivo de todos los turnos del día y los cobros fiado en efectivo.
-        Diferencia 0 = cuadra.
-      </p>
-    </section>
+          </thead>
+          <tbody>
+            @for (row of liveComparisons(); track row.label) {
+              <tr [class]="diffClass(row.difference)">
+                <td>{{ row.label }}</td>
+                <td>{{ row.declared | cop }}</td>
+                <td>{{ row.expected | cop }}</td>
+                <td>{{ row.difference | cop }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p class="compare-hint">
+          El dinero contado debe igualar la caja del día más ventas y fiado en efectivo. Diferencia 0 = cuadra.
+        </p>
+      </section>
+    }
   </div>
 }
 
 @if (confirmModalOpen()) {
-  <div class="handover-confirm-backdrop" (click)="closeConfirmModal()" role="presentation"></div>
+  <div class="handover-confirm-layer" role="presentation">
+  <div class="handover-confirm-backdrop" (click)="closeConfirmModal()"></div>
   <div
     class="handover-confirm-modal handover-confirm-modal--large handover-confirm-modal--inventory"
     role="dialog"
@@ -276,13 +298,16 @@
     (click)="$event.stopPropagation()"
   >
     <header class="handover-confirm-modal__header">
-      <div>
-        <h3 id="handover-confirm-title">Paso 2: Productos en bodega</h3>
-        @if (preview(); as p) {
-          <p class="handover-confirm-modal__meta">
-            {{ p.shiftDetail.shift.name }} · {{ p.shiftDetail.shift.employeeName }}
-          </p>
-        }
+      <div class="handover-confirm-modal__title-wrap">
+        <span class="handover-confirm-modal__step">Paso 2</span>
+        <div>
+          <h3 id="handover-confirm-title">Productos en bodega</h3>
+          @if (preview(); as p) {
+            <p class="handover-confirm-modal__meta">
+              {{ p.shiftDetail.shift.name }} · {{ p.shiftDetail.shift.employeeName }}
+            </p>
+          }
+        </div>
       </div>
       <button type="button" class="handover-confirm-modal__close" aria-label="Cerrar" (click)="closeConfirmModal()">
         ×
@@ -290,24 +315,45 @@
     </header>
 
     <div class="handover-confirm-modal__scroll">
-      <div class="handover-confirm-cash-strip" [class.handover-confirm-cash-strip--ok]="cashDiff() === 0">
-        <span><strong>Efectivo que entrega:</strong> {{ cashTotal() | cop }}</span>
-        <span>Debería haber: {{ expectedCashInDrawer() | cop }}</span>
-        @if (cashDiff() === 0) {
-          <span class="ok">Cuadra</span>
-        } @else if (cashDiff() > 0) {
-          <span>Sobra {{ cashDiff() | cop }}</span>
-        } @else {
-          <span class="warn">Falta {{ -cashDiff() | cop }}</span>
-        }
+      <div class="handover-confirm-cash-cards" [class.handover-confirm-cash-cards--ok]="cashDiff() === 0">
+        <article class="handover-confirm-cash-card">
+          <span class="handover-confirm-cash-card__label">Efectivo que entrega</span>
+          <strong class="handover-confirm-cash-card__value">{{ cashTotal() | cop }}</strong>
+        </article>
+        <article class="handover-confirm-cash-card handover-confirm-cash-card--muted">
+          <span class="handover-confirm-cash-card__label">Debería haber</span>
+          <strong class="handover-confirm-cash-card__value">{{ expectedCashInDrawer() | cop }}</strong>
+        </article>
+        <article
+          class="handover-confirm-cash-card handover-confirm-cash-card--status"
+          [class.handover-confirm-cash-card--surplus]="cashDiff() > 0"
+          [class.handover-confirm-cash-card--short]="cashDiff() < 0"
+          [class.handover-confirm-cash-card--match]="cashDiff() === 0"
+        >
+          <span class="handover-confirm-cash-card__label">Resultado</span>
+          @if (cashDiff() === 0) {
+            <strong class="handover-confirm-cash-card__value">Cuadra</strong>
+          } @else if (cashDiff() > 0) {
+            <strong class="handover-confirm-cash-card__value">Sobra {{ cashDiff() | cop }}</strong>
+            <span class="handover-confirm-cash-card__sub">Queda en el efectivo de caja</span>
+          } @else {
+            <strong class="handover-confirm-cash-card__value">Falta {{ -cashDiff() | cop }}</strong>
+          }
+        </article>
       </div>
-
-      <p class="handover-confirm-modal__lead">
-        Confirme cuántos hay de cada producto en físico. «Cuántos hay» queda como stock real del gym.
-      </p>
 
       @if (inventoryProducts().length > 0) {
         <section class="handover-inventory handover-inventory--modal">
+          <div class="handover-inventory__modal-head">
+            <div>
+              <h4 class="handover-inventory__modal-title">Conteo físico</h4>
+              <p class="handover-inventory__hint">
+                Escriba cuántos hay de cada producto. Ese valor queda como stock real del gym.
+              </p>
+            </div>
+            <span class="handover-inventory__count-badge">{{ inventorySummary().totalProducts }} productos</span>
+          </div>
+
           <div class="handover-inventory__summary">
             @if (inventorySummary().allMatch && pendingInventoryDebt() <= 0) {
               <p class="handover-inventory__status ok">Todo cuadra con el sistema.</p>
@@ -353,16 +399,25 @@
             </div>
           }
 
-          <div class="handover-inventory__toolbar">
-            <button type="button" class="btn btn-primary btn-sm" (click)="fillInventoryExpected()">
-              Todo cuadra (usar sistema)
+          <div class="handover-inventory__toolbar handover-inventory__toolbar--segmented">
+            <button
+              type="button"
+              class="handover-inventory__seg-btn"
+              [class.handover-inventory__seg-btn--active]="!showOnlyInventoryDiff()"
+              (click)="showOnlyInventoryDiff.set(false)"
+            >
+              Ver todos
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" (click)="toggleInventoryFilter()">
-              {{
-                showOnlyInventoryDiff()
-                  ? 'Ver todos (' + inventorySummary().totalProducts + ')'
-                  : 'Solo con diferencia'
-              }}
+            <button
+              type="button"
+              class="handover-inventory__seg-btn"
+              [class.handover-inventory__seg-btn--active]="showOnlyInventoryDiff()"
+              (click)="showOnlyInventoryDiff.set(true)"
+            >
+              Solo con diferencia
+            </button>
+            <button type="button" class="handover-inventory__fill-btn" (click)="fillInventoryExpected()">
+              Todo cuadra (usar sistema)
             </button>
           </div>
 
@@ -429,73 +484,222 @@
     </div>
 
     <footer class="handover-confirm-modal__footer">
-      <button type="button" class="btn btn-secondary" (click)="closeConfirmModal()" [disabled]="saving()">
-        Volver a revisar
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary"
-        (click)="confirmAndSubmit()"
-        [disabled]="saving() || !canConfirmHandover()"
-      >
-        {{ saving() ? 'Registrando…' : 'Confirmar y cerrar turno' }}
-      </button>
+      <p class="handover-confirm-modal__footer-hint">Al confirmar se cierra el turno y se guarda el inventario.</p>
+      <div class="handover-confirm-modal__footer-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeConfirmModal()" [disabled]="saving()">
+          Volver a revisar
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary handover-confirm-modal__submit"
+          (click)="confirmAndSubmit()"
+          [disabled]="saving() || !canConfirmHandover()"
+        >
+          {{ saving() ? 'Registrando…' : 'Confirmar y cerrar turno' }}
+        </button>
+      </div>
     </footer>
+  </div>
   </div>
 }
 
 @if (history().length > 0) {
   <section class="panel history-panel">
-    <h3>Historial de entregas</h3>
-  @if (authService.isAdmin()) {
-      <div class="history-list">
+    <header class="history-panel__head">
+      <div>
+        <h3>Historial de entregas</h3>
+        @if (!isSuperAdmin()) {
+          <p class="history-panel__hint">Solo entregas de hoy · el super admin ve otros días</p>
+        }
+      </div>
+      <span class="history-panel__count">{{ history().length }} registro{{ history().length === 1 ? '' : 's' }}</span>
+    </header>
+
+    <div class="history-layout">
+      <nav class="history-nav" aria-label="Entregas del día">
         @for (h of history(); track h.id) {
           <button
             type="button"
-            class="history-item"
-            [class.active]="selectedHistoryId() === h.id"
-            (click)="selectedHistoryId.set(h.id!)"
+            class="history-nav__item"
+            [class.history-nav__item--active]="selectedHistoryId() === h.id"
+            (click)="selectHistoryItem(h.id!)"
           >
-            <strong>{{ h.workShiftName }}</strong>
-            <span>{{ h.employeeName }} · {{ h.submittedAt | date: 'short' }}</span>
+            <span class="history-nav__shift">{{ h.workShiftName }}</span>
+            <span class="history-nav__who">{{ h.employeeName }}</span>
+            <span class="history-nav__when">{{ h.submittedAt | date: 'dd/MM/yy, h:mm a' }}</span>
+            <span class="history-nav__metrics">
+              <span class="history-nav__chip history-nav__chip--cash">{{ h.cashCountedTotal | cop }}</span>
+              @if (h.inventoryUnitsDelivered && h.inventoryUnitsDelivered > 0) {
+                <span class="history-nav__chip history-nav__chip--stock">{{ h.inventoryUnitsDelivered }} uds.</span>
+              }
+            </span>
           </button>
         }
-      </div>
-    }
-    @if (selectedHistory(); as h) {
-      <div class="history-detail">
-        <div class="history-detail-header">
-          <p>
-            <strong>{{ h.employeeName }}</strong> · {{ h.workShiftName }} ·
-            {{ h.declaredGrandTotal | cop }} declarado
-          </p>
-          @if (isSuperAdmin()) {
-            <button type="button" class="btn btn-delete btn-sm" (click)="deleteHistoryItem(h)">
-              Eliminar entrega
+      </nav>
+
+      @if (selectedHistory(); as h) {
+        <div class="history-body">
+          <header class="history-body__hero">
+            <div class="history-body__title">
+              <h4>{{ h.workShiftName }}</h4>
+              <p>{{ h.employeeName }} · {{ h.submittedAt | date: 'medium' }}</p>
+            </div>
+            <div class="history-body__hero-kpis">
+              <div
+                class="history-hero-kpi history-hero-kpi--cash"
+                [class.history-hero-kpi--ok]="historyCashDiff() === 0"
+              >
+                <span class="history-hero-kpi__label">Efectivo</span>
+                <strong>{{ h.cashCountedTotal | cop }}</strong>
+                @if (historyCashDiff() === 0) {
+                  <span class="history-hero-kpi__badge ok">Cuadra</span>
+                } @else {
+                  <span class="history-hero-kpi__badge warn">Dif. {{ historyCashDiff() | cop }}</span>
+                }
+              </div>
+              <div class="history-hero-kpi history-hero-kpi--stock">
+                <span class="history-hero-kpi__label">Stock en bodega</span>
+                @if (h.inventoryUnitsDelivered && h.inventoryUnitsDelivered > 0) {
+                  <strong>{{ h.inventoryUnitsDelivered }} uds.</strong>
+                  <span class="history-hero-kpi__badge">{{ h.inventoryProductKindsDelivered }} productos</span>
+                } @else {
+                  <strong class="history-hero-kpi__muted">Sin registro</strong>
+                }
+              </div>
+            </div>
+            @if (isSuperAdmin()) {
+              <button type="button" class="btn btn-delete btn-sm history-body__delete" (click)="deleteHistoryItem(h)">
+                Eliminar
+              </button>
+            }
+          </header>
+
+          <div class="history-tabs" role="tablist">
+            @if (h.deliveredInventory && h.deliveredInventory.length > 0) {
+              <button
+                type="button"
+                class="history-tabs__btn"
+                [class.history-tabs__btn--active]="historyDetailTab() === 'inventory'"
+                (click)="historyDetailTab.set('inventory')"
+              >
+                Inventario ({{ h.deliveredInventory.length }})
+              </button>
+            }
+            <button
+              type="button"
+              class="history-tabs__btn"
+              [class.history-tabs__btn--active]="historyDetailTab() === 'cash'"
+              (click)="historyDetailTab.set('cash')"
+            >
+              Efectivo
             </button>
+          </div>
+
+          @if (historyDetailTab() === 'inventory' && h.deliveredInventory && h.deliveredInventory.length > 0) {
+            <section class="history-pane">
+              <div class="history-pane__toolbar">
+                <p class="history-pane__lead">Unidades que <strong>quedaron en bodega</strong> al cerrar el turno.</p>
+                <div class="history-pane__actions">
+                  <button
+                    type="button"
+                    class="history-pane__filter"
+                    [class.history-pane__filter--on]="!historyInventoryOnlyDiff()"
+                    (click)="historyInventoryOnlyDiff.set(false)"
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    class="history-pane__filter"
+                    [class.history-pane__filter--on]="historyInventoryOnlyDiff()"
+                    (click)="historyInventoryOnlyDiff.set(true)"
+                  >
+                    Solo diferencias
+                  </button>
+                </div>
+              </div>
+              @if (historyInventoryOnlyDiff() && filteredHistoryInventory().length === 0) {
+                <p class="history-pane__empty">Todos los productos cuadraron con el sistema.</p>
+              } @else {
+                <div class="history-inventory-table-wrap">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Sistema</th>
+                        <th>Quedó</th>
+                        <th>Dif.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (line of filteredHistoryInventory(); track line.productId) {
+                        <tr [class.history-table__row--variance]="(stockDiff(line) ?? 0) !== 0">
+                          <td class="history-table__name">{{ line.productName }}</td>
+                          <td class="history-table__muted">{{ line.category }}</td>
+                          <td>
+                            @if (line.expectedInSystem != null) {
+                              {{ line.expectedInSystem }}
+                            } @else {
+                              <span class="history-inventory-table__na">—</span>
+                            }
+                          </td>
+                          <td class="history-table__stock"><strong>{{ stockRemaining(line) }}</strong></td>
+                          <td [class]="diffClass(stockDiff(line) ?? 0)">
+                            @if (stockDiff(line) != null) {
+                              @if (stockDiff(line) === 0) {
+                                <span class="history-table__ok">0</span>
+                              } @else {
+                                {{ stockDiff(line)! > 0 ? '+' : '' }}{{ stockDiff(line) }}
+                              }
+                            } @else {
+                              <span class="history-inventory-table__na">—</span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </section>
+          }
+
+          @if (historyDetailTab() === 'cash') {
+            <section class="history-pane">
+              @for (row of h.comparisons; track row.label) {
+                <div
+                  class="history-cash-card"
+                  [class.history-cash-card--ok]="row.difference === 0"
+                  [class.history-cash-card--warn]="row.difference !== 0"
+                >
+                  <p class="history-cash-card__label">{{ row.label }}</p>
+                  <dl class="history-cash-card__grid">
+                    <div>
+                      <dt>Contó / declaró</dt>
+                      <dd>{{ row.declared | cop }}</dd>
+                    </div>
+                    <div>
+                      <dt>Esperado</dt>
+                      <dd>{{ row.expected | cop }}</dd>
+                    </div>
+                    <div>
+                      <dt>Resultado</dt>
+                      <dd [class]="diffClass(row.difference)">
+                        @if (row.difference === 0) {
+                          Cuadra
+                        } @else {
+                          {{ row.difference | cop }}
+                        }
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              }
+            </section>
           }
         </div>
-        <table class="compare-table compact">
-          <thead>
-            <tr>
-              <th>Concepto</th>
-              <th>Declarado</th>
-              <th>Ventas</th>
-              <th>Dif.</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of h.comparisons; track row.label) {
-              <tr [class]="diffClass(row.difference)">
-                <td>{{ row.label }}</td>
-                <td>{{ row.declared | cop }}</td>
-                <td>{{ row.expected | cop }}</td>
-                <td>{{ row.difference | cop }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
+      }
+    </div>
   </section>
 }

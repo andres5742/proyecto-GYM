@@ -1,6 +1,7 @@
 package com.gym.management.repository;
 
 import com.gym.management.model.ShiftHandover;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -24,4 +25,11 @@ public interface ShiftHandoverRepository extends JpaRepository<ShiftHandover, Lo
 
     @EntityGraph(attributePaths = {"workShift", "workShift.employee", "employee"})
     Optional<ShiftHandover> findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(LocalDate shiftDate);
+
+    @EntityGraph(attributePaths = {"workShift", "workShift.employee", "employee"})
+    List<ShiftHandover> findByWorkShift_ShiftDateOrderBySubmittedAtDesc(LocalDate shiftDate);
+
+    /** Última entrega registrada antes de abrir la caja del día (p. ej. entrega nocturna del día anterior). */
+    @EntityGraph(attributePaths = {"workShift", "workShift.employee", "employee"})
+    Optional<ShiftHandover> findFirstBySubmittedAtLessThanOrderBySubmittedAtDesc(Instant before);
 }

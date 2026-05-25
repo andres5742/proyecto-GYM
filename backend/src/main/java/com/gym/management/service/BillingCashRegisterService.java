@@ -61,6 +61,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class BillingCashRegisterService {
 
     private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
+    private static final String AUTO_SURPLUS_PREFIX = "[AUTO:SOBRANTE";
+    private static final String SURPLUS_HANDOVER_TAG_PREFIX = "[AUTO:SOBRANTE_ENTREGA:";
+    private static final String SURPLUS_SHIFT_OPEN_TAG_PREFIX = "[AUTO:SOBRANTE_APERTURA:";
+    private static final String SURPLUS_CASH_CLOSE_TAG_PREFIX = "[AUTO:SOBRANTE_CIERRE_CAJA:";
     private static final Set<CashShortfallKind> CASH_DRAWER_SHORTFALL_KINDS = EnumSet.of(
             CashShortfallKind.CASH_HANDOVER, CashShortfallKind.CASH_REGISTER, CashShortfallKind.CASH_SHIFT_OPEN);
 
@@ -122,14 +126,22 @@ public class BillingCashRegisterService {
         BigDecimal deducted;
         BigDecimal expected;
 
-        Optional<ShiftHandover> lastHandover =
-                handoverRepository.findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(date);
-        if (lastHandover.isPresent()) {
-            lastHandoverCash = MoneyUtil.roundPesos(CashCountUtil.totalCash(lastHandover.get()));
-            Instant after = lastHandover.get().getSubmittedAt();
-            cashSinceHandover = computeCashSinceHandover(id, date, after);
+        Instant registerOpened = register.getOpenedAt().atZone(GYM_ZONE).toInstant();
+        Instant handoverAnchor = null;
+        if (register.getLastHandoverCashAmount() != null && register.getLastHandoverAt() != null) {
+            lastHandoverCash = MoneyUtil.roundPesos(register.getLastHandoverCashAmount());
+            handoverAnchor = register.getLastHandoverAt();
+        } else {
+            Optional<ShiftHandover> lastHandover = resolveLastHandoverForOpen(register, date, registerOpened);
+            if (lastHandover.isPresent()) {
+                lastHandoverCash = MoneyUtil.roundPesos(CashCountUtil.totalCash(lastHandover.get()));
+                handoverAnchor = lastHandover.get().getSubmittedAt();
+            }
+        }
+        if (handoverAnchor != null) {
+            cashSinceHandover = computeCashSinceHandover(id, date, handoverAnchor);
             systemCash = MoneyUtil.roundPesos(lastHandoverCash.add(cashSinceHandover));
-            deducted = sumCashShortfallsAfter(date, after);
+            deducted = sumCashShortfallsAfter(date, handoverAnchor);
             expected = netCashExpectedAfterShortfalls(systemCash, deducted);
         } else {
             systemCash = MoneyUtil.roundPesos(
@@ -159,12 +171,47 @@ public class BillingCashRegisterService {
                 expected);
     }
 
+    /**
+     * Guarda en la caja del día el efectivo físico contado en una entrega de turno (base al abrir el siguiente turno).
+     */
+    @Transactional
+    public void recordLastHandoverPhysicalCash(LocalDate registerDate, BigDecimal physicalCash, Instant submittedAt) {
+        if (physicalCash == null || physicalCash.compareTo(BigDecimal.ZERO) < 0 || submittedAt == null) {
+            return;
+        }
+        LocalDate date = registerDate != null ? registerDate : today();
+        cashRegisterRepository
+                .findFirstByRegisterDateOrderByOpenedAtDesc(date)
+                .ifPresent(register -> {
+                    register.setLastHandoverCashAmount(MoneyUtil.roundPesos(physicalCash));
+                    register.setLastHandoverAt(submittedAt);
+                    cashRegisterRepository.save(register);
+                });
+    }
+
+    private Optional<ShiftHandover> resolveLastHandoverForOpen(
+            BillingCashRegister register, LocalDate shiftDate, Instant registerOpened) {
+        Optional<ShiftHandover> sameDay =
+                handoverRepository.findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(shiftDate);
+        if (sameDay.isPresent()) {
+            return sameDay;
+        }
+        Optional<ShiftHandover> beforeRegisterOpen =
+                handoverRepository.findFirstBySubmittedAtLessThanOrderBySubmittedAtDesc(registerOpened);
+        if (beforeRegisterOpen.isPresent()) {
+            return beforeRegisterOpen;
+        }
+        return handoverRepository.findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(shiftDate);
+    }
+
     private BigDecimal computeCashSinceHandover(Long registerId, LocalDate date, Instant after) {
         BigDecimal billingIn = nullToZero(billingPaymentRepository.sumCashAmountByCashRegisterIdAfter(registerId, after));
-        BigDecimal otherIn = nullToZero(otherIncomeRepository.sumCashAmountByCashRegisterIdAfter(registerId, after));
+        BigDecimal productIn = nullToZero(saleRepository.sumCashAmountByShiftDateAfter(date, after));
+        BigDecimal otherIn = nullToZero(
+                otherIncomeRepository.sumCashAmountByCashRegisterIdAfterExcludingAutoSurplus(registerId, after));
         BigDecimal fiadoIn = nullToZero(productCreditPaymentRepository.sumCashAmountByShiftDateAfter(date, after));
         BigDecimal cashOut = nullToZero(expenseRepository.sumCashAmountByCashRegisterIdAfter(registerId, after));
-        return MoneyUtil.roundPesos(billingIn.add(otherIn).add(fiadoIn).subtract(cashOut));
+        return MoneyUtil.roundPesos(billingIn.add(productIn).add(otherIn).add(fiadoIn).subtract(cashOut));
     }
 
     private BigDecimal sumCashShortfallsAfter(LocalDate date, Instant after) {
@@ -251,10 +298,13 @@ public class BillingCashRegisterService {
                 0L,
                 BigDecimal.ZERO,
                 BillingPaymentMethodTotals.emptyBillableMap(),
+                BillingPaymentMethodTotals.emptyBillableMap(),
                 0L,
                 BillingPaymentMethodTotals.emptyBillableMap(),
                 BigDecimal.ZERO,
                 request.openingCashAmount(),
+                null,
+                null,
                 List.of()));
     }
 
@@ -280,6 +330,136 @@ public class BillingCashRegisterService {
                 .recordedBy(recorder)
                 .build();
         return BillingCashRegisterOtherIncomeMapper.toResponse(otherIncomeRepository.save(income));
+    }
+
+    /**
+     * Registra el sobrante en efectivo de una entrega de turno como otro ingreso en caja (efectivo), visible en
+     * Facturación.
+     */
+    @Transactional
+    public Optional<BillingCashRegisterOtherIncomeResponse> registerHandoverCashSurplus(
+            ShiftHandover handover, BigDecimal expectedCash, BigDecimal declaredCash) {
+        if (handover.getId() == null || declaredCash.compareTo(expectedCash) <= 0) {
+            return Optional.empty();
+        }
+        BigDecimal surplus = MoneyUtil.roundPesos(declaredCash.subtract(expectedCash));
+        return registerHandoverCashSurplusAmount(handover, surplus);
+    }
+
+    /**
+     * Registra en Facturación el sobrante en efectivo que queda en caja (tras cruzar con faltante de inventario, si
+     * aplica).
+     */
+    @Transactional
+    public Optional<BillingCashRegisterOtherIncomeResponse> registerHandoverCashSurplusAmount(
+            ShiftHandover handover, BigDecimal surplusAmount) {
+        if (handover.getId() == null) {
+            return Optional.empty();
+        }
+        BigDecimal surplus = MoneyUtil.roundPesos(surplusAmount);
+        if (surplus.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+        BillingCashRegister register = requireRegisterForDate(handover.getWorkShift().getShiftDate());
+        String tag = surplusHandoverTag(handover.getId());
+        String label =
+                "Sobrante en efectivo — entrega de turno " + handover.getWorkShift().getName();
+        return registerCashSurplusIfNew(register, handover.getEmployee(), surplus, tag, label);
+    }
+
+    /**
+     * Registra el sobrante en efectivo al abrir turno (conteo vs. esperado) como otro ingreso en caja del día.
+     */
+    @Transactional
+    public Optional<BillingCashRegisterOtherIncomeResponse> registerShiftOpenCashSurplus(
+            BillingCashRegister register,
+            WorkShift previousShift,
+            BigDecimal expectedCash,
+            BigDecimal declaredCash,
+            Employee recordedBy) {
+        if (declaredCash.compareTo(expectedCash) <= 0) {
+            return Optional.empty();
+        }
+        BigDecimal surplus = MoneyUtil.roundPesos(declaredCash.subtract(expectedCash));
+        if (surplus.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+        String tag = surplusShiftOpenTag(previousShift.getId(), register.getRegisterDate());
+        String label = "Sobrante en efectivo — apertura de turno (después de " + previousShift.getName() + ")";
+        return registerCashSurplusIfNew(register, recordedBy, surplus, tag, label);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<BillingCashRegisterOtherIncomeResponse> findHandoverCashSurplusIncome(Long handoverId) {
+        if (handoverId == null) {
+            return Optional.empty();
+        }
+        return otherIncomeRepository.findByObservationStartingWith(surplusHandoverTag(handoverId)).stream()
+                .findFirst()
+                .map(BillingCashRegisterOtherIncomeMapper::toResponse);
+    }
+
+    @Transactional
+    public void deleteHandoverCashSurplusIncome(Long handoverId) {
+        if (handoverId != null) {
+            otherIncomeRepository.deleteByObservationStartingWith(surplusHandoverTag(handoverId));
+        }
+    }
+
+    public static String surplusHandoverTag(Long handoverId) {
+        return SURPLUS_HANDOVER_TAG_PREFIX + handoverId + "]";
+    }
+
+    private static String surplusShiftOpenTag(Long previousShiftId, LocalDate registerDate) {
+        return SURPLUS_SHIFT_OPEN_TAG_PREFIX + previousShiftId + ":" + registerDate + "]";
+    }
+
+    private static String surplusCashCloseTag(Long registerId) {
+        return SURPLUS_CASH_CLOSE_TAG_PREFIX + registerId + "]";
+    }
+
+    @Transactional
+    public Optional<BillingCashRegisterOtherIncomeResponse> registerCashRegisterCloseSurplus(
+            BillingCashRegister register, Employee recordedBy, BigDecimal expectedCash, BigDecimal declaredCash) {
+        if (register == null || recordedBy == null || declaredCash.compareTo(expectedCash) <= 0) {
+            return Optional.empty();
+        }
+        BigDecimal surplus = MoneyUtil.roundPesos(declaredCash.subtract(expectedCash));
+        if (surplus.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+        String tag = surplusCashCloseTag(register.getId());
+        String label = "Sobrante en efectivo — cierre de caja";
+        return registerCashSurplusIfNew(register, recordedBy, surplus, tag, label);
+    }
+
+    private Optional<BillingCashRegisterOtherIncomeResponse> registerCashSurplusIfNew(
+            BillingCashRegister register,
+            Employee recordedBy,
+            BigDecimal surplus,
+            String tag,
+            String label) {
+        if (otherIncomeRepository.existsByObservationStartingWith(tag)) {
+            return otherIncomeRepository.findByObservationStartingWith(tag).stream()
+                    .findFirst()
+                    .map(BillingCashRegisterOtherIncomeMapper::toResponse);
+        }
+        BillingCashRegisterOtherIncome income = BillingCashRegisterOtherIncome.builder()
+                .cashRegister(register)
+                .amount(surplus)
+                .paymentMethod(PaymentMethod.CASH)
+                .observation(tag + " " + label)
+                .recordedBy(recordedBy)
+                .build();
+        return Optional.of(
+                BillingCashRegisterOtherIncomeMapper.toResponse(otherIncomeRepository.save(income)));
+    }
+
+    private BillingCashRegister requireRegisterForDate(LocalDate date) {
+        return cashRegisterRepository
+                .findFirstByRegisterDateOrderByOpenedAtDesc(date)
+                .orElseThrow(() -> new BusinessException(
+                        "No hay caja de facturación para el día " + date + ". Abra la caja del día en Facturación."));
     }
 
     @Transactional(readOnly = true)
@@ -314,7 +494,7 @@ public class BillingCashRegisterService {
         if (register.getStatus() == ShiftStatus.CLOSED) {
             throw new BusinessException("La caja ya está cerrada");
         }
-        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register, true));
+        BigDecimal cashInDrawer = MoneyUtil.roundPesos(computeCashInDrawer(register));
         BigDecimal fiadoCash = MoneyUtil.roundPesos(sumFiadoCashCollected(register.getRegisterDate()));
         List<com.gym.management.dto.DigitalAccountBalanceLine> digitalAccounts =
                 paymentAccountBalanceService.computeForOpenRegister(register);
@@ -340,7 +520,7 @@ public class BillingCashRegisterService {
         Employee closer = resolveCurrentEmployee();
         WorkShift referenceShift = resolveReferenceShift(register.getRegisterDate());
 
-        BigDecimal expectedCash = MoneyUtil.roundPesos(computeCashInDrawer(register, true));
+        BigDecimal expectedCash = MoneyUtil.roundPesos(computeCashInDrawer(register));
         BigDecimal declaredCash = MoneyUtil.roundPesos(request.cashCount().totalCash());
 
         ShiftInventoryService.InventoryCloseAtRegisterResult inventoryResult =
@@ -349,6 +529,7 @@ public class BillingCashRegisterService {
 
         Optional<CashShortfallResponse> cashShortfall = cashShortfallService.registerFromCashRegisterClose(
                 register, closer, referenceShift, expectedCash, declaredCash);
+        registerCashRegisterCloseSurplus(register, closer, expectedCash, declaredCash);
 
         register.setStatus(ShiftStatus.CLOSED);
         register.setClosedAt(LocalDateTime.now(GYM_ZONE));
@@ -423,7 +604,7 @@ public class BillingCashRegisterService {
     public BigDecimal cashInDrawerForToday() {
         return cashRegisterRepository
                 .findFirstByRegisterDateOrderByOpenedAtDesc(today())
-                .map(reg -> computeCashInDrawer(reg, false))
+                .map(reg -> resolveCashInDrawerTotals(reg, false).total())
                 .orElse(BigDecimal.ZERO);
     }
 
@@ -471,10 +652,10 @@ public class BillingCashRegisterService {
     }
 
     private BigDecimal computeCashInDrawer(BillingCashRegister register) {
-        return computeCashInDrawer(register, true);
+        return resolveCashInDrawerTotals(register, true).total();
     }
 
-    private BigDecimal computeCashInDrawer(BillingCashRegister register, boolean includeFiadoCash) {
+    private BigDecimal computeCashInDrawerFormula(BillingCashRegister register, boolean includeFiadoCash) {
         Long id = register.getId();
         Map<PaymentMethod, BigDecimal> incomeByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
@@ -532,12 +713,13 @@ public class BillingCashRegisterService {
         Map<PaymentMethod, BigDecimal> otherIncomesByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
                         otherIncomeRepository.sumByPaymentMethodByCashRegisterId(id));
+        Map<PaymentMethod, BigDecimal> autoSurplusByMethod = sumAutoSurplusByMethod(id, register.getRegisterDate());
         BigDecimal otherIncomesTotal = BillingPaymentMethodTotals.sum(otherIncomesByMethod);
         long otherIncomeCount = otherIncomeRepository.countByCashRegisterId(id);
         Map<PaymentMethod, BigDecimal> dayIncomeByMethod = BillingPaymentMethodTotals.mergeAll(
                 incomeByMethod, fiadoTotals.byMethod(), productSalesByMethod, otherIncomesByMethod);
         BigDecimal dayIncomeTotal = BillingPaymentMethodTotals.sum(dayIncomeByMethod);
-        BigDecimal cashInDrawer = computeCashInDrawer(register, true);
+        CashInDrawerTotals cashTotals = resolveCashInDrawerTotals(register, true);
         List<com.gym.management.dto.DigitalAccountBalanceLine> digitalAccounts =
                 paymentAccountBalanceService.computeForOpenRegister(register);
         return BillingCashRegisterMapper.toResponse(
@@ -561,11 +743,75 @@ public class BillingCashRegisterService {
                 fiadoTotals.paymentCount(),
                 otherIncomesTotal,
                 otherIncomesByMethod,
+                autoSurplusByMethod,
                 otherIncomeCount,
                 dayIncomeByMethod,
                 dayIncomeTotal,
-                cashInDrawer,
+                cashTotals.total(),
+                cashTotals.lastHandoverCash(),
+                cashTotals.cashSinceHandover(),
                 digitalAccounts);
+    }
+
+    private Map<PaymentMethod, BigDecimal> sumAutoSurplusByMethod(Long registerId, LocalDate registerDate) {
+        Map<PaymentMethod, BigDecimal> totals = new java.util.EnumMap<>(PaymentMethod.class);
+        otherIncomeRepository.findByRegisterDateWithDetails(registerDate).stream()
+                .filter(row -> row.getCashRegister() != null && registerId.equals(row.getCashRegister().getId()))
+                .filter(row -> row.getObservation() != null && row.getObservation().startsWith(AUTO_SURPLUS_PREFIX))
+                .forEach(row -> totals.merge(row.getPaymentMethod(), row.getAmount(), BigDecimal::add));
+        return totals;
+    }
+
+    @Transactional(readOnly = true)
+    public com.gym.management.dto.CashInDrawerTotals cashInDrawerTotalsForDate(LocalDate date) {
+        LocalDate target = date != null ? date : today();
+        return cashRegisterRepository
+                .findFirstByRegisterDateOrderByOpenedAtDesc(target)
+                .map(reg -> toCashInDrawerTotals(resolveCashInDrawerTotals(reg, true)))
+                .orElse(new com.gym.management.dto.CashInDrawerTotals(
+                        BigDecimal.ZERO, null, null));
+    }
+
+    @Transactional(readOnly = true)
+    public BillingHandoverCashBreakdown billingHandoverCashBreakdownForDate(LocalDate date) {
+        LocalDate target = date != null ? date : today();
+        return cashRegisterRepository
+                .findFirstByRegisterDateOrderByOpenedAtDesc(target)
+                .map(this::computeHandoverCashBreakdown)
+                .orElse(new BillingHandoverCashBreakdown(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
+    }
+
+    private com.gym.management.dto.CashInDrawerTotals toCashInDrawerTotals(CashInDrawerTotals internal) {
+        return new com.gym.management.dto.CashInDrawerTotals(
+                internal.total(), internal.lastHandoverCash(), internal.cashSinceHandover());
+    }
+
+    private record CashInDrawerTotals(
+            BigDecimal total, BigDecimal lastHandoverCash, BigDecimal cashSinceHandover) {}
+
+    private CashInDrawerTotals resolveCashInDrawerTotals(BillingCashRegister register, boolean includeFiadoCash) {
+        BigDecimal lastHandoverCash = register.getLastHandoverCashAmount();
+        Instant lastHandoverAt = register.getLastHandoverAt();
+        if (lastHandoverCash == null || lastHandoverAt == null) {
+            Optional<ShiftHandover> latest =
+                    handoverRepository.findFirstByWorkShift_ShiftDateOrderBySubmittedAtDesc(register.getRegisterDate());
+            if (latest.isPresent()) {
+                lastHandoverCash = MoneyUtil.roundPesos(CashCountUtil.totalCash(latest.get()));
+                lastHandoverAt = latest.get().getSubmittedAt();
+            }
+        }
+        if (lastHandoverCash != null && lastHandoverAt != null) {
+            BigDecimal since = computeCashSinceHandover(register.getId(), register.getRegisterDate(), lastHandoverAt);
+            if (!includeFiadoCash) {
+                BigDecimal fiadoSince =
+                        nullToZero(productCreditPaymentRepository.sumCashAmountByShiftDateAfter(
+                                register.getRegisterDate(), lastHandoverAt));
+                since = MoneyUtil.roundPesos(since.subtract(fiadoSince));
+            }
+            return new CashInDrawerTotals(
+                    MoneyUtil.roundPesos(lastHandoverCash.add(since)), lastHandoverCash, since);
+        }
+        return new CashInDrawerTotals(computeCashInDrawerFormula(register, includeFiadoCash), null, null);
     }
 
     private FiadoDayTotals loadFiadoTotalsForDate(LocalDate date) {

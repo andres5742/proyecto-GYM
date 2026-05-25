@@ -616,8 +616,10 @@
             </h4>
             @if (cash.lastHandoverCashTotal > 0) {
               <p class="inventory-open-hint inventory-open-hint--neutral">
-                Se usa el efectivo que se <strong>entregó en el turno anterior</strong>
-                ({{ cash.lastHandoverCashTotal | cop }}), no un cálculo distinto al de la entrega.
+                Base: efectivo <strong>entregado en el turno anterior</strong> ({{ cash.lastHandoverCashTotal | cop }}).
+                @if (cash.cashSinceLastHandover !== 0) {
+                  Se suman cobros o gastos en Facturación <strong>después</strong> de esa entrega.
+                }
               </p>
             }
 
@@ -637,8 +639,8 @@
               <p class="inventory-open-hint">Escriba arriba cuántos billetes y monedas hay. Aún no ha contado el efectivo.</p>
             } @else if (openCashDiff() > 0) {
               <p class="inventory-open-hint inventory-open-hint--ok">
-                Hay <strong>{{ openCashDiff() | cop }} de más</strong> en la caja. No es un error: es sobrante en efectivo
-                (igual que en la entrega de turno).
+                Hay <strong>{{ openCashDiff() | cop }} de más</strong> en la caja. Ese sobrante queda en el efectivo
+                físico (no genera deuda ni movimiento en Facturación).
               </p>
             } @else if (openCashDiff() < 0) {
               <p class="inventory-open-hint inventory-open-hint--warn">

@@ -532,6 +532,9 @@ export class Sales implements OnInit {
               this.inventoryPreview()?.cash?.cashRegisterOpenedByName ?? 'quien abrió la caja';
             msg += `. Descuadre por efectivo (${fmtCop(result.cashShortfallAmount)}) a cargo de ${opener}.`;
           }
+          if (!result.cashShortfallRegistered && this.openCashDiff() > 0) {
+            msg += `. Sobrante en efectivo (${fmtCop(this.openCashDiff())}) queda en caja.`;
+          }
           this.message.set(msg);
           this.openingShift.set(false);
           this.closeInventoryModal();

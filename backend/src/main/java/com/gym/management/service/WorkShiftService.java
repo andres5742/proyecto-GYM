@@ -85,7 +85,10 @@ public class WorkShiftService {
                 inventoryShortfall != null ? inventoryShortfall.notes() : null,
                 cashShortfall != null,
                 cashShortfall != null ? cashShortfall.shortfallAmount() : java.math.BigDecimal.ZERO,
-                cashShortfall != null ? cashShortfall.notes() : null);
+                cashShortfall != null ? cashShortfall.notes() : null,
+                inventoryResult.cashSurplusRegistered(),
+                inventoryResult.cashSurplusAmount(),
+                inventoryResult.cashSurplusBillingObservation());
     }
 
     @Transactional

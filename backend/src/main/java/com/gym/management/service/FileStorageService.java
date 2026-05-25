@@ -51,6 +51,23 @@ public class FileStorageService {
         return uploadRoot;
     }
 
+    public boolean isLocalUploadUrl(String url) {
+        return url != null && url.startsWith("/uploads/") && !url.contains("..");
+    }
+
+    /** URLs externas (http/https) se consideran válidas; solo se comprueba disco en /uploads/… */
+    public boolean localUploadExists(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        if (!isLocalUploadUrl(url)) {
+            return true;
+        }
+        String filename = url.substring("/uploads/".length());
+        Path file = uploadRoot.resolve(filename).normalize();
+        return file.startsWith(uploadRoot) && Files.isRegularFile(file);
+    }
+
     private static String extensionFor(String contentType) {
         return switch (contentType) {
             case "image/png" -> ".png";

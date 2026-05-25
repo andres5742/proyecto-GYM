@@ -102,6 +102,10 @@ public class ShiftHandover {
     @Column(length = 1000)
     private String notes;
 
+    /** Conteo físico de productos al entregar turno (JSON). */
+    @Column(name = "inventory_delivered_json", columnDefinition = "TEXT")
+    private String inventoryDeliveredJson;
+
     @Column(nullable = false)
     private Instant submittedAt;
 

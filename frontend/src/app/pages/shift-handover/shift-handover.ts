@@ -7,6 +7,7 @@ import {
   CASH_DENOMINATIONS,
   computeCashTotal,
   emptyCashForm,
+  HandoverDeliveredProductLine,
   ShiftHandover,
   ShiftHandoverCashForm,
   ShiftHandoverComparison,
@@ -228,14 +229,13 @@ export class ShiftHandoverPage implements OnInit {
   protected readonly creditPaymentsCashExpected = computed(
     () => this.preview()?.creditPaymentsCashExpected ?? 0,
   );
+  protected readonly usesBillingCashDrawer = computed(() => {
+    const p = this.preview();
+    return p?.lastHandoverCashTotal != null && p?.cashSinceLastHandover != null;
+  });
+
   protected readonly expectedCashInDrawer = computed(
-    () =>
-      this.preview()?.expectedCashTotal ??
-      this.billingCashExpected() +
-        this.previousShiftSalesCash() +
-        this.previousShiftCreditPaymentsCash() +
-        this.salesCashExpected() +
-        this.creditPaymentsCashExpected(),
+    () => this.preview()?.expectedCashTotal ?? 0,
   );
 
   protected readonly cashMatchesDeclared = computed(
@@ -254,6 +254,45 @@ export class ShiftHandoverPage implements OnInit {
     const id = this.selectedHistoryId();
     return this.history().find((h) => h.id === id) ?? null;
   });
+
+  protected stockRemaining(line: HandoverDeliveredProductLine): number {
+    return line.stockRemaining ?? line.countedQuantity ?? 0;
+  }
+
+  protected stockDiff(line: HandoverDeliveredProductLine): number | null {
+    if (line.expectedInSystem == null) {
+      return null;
+    }
+    return this.stockRemaining(line) - line.expectedInSystem;
+  }
+
+  protected readonly historyDetailTab = signal<'inventory' | 'cash'>('inventory');
+  protected readonly historyInventoryOnlyDiff = signal(false);
+
+  protected readonly filteredHistoryInventory = computed(() => {
+    const h = this.selectedHistory();
+    const lines = h?.deliveredInventory ?? [];
+    if (!this.historyInventoryOnlyDiff()) {
+      return lines;
+    }
+    return lines.filter((line) => {
+      const diff = this.stockDiff(line);
+      return diff != null && diff !== 0;
+    });
+  });
+
+  protected readonly historyCashDiff = computed(() => {
+    const row = this.selectedHistory()?.comparisons?.[0];
+    return row?.difference ?? 0;
+  });
+
+  protected selectHistoryItem(id: number): void {
+    this.selectedHistoryId.set(id);
+    const h = this.history().find((item) => item.id === id);
+    const hasInventory = (h?.deliveredInventory?.length ?? 0) > 0;
+    this.historyDetailTab.set(hasInventory ? 'inventory' : 'cash');
+    this.historyInventoryOnlyDiff.set(false);
+  }
 
   ngOnInit(): void {
     this.shiftService.findOpen().subscribe({
@@ -274,7 +313,17 @@ export class ShiftHandoverPage implements OnInit {
       next: (list) => {
         this.history.set(list.filter((h) => h.id != null));
         if (list.length > 0 && list[0].id) {
-          this.selectedHistoryId.set(list[0].id);
+          this.selectHistoryItem(list[0].id);
+        }
+      },
+      error: (err) => {
+        const status = err?.status;
+        if (status === 403) {
+          this.message.set(
+            'Sin permiso para ver entregas de turno. Use un usuario de recepción (Ventas) o reinicie sesión.',
+          );
+        } else if (status === 401) {
+          this.message.set('Sesión expirada. Vuelva a iniciar sesión.');
         }
       },
     });
@@ -437,12 +486,28 @@ export class ShiftHandoverPage implements OnInit {
             msg +=
               ` Se registró un faltante de ${result.registeredShortfallAmount} en Descuadres de caja para cobro al fin de mes.`;
           }
+          if (this.cashDiff() > 0 && !result.inventorySurplusResolutionNote) {
+            const fmt = new Intl.NumberFormat('es-CO', {
+              style: 'currency',
+              currency: 'COP',
+              maximumFractionDigits: 0,
+            }).format(this.cashDiff());
+            msg += ` Sobrante en efectivo (${fmt}) queda en caja.`;
+          }
           this.message.set(msg);
           this.preview.set(result);
           this.openShift.set(null);
           this.saving.set(false);
           this.handoverService.findAll().subscribe({
-            next: (list) => this.history.set(list.filter((h) => h.id != null)),
+            next: (list) => {
+              const filtered = list.filter((item) => item.id != null);
+              this.history.set(filtered);
+              if (result.id != null) {
+                this.selectHistoryItem(result.id);
+              } else if (filtered[0]?.id != null) {
+                this.selectHistoryItem(filtered[0].id);
+              }
+            },
           });
         },
         error: (err) => {
@@ -470,7 +535,12 @@ export class ShiftHandoverPage implements OnInit {
         const remaining = this.history().filter((item) => item.id !== h.id);
         this.history.set(remaining);
         if (this.selectedHistoryId() === h.id) {
-          this.selectedHistoryId.set(remaining[0]?.id ?? null);
+          const nextId = remaining[0]?.id;
+          if (nextId != null) {
+            this.selectHistoryItem(nextId);
+          } else {
+            this.selectedHistoryId.set(null);
+          }
         }
         this.message.set('Entrega eliminada del historial.');
       },

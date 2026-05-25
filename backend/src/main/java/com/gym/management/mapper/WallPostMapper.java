@@ -6,6 +6,7 @@ import com.gym.management.model.UserRole;
 import com.gym.management.model.WallPost;
 import com.gym.management.model.WallPostImage;
 import java.util.List;
+import java.util.function.Predicate;
 
 public final class WallPostMapper {
 
@@ -33,6 +34,10 @@ public final class WallPostMapper {
 
     /** Muro público: el super administrador no se muestra por nombre personal. */
     public static WallPostResponse toPublicResponse(WallPost post) {
+        return toPublicResponse(post, url -> true);
+    }
+
+    public static WallPostResponse toPublicResponse(WallPost post, Predicate<String> includeImageUrl) {
         Employee author = post.getAuthor();
         return new WallPostResponse(
                 post.getId(),
@@ -49,7 +54,7 @@ public final class WallPostMapper {
                 post.getDisplayDays(),
                 post.getExpiresAt(),
                 post.getCreatedAt(),
-                imageUrls(post));
+                imageUrls(post, includeImageUrl));
     }
 
     private static String publicAuthorName(Employee author) {
@@ -67,10 +72,17 @@ public final class WallPostMapper {
     }
 
     private static List<String> imageUrls(WallPost post) {
+        return imageUrls(post, url -> true);
+    }
+
+    private static List<String> imageUrls(WallPost post, Predicate<String> includeImageUrl) {
         if (post.getImages() == null || post.getImages().isEmpty()) {
             return List.of();
         }
-        return post.getImages().stream().map(WallPostImage::getImageUrl).toList();
+        return post.getImages().stream()
+                .map(WallPostImage::getImageUrl)
+                .filter(includeImageUrl)
+                .toList();
     }
 
     public static String categoryLabel(com.gym.management.model.PostCategory category) {

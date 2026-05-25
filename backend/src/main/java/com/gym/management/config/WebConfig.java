@@ -8,24 +8,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import com.gym.management.service.FileStorageService;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
-    private final FileStorageService fileStorageService;
-
-    public WebConfig(FileStorageService fileStorageService) {
-        this.fileStorageService = fileStorageService;
-    }
-
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String location = fileStorageService.resolveUploadPath().toUri().toString();
-        registry.addResourceHandler("/uploads/**").addResourceLocations(location.endsWith("/") ? location : location + "/");
-    }
 
     private static final List<String> DEV_ORIGIN_PATTERNS =
             List.of("http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*");

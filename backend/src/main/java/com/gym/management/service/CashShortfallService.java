@@ -58,7 +58,39 @@ public class CashShortfallService {
                 .employee(previousShift.getEmployee())
                 .workShift(previousShift)
                 .shiftHandover(null)
-                .recordDate(LocalDate.now(GYM_ZONE))
+                .recordDate(previousShift.getShiftDate())
+                .expectedAmount(amount)
+                .declaredAmount(BigDecimal.ZERO)
+                .shortfallAmount(amount)
+                .status(CashShortfallStatus.PENDING)
+                .kind(CashShortfallKind.INVENTORY)
+                .notes(notes)
+                .inventoryMissingJson(json)
+                .build();
+        return toResponse(shortfallRepository.save(record));
+    }
+
+    /** Faltante de inventario al entregar turno, vinculado a la entrega y fecha del turno. */
+    @Transactional
+    public CashShortfallResponse registerFromInventoryCheckAtHandover(
+            ShiftHandover handover, BigDecimal shortfallAmount, List<InventoryMissingLineDto> missingLines) {
+        BigDecimal amount = MoneyUtil.roundPesos(shortfallAmount);
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("No hay faltante de inventario para registrar");
+        }
+        if (missingLines == null || missingLines.isEmpty()) {
+            throw new BusinessException("Debe indicar los productos faltantes");
+        }
+        WorkShift shift = handover.getWorkShift();
+        String json = writeInventoryJson(missingLines);
+        String notes = buildInventoryNotes(missingLines)
+                + " · Entrega de turno "
+                + shift.getName();
+        EmployeeCashShortfall record = EmployeeCashShortfall.builder()
+                .employee(handover.getEmployee())
+                .workShift(shift)
+                .shiftHandover(handover)
+                .recordDate(shift.getShiftDate())
                 .expectedAmount(amount)
                 .declaredAmount(BigDecimal.ZERO)
                 .shortfallAmount(amount)

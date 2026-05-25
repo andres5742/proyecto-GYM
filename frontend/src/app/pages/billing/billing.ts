@@ -80,6 +80,17 @@ interface MonthlyMethodRow {
   expenses: number;
 }
 
+interface DayIncomeMethodBreakdown {
+  method: PaymentMethod;
+  methodLabel: string;
+  total: number;
+  dayOnlyTotal?: number;
+  lines: { label: string; amount: number }[];
+  cashDrawerTotal?: number;
+  carryFromHandover?: number;
+  cashMovementsSinceHandover?: number;
+}
+
 const MONTH_LABELS = [
   'Enero',
   'Febrero',
@@ -244,6 +255,7 @@ export class BillingPage implements OnInit, OnDestroy {
     total: number;
     map: Record<string, number>;
   } | null>(null);
+  protected readonly dayIncomeMethodBreakdownModal = signal<DayIncomeMethodBreakdown | null>(null);
   protected readonly monthlyLoading = signal(false);
   protected readonly monthlySummary = signal<BillingMonthlySummary | null>(null);
   protected readonly selectedYear = signal(new Date().getFullYear());
@@ -556,9 +568,6 @@ export class BillingPage implements OnInit, OnDestroy {
 
   /** Total ingresado hoy (facturación + productos + fiado), sin base inicial. */
   protected dayIncomeTotal(reg: BillingCashRegister): number {
-    if (reg.dayIncomeTotal != null && !Number.isNaN(reg.dayIncomeTotal)) {
-      return roundCop(reg.dayIncomeTotal);
-    }
     return roundCop(
       this.incomeSummaryMethods.reduce(
         (sum, pm) => sum + this.dayIncomeByMethodAmount(reg, pm.value),
@@ -577,6 +586,65 @@ export class BillingPage implements OnInit, OnDestroy {
         this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, method) +
         (method === 'CASH' ? (reg.dayProductSalesCash ?? 0) : 0),
     );
+  }
+
+  protected openDayIncomeMethodBreakdown(reg: BillingCashRegister, method: PaymentMethod): void {
+    const methodLabel = this.paymentMethodLabel(method);
+    const total = this.dayIncomeByMethodAmount(reg, method);
+    const dayOnlyTotal = total;
+    const cashDrawerTotal = method === 'CASH' ? this.billingCashInDrawer(reg) : undefined;
+    const carryFromHandover =
+      method === 'CASH' && reg.lastHandoverCashTotal != null ? roundCop(reg.lastHandoverCashTotal) : undefined;
+    const cashMovementsSinceHandover =
+      method === 'CASH' && reg.cashSinceLastHandover != null
+        ? roundCop(reg.cashSinceLastHandover)
+        : undefined;
+
+    const billing = roundCop(this.methodTotal(reg.sessionIncomeByMethod, method));
+    const membership = method === 'CASH' ? roundCop(reg.sessionCashMembership ?? 0) : 0;
+    const dayWorkout = method === 'CASH' ? roundCop(reg.sessionCashDayWorkout ?? 0) : 0;
+    const sportsDance = method === 'CASH' ? roundCop(reg.sessionCashSportsDance ?? 0) : 0;
+    const products =
+      method === 'CASH'
+        ? roundCop(reg.dayProductSalesCash ?? 0)
+        : roundCop(Math.max(0, total - billing - this.methodTotal(reg.dayFiadoCollectedByMethod, method) - this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, method)));
+    const fiado = roundCop(this.methodTotal(reg.dayFiadoCollectedByMethod, method));
+    const otherTotal = roundCop(this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, method));
+    const surplus = roundCop(this.methodTotal(reg.dayAutoSurplusByMethod ?? {}, method));
+    const otherManual = roundCop(Math.max(0, otherTotal - surplus));
+
+    const lines: { label: string; amount: number }[] = [];
+    if (method === 'CASH') {
+      lines.push({ label: 'Membresías', amount: membership });
+      lines.push({ label: 'Entrenos', amount: dayWorkout });
+      lines.push({ label: 'Bailes', amount: sportsDance });
+    } else if (billing > 0) {
+      lines.push({ label: 'Facturación', amount: billing });
+    }
+    lines.push({ label: 'Productos vendidos', amount: products });
+    if (fiado > 0) {
+      lines.push({ label: 'Fiado cobrado', amount: fiado });
+    }
+    lines.push({ label: 'Sobrantes registrados', amount: surplus });
+    lines.push({ label: 'Otros ingresos', amount: otherManual });
+    if (method === 'CASH' && (carryFromHandover ?? 0) > 0) {
+      lines.push({ label: 'Efectivo arrastrado (turno anterior)', amount: carryFromHandover ?? 0 });
+    }
+
+    this.dayIncomeMethodBreakdownModal.set({
+      method,
+      methodLabel,
+      total,
+      dayOnlyTotal,
+      lines,
+      cashDrawerTotal,
+      carryFromHandover,
+      cashMovementsSinceHandover,
+    });
+  }
+
+  protected closeDayIncomeMethodBreakdown(): void {
+    this.dayIncomeMethodBreakdownModal.set(null);
   }
 
   protected dayMovementCount(reg: BillingCashRegister): number {

@@ -7,6 +7,7 @@ import com.gym.management.dto.InventorySurplusLineDto;
 import com.gym.management.dto.ProductInventoryCountItem;
 import com.gym.management.dto.ProductInventoryLineResponse;
 import com.gym.management.dto.CashDenominationCount;
+import com.gym.management.dto.BillingCashRegisterOtherIncomeResponse;
 import com.gym.management.dto.ShiftOpenCashPreviewResponse;
 import com.gym.management.dto.ShiftOpenInventoryPreviewResponse;
 import com.gym.management.exception.BusinessException;
@@ -17,6 +18,7 @@ import com.gym.management.model.Employee;
 import com.gym.management.model.EmployeeCashShortfall;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Product;
+import com.gym.management.model.ShiftHandover;
 import com.gym.management.model.ShiftStatus;
 import com.gym.management.model.WorkShift;
 import com.gym.management.repository.BillingCashRegisterExpenseRepository;
@@ -94,11 +96,19 @@ public class ShiftInventoryService {
             return InventoryOpenResult.none();
         }
         WorkShift previousShift = getPreviousClosedShiftRequired(shiftDate);
-        Optional<CashShortfallResponse> cashShortfall = processCashBeforeOpen(shiftDate, cashCount, previousShift);
+        CashOpenCheckResult cashCheck = processCashBeforeOpen(shiftDate, cashCount, previousShift);
 
         List<Product> activeProducts = productRepository.findByActiveTrueOrderByNameAsc();
         if (activeProducts.isEmpty()) {
-            return new InventoryOpenResult(false, null, BigDecimal.ZERO, List.of(), cashShortfall.orElse(null));
+            return new InventoryOpenResult(
+                    false,
+                    null,
+                    BigDecimal.ZERO,
+                    List.of(),
+                    cashCheck.cashShortfall(),
+                    cashCheck.cashSurplusRegistered(),
+                    cashCheck.cashSurplusAmount(),
+                    cashCheck.cashSurplusBillingObservation());
         }
         if (counts == null || counts.isEmpty()) {
             throw new BusinessException(
@@ -159,10 +169,13 @@ public class ShiftInventoryService {
                 inventoryShortfall.orElse(null),
                 shortfallTotal,
                 missingLines,
-                cashShortfall.orElse(null));
+                cashCheck.cashShortfall(),
+                cashCheck.cashSurplusRegistered(),
+                cashCheck.cashSurplusAmount(),
+                cashCheck.cashSurplusBillingObservation());
     }
 
-    private Optional<CashShortfallResponse> processCashBeforeOpen(
+    private CashOpenCheckResult processCashBeforeOpen(
             LocalDate shiftDate, CashDenominationCount cashCount, WorkShift previousShift) {
         if (cashCount == null) {
             throw new BusinessException("Debe contar el efectivo en caja antes de abrir el turno");
@@ -173,9 +186,23 @@ public class ShiftInventoryService {
         BillingCashRegister register = cashRegisterRepository
                 .findByIdWithEmployee(preview.cashRegisterId())
                 .orElseThrow(() -> new BusinessException("Caja del día no encontrada"));
-        return cashShortfallService.registerFromShiftOpenCashCheck(
+        Optional<CashShortfallResponse> shortfall = cashShortfallService.registerFromShiftOpenCashCheck(
                 register, previousShift, expected, declared);
+        Optional<BillingCashRegisterOtherIncomeResponse> surplus =
+                billingCashRegisterService.registerShiftOpenCashSurplus(
+                        register, previousShift, expected, declared, previousShift.getEmployee());
+        return new CashOpenCheckResult(
+                shortfall.orElse(null),
+                surplus.isPresent(),
+                surplus.map(BillingCashRegisterOtherIncomeResponse::amount).orElse(BigDecimal.ZERO),
+                surplus.map(BillingCashRegisterOtherIncomeResponse::observation).orElse(null));
     }
+
+    private record CashOpenCheckResult(
+            CashShortfallResponse cashShortfall,
+            boolean cashSurplusRegistered,
+            BigDecimal cashSurplusAmount,
+            String cashSurplusBillingObservation) {}
 
     @Transactional
     public InventoryCloseAtRegisterResult processAtCashRegisterClose(
@@ -246,7 +273,7 @@ public class ShiftInventoryService {
      */
     @Transactional
     public HandoverInventoryResult processAtHandover(
-            WorkShift handingOverShift, List<ProductInventoryCountItem> counts) {
+            WorkShift handingOverShift, List<ProductInventoryCountItem> counts, ShiftHandover handover) {
         List<Product> activeProducts = productRepository.findByActiveTrueOrderByNameAsc();
         if (activeProducts.isEmpty()) {
             return new HandoverInventoryResult(
@@ -318,8 +345,13 @@ public class ShiftInventoryService {
 
         Optional<CashShortfallResponse> newShortfall = Optional.empty();
         if (shortfallTotal.compareTo(BigDecimal.ZERO) > 0) {
-            newShortfall = Optional.of(cashShortfallService.registerFromInventoryCheck(
-                    handingOverShift, shortfallTotal, missingLines));
+            if (handover != null && handover.getId() != null) {
+                newShortfall = Optional.of(cashShortfallService.registerFromInventoryCheckAtHandover(
+                        handover, shortfallTotal, missingLines));
+            } else {
+                newShortfall = Optional.of(cashShortfallService.registerFromInventoryCheck(
+                        handingOverShift, shortfallTotal, missingLines));
+            }
         }
 
         return new HandoverInventoryResult(
@@ -367,10 +399,14 @@ public class ShiftInventoryService {
             CashShortfallResponse inventoryShortfall,
             BigDecimal inventoryShortfallAmount,
             List<InventoryMissingLineDto> missingLines,
-            CashShortfallResponse cashShortfall) {
+            CashShortfallResponse cashShortfall,
+            boolean cashSurplusRegistered,
+            BigDecimal cashSurplusAmount,
+            String cashSurplusBillingObservation) {
 
         static InventoryOpenResult none() {
-            return new InventoryOpenResult(false, null, BigDecimal.ZERO, List.of(), null);
+            return new InventoryOpenResult(
+                    false, null, BigDecimal.ZERO, List.of(), null, false, BigDecimal.ZERO, null);
         }
     }
 

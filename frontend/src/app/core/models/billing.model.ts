@@ -169,12 +169,17 @@ export interface BillingCashRegister {
   dayFiadoPaymentCount: number;
   dayOtherIncomesTotal: number;
   dayOtherIncomesByMethod: Record<PaymentMethod, number>;
+  dayAutoSurplusByMethod?: Record<PaymentMethod, number>;
   dayOtherIncomeCount: number;
   /** Facturación + productos + fiado + otros ingresos del día, por medio (sin base inicial). */
   dayIncomeByMethod?: Record<PaymentMethod, number>;
   dayIncomeTotal?: number;
-  /** Inicio + facturación efectivo + productos efectivo + fiado efectivo − gastos. */
+  /** Efectivo físico en caja (servidor: entrega + movimientos, o fórmula del día). */
   cashInDrawer: number;
+  /** Efectivo contado en la última entrega de turno. */
+  lastHandoverCashTotal?: number | null;
+  /** Movimientos en efectivo en Facturación desde esa entrega. */
+  cashSinceLastHandover?: number | null;
   digitalAccounts?: DigitalAccountBalanceLine[];
 }
 

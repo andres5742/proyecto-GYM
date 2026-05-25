@@ -1,6 +1,9 @@
 package com.gym.management.service;
 
 import com.gym.management.dto.BillingHandoverCashBreakdown;
+import com.gym.management.dto.HandoverDeliveredProductLine;
+import com.gym.management.dto.HandoverInventorySnapshot;
+import com.gym.management.dto.ProductInventoryCountItem;
 import com.gym.management.dto.ShiftDetailResponse;
 import com.gym.management.dto.ShiftHandoverComparisonResponse;
 import com.gym.management.dto.ShiftHandoverExpenseRequest;
@@ -16,19 +19,27 @@ import com.gym.management.model.ShiftHandover;
 import com.gym.management.model.ShiftHandoverExpense;
 import com.gym.management.model.ShiftHandoverPriorPayment;
 import com.gym.management.model.ShiftStatus;
+import com.gym.management.model.Product;
 import com.gym.management.model.WorkShift;
 import com.gym.management.model.EmployeeCashShortfall;
 import com.gym.management.repository.EmployeeCashShortfallRepository;
+import com.gym.management.repository.ProductRepository;
 import com.gym.management.repository.SaleRepository;
 import com.gym.management.repository.ShiftHandoverRepository;
 import com.gym.management.repository.WorkShiftRepository;
+import com.gym.management.util.HandoverInventorySnapshotJson;
 import com.gym.management.security.AuthenticatedUser;
 import com.gym.management.security.SecurityUtils;
 import com.gym.management.util.CashCountUtil;
 import com.gym.management.util.MoneyUtil;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +49,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ShiftHandoverService {
+
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private static final java.util.Set<com.gym.management.model.CashShortfallKind> CASH_ONLY_SHORTFALL_KINDS =
             java.util.EnumSet.of(
@@ -56,6 +69,7 @@ public class ShiftHandoverService {
     private final ProductCreditService productCreditService;
     private final InventorySurplusResolutionService inventorySurplusResolutionService;
     private final ShiftInventoryService shiftInventoryService;
+    private final ProductRepository productRepository;
 
     private record ExpectedCashTotals(
             BigDecimal billingCashInDrawer,
@@ -67,23 +81,20 @@ public class ShiftHandoverService {
             String previousShiftName,
             BigDecimal handoverShiftSalesCash,
             BigDecimal creditPaymentsCash,
-            BigDecimal total) {}
+            BigDecimal total,
+            BigDecimal lastHandoverCashTotal,
+            BigDecimal cashSinceLastHandover) {}
 
     @Transactional(readOnly = true)
     public List<ShiftHandoverResponse> findAll() {
         List<ShiftHandover> list;
-        if (SecurityUtils.isAdmin()) {
+        if (SecurityUtils.isSuperAdmin()) {
             list = handoverRepository.findAllByOrderBySubmittedAtDesc();
         } else {
-            Long employeeId = requireUser().employeeId();
-            if (employeeId == null) {
-                list = List.of();
-            } else {
-                list = handoverRepository.findByEmployeeIdOrderBySubmittedAtDesc(employeeId);
-            }
+            list = handoverRepository.findByWorkShift_ShiftDateOrderBySubmittedAtDesc(today());
         }
         return list.stream()
-                .map(h -> toSummaryResponse(h, java.util.Optional.empty(), Optional.empty()))
+                .map(h -> toSummaryResponse(h, java.util.Optional.empty(), Optional.empty(), java.util.Optional.empty()))
                 .toList();
     }
 
@@ -115,6 +126,7 @@ public class ShiftHandoverService {
                 .orElseThrow(() -> new ResourceNotFoundException("Entrega de turno no encontrada: " + id));
         // El descuadre de caja referencia esta entrega; hay que quitarlo antes del DELETE.
         shortfallRepository.findByShiftHandoverId(id).ifPresent(shortfallRepository::delete);
+        billingCashRegisterService.deleteHandoverCashSurplusIncome(id);
         handoverRepository.delete(handover);
     }
 
@@ -156,8 +168,11 @@ public class ShiftHandoverService {
             workShiftService.close(shift.getId());
         }
 
+        saved.setInventoryDeliveredJson(buildInventoryDeliveredJson(request.inventoryCounts()));
+        saved = handoverRepository.save(saved);
         com.gym.management.dto.HandoverInventoryResult inventoryResult =
-                shiftInventoryService.processAtHandover(shift, request.inventoryCounts());
+                shiftInventoryService.processAtHandover(shift, request.inventoryCounts(), saved);
+        shortfallRepository.flush();
 
         ShiftDetailResponse detail = saleService.getShiftDetail(shift.getId());
         ExpectedCashTotals expected = computeExpectedCash(shift.getId(), detail.summary());
@@ -168,18 +183,79 @@ public class ShiftHandoverService {
                 : BigDecimal.ZERO;
         BigDecimal inventoryCredit = MoneyUtil.roundPesos(
                 cashSurplus.add(inventoryResult.productSurplusCredit()));
+        BigDecimal pendingInventoryDebt = shiftInventoryService.sumPendingInventoryShortfallForEmployee(
+                shift.getShiftDate(), saved.getEmployee().getId());
+        boolean hasInventoryDebt = pendingInventoryDebt.compareTo(BigDecimal.ZERO) > 0;
+
+        com.gym.management.dto.SurplusInventoryResolutionResult inventoryResolution = null;
         Optional<String> surplusNote = Optional.empty();
-        if (inventoryCredit.compareTo(BigDecimal.ZERO) > 0) {
-            surplusNote = inventorySurplusResolutionService
-                    .applyCreditToPendingInventory(
-                            saved.getEmployee(), shift.getShiftDate(), inventoryCredit, saved.getEmployee())
-                    .userMessage();
+        // Solo cruza sobrante con faltante de productos; el efectivo sobrante no usado queda en caja física.
+        if (hasInventoryDebt && inventoryCredit.compareTo(BigDecimal.ZERO) > 0) {
+            Long inventoryShortfallId = inventoryResult.newInventoryShortfall() != null
+                    ? inventoryResult.newInventoryShortfall().id()
+                    : null;
+            inventoryResolution = inventorySurplusResolutionService.applyCreditToPendingInventory(
+                    saved.getEmployee(),
+                    shift.getShiftDate(),
+                    inventoryCredit,
+                    saved.getEmployee(),
+                    inventoryShortfallId);
+            surplusNote = inventoryResolution.userMessage();
         }
 
         java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall =
                 cashShortfallService.registerFromHandover(saved, expected.total(), declared);
 
-        return toSummaryResponse(saved, shortfall, surplusNote);
+        BigDecimal cashSurplusForBilling = cashSurplus;
+        if (inventoryResolution != null) {
+            BigDecimal appliedToInventory = MoneyUtil.roundPesos(inventoryResolution.appliedToInventory());
+            BigDecimal productSurplusCredit = MoneyUtil.roundPesos(inventoryResult.productSurplusCredit());
+            BigDecimal cashUsedOnInventory = MoneyUtil.roundPesos(appliedToInventory.subtract(productSurplusCredit));
+            if (cashUsedOnInventory.compareTo(BigDecimal.ZERO) < 0) {
+                cashUsedOnInventory = BigDecimal.ZERO;
+            }
+            cashSurplusForBilling = MoneyUtil.roundPesos(cashSurplus.subtract(cashUsedOnInventory));
+            if (cashSurplusForBilling.compareTo(BigDecimal.ZERO) < 0) {
+                cashSurplusForBilling = BigDecimal.ZERO;
+            }
+        }
+        Optional<com.gym.management.dto.BillingCashRegisterOtherIncomeResponse> surplusBilling =
+                billingCashRegisterService.registerHandoverCashSurplusAmount(saved, cashSurplusForBilling);
+
+        billingCashRegisterService.recordLastHandoverPhysicalCash(
+                shift.getShiftDate(), declared, saved.getSubmittedAt());
+
+        return toSummaryResponse(saved, shortfall, surplusNote, surplusBilling);
+    }
+
+    /**
+     * Backfill automático: crea en Facturación los sobrantes de entregas antiguas que no quedaron registrados.
+     */
+    @Transactional
+    public int syncMissingHandoverCashSurplusInBilling() {
+        int created = 0;
+        List<ShiftHandover> handovers = handoverRepository.findAllByOrderBySubmittedAtDesc();
+        for (ShiftHandover handover : handovers) {
+            if (handover.getId() == null) {
+                continue;
+            }
+            if (billingCashRegisterService.findHandoverCashSurplusIncome(handover.getId()).isPresent()) {
+                continue;
+            }
+            ShiftDetailResponse detail = saleService.getShiftDetail(handover.getWorkShift().getId());
+            ExpectedCashTotals expected = computeExpectedCash(handover.getWorkShift().getId(), detail.summary());
+            BigDecimal declared = CashCountUtil.totalCash(handover);
+            BigDecimal cashSurplus = declared.compareTo(expected.total()) > 0
+                    ? MoneyUtil.roundPesos(declared.subtract(expected.total()))
+                    : BigDecimal.ZERO;
+            if (cashSurplus.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (billingCashRegisterService.registerHandoverCashSurplusAmount(handover, cashSurplus).isPresent()) {
+                created++;
+            }
+        }
+        return created;
     }
 
     private void applyExpenses(ShiftHandover handover, List<ShiftHandoverExpenseRequest> expenses) {
@@ -226,7 +302,8 @@ public class ShiftHandoverService {
     private ShiftHandoverResponse toSummaryResponse(
             ShiftHandover handover,
             java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall,
-            Optional<String> surplusResolutionNote) {
+            Optional<String> surplusResolutionNote,
+            java.util.Optional<com.gym.management.dto.BillingCashRegisterOtherIncomeResponse> surplusBilling) {
         BigDecimal expensesTotal = sumExpenses(handover);
         BigDecimal priorTotal = sumPriorPayments(handover);
         ShiftDetailResponse detail = saleService.getShiftDetail(handover.getWorkShift().getId());
@@ -243,6 +320,16 @@ public class ShiftHandoverService {
             shortfallId = existing.map(com.gym.management.dto.CashShortfallResponse::id).orElse(null);
         }
         InventoryPreviewContext inventory = inventoryPreviewContext(handover.getWorkShift());
+        HandoverInventorySnapshot deliveredSnapshot = parseDeliveredInventory(handover.getInventoryDeliveredJson());
+        java.util.Optional<com.gym.management.dto.BillingCashRegisterOtherIncomeResponse> surplusIncome =
+                surplusBilling.isPresent()
+                        ? surplusBilling
+                        : billingCashRegisterService.findHandoverCashSurplusIncome(handover.getId());
+        BigDecimal registeredSurplus = surplusIncome
+                .map(com.gym.management.dto.BillingCashRegisterOtherIncomeResponse::amount)
+                .orElse(null);
+        Long surplusOtherIncomeId =
+                surplusIncome.map(com.gym.management.dto.BillingCashRegisterOtherIncomeResponse::id).orElse(null);
         return ShiftHandoverMapper.toResponse(
                 handover,
                 expensesTotal,
@@ -258,13 +345,21 @@ public class ShiftHandoverService {
                 expected.previousShiftCreditPaymentsCash(),
                 expected.creditPaymentsCash(),
                 expected.total(),
+                expected.lastHandoverCashTotal(),
+                expected.cashSinceLastHandover(),
                 inventory.products(),
+                deliveredSnapshot.unitsTotal(),
+                countProductKinds(deliveredSnapshot.lines()),
+                deliveredSnapshot.lines(),
                 inventory.pendingTotal(),
                 buildComparisons(handover, detail.summary(), expected),
                 registeredShortfall,
                 shortfallId,
                 surplusResolutionNote.isPresent(),
-                surplusResolutionNote.orElse(null));
+                surplusResolutionNote.orElse(null),
+                registeredSurplus != null && registeredSurplus.compareTo(BigDecimal.ZERO) > 0,
+                registeredSurplus,
+                surplusOtherIncomeId);
     }
 
     private record InventoryPreviewContext(
@@ -281,7 +376,7 @@ public class ShiftHandoverService {
 
     private ShiftHandoverResponse toFullResponse(ShiftHandover handover) {
         ShiftHandover loaded = getHandoverWithDetails(handover.getId());
-        return toSummaryResponse(loaded, java.util.Optional.empty(), Optional.empty());
+        return toSummaryResponse(loaded, java.util.Optional.empty(), Optional.empty(), java.util.Optional.empty());
     }
 
     private ShiftHandoverResponse buildPreviewResponse(WorkShift shift) {
@@ -308,29 +403,85 @@ public class ShiftHandoverService {
                 expected.previousShiftCreditPaymentsCash(),
                 expected.creditPaymentsCash(),
                 expected.total(),
+                expected.lastHandoverCashTotal(),
+                expected.cashSinceLastHandover(),
                 inventory.products(),
+                0,
+                0,
+                List.of(),
                 inventory.pendingTotal(),
                 buildComparisons(empty, detail.summary(), expected),
                 null,
                 null,
                 false,
+                null,
+                false,
+                null,
                 null);
     }
 
+    private static int countProductKinds(java.util.List<HandoverDeliveredProductLine> lines) {
+        if (lines == null) {
+            return 0;
+        }
+        return (int) lines.stream().filter(l -> l.stockRemaining() > 0).count();
+    }
+
+    private HandoverInventorySnapshot parseDeliveredInventory(String json) {
+        return HandoverInventorySnapshotJson.read(json);
+    }
+
+    private String buildInventoryDeliveredJson(List<ProductInventoryCountItem> counts) {
+        if (counts == null || counts.isEmpty()) {
+            return null;
+        }
+        Map<Long, Product> productsById = new HashMap<>();
+        for (Product product : productRepository.findByActiveTrueOrderByNameAsc()) {
+            productsById.put(product.getId(), product);
+        }
+        List<HandoverDeliveredProductLine> lines = new ArrayList<>();
+        int unitsTotal = 0;
+        for (ProductInventoryCountItem item : counts) {
+            if (item.productId() == null || item.countedQuantity() == null) {
+                continue;
+            }
+            Product product = productsById.get(item.productId());
+            if (product == null) {
+                continue;
+            }
+            int expected = product.getQuantity();
+            int stockRemaining = item.countedQuantity();
+            unitsTotal += stockRemaining;
+            lines.add(new HandoverDeliveredProductLine(
+                    product.getId(), product.getName(), product.getCategory(), expected, stockRemaining));
+        }
+        lines.sort(java.util.Comparator.comparing(HandoverDeliveredProductLine::productName, String.CASE_INSENSITIVE_ORDER));
+        return HandoverInventorySnapshotJson.write(new HandoverInventorySnapshot(unitsTotal, lines));
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(GYM_ZONE);
+    }
+
     private ExpectedCashTotals computeExpectedCash(Long handoverShiftId, SalesSummaryResponse sales) {
-        BillingHandoverCashBreakdown billingBreakdown = billingCashRegisterService.billingHandoverCashBreakdown();
-        BigDecimal billing = billingBreakdown.total();
+        WorkShift shift = workShiftService.getShift(handoverShiftId);
+        com.gym.management.dto.CashInDrawerTotals drawer =
+                billingCashRegisterService.cashInDrawerTotalsForDate(shift.getShiftDate());
+        BillingHandoverCashBreakdown billingBreakdown =
+                billingCashRegisterService.billingHandoverCashBreakdownForDate(shift.getShiftDate());
         BigDecimal handoverShiftCash =
                 sales.amountByPaymentMethod().getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
         BigDecimal creditCash = productCreditService.sumCashPaymentsForShift(handoverShiftId);
         PreviousShiftCash previous = resolvePreviousShiftCash(handoverShiftId);
-        BigDecimal total = billing
+        // Entrega de turno: esperado = base de Facturación + ventas/cobros en efectivo de turnos.
+        BigDecimal total = billingBreakdown.total()
                 .add(previous.netSalesCash())
                 .add(previous.creditPaymentsCash())
                 .add(handoverShiftCash)
                 .add(creditCash);
+        total = MoneyUtil.roundPesos(total);
         return new ExpectedCashTotals(
-                billing,
+                billingBreakdown.total(),
                 billingBreakdown.cashBase(),
                 billingBreakdown.otherIncomesCash(),
                 previous.netSalesCash(),
@@ -339,7 +490,9 @@ public class ShiftHandoverService {
                 previous.name(),
                 handoverShiftCash,
                 creditCash,
-                total);
+                total,
+                drawer.lastHandoverCashTotal(),
+                drawer.cashSinceLastHandover());
     }
 
     private record PreviousShiftCash(
@@ -414,11 +567,11 @@ public class ShiftHandoverService {
     }
 
     private void ensureCanView(ShiftHandover handover) {
-        if (SecurityUtils.isAdmin()) {
+        if (SecurityUtils.isSuperAdmin()) {
             return;
         }
-        if (!handover.getEmployee().getId().equals(requireUser().employeeId())) {
-            throw new BusinessException("No tienes permiso para ver esta entrega");
+        if (!handover.getWorkShift().getShiftDate().equals(today())) {
+            throw new BusinessException("Solo el super administrador puede ver entregas de otros días");
         }
     }
 

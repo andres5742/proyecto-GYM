@@ -33,10 +33,13 @@ public final class BillingCashRegisterMapper {
             long dayFiadoPaymentCount,
             BigDecimal dayOtherIncomesTotal,
             Map<PaymentMethod, BigDecimal> dayOtherIncomesByMethod,
+            Map<PaymentMethod, BigDecimal> dayAutoSurplusByMethod,
             long dayOtherIncomeCount,
             Map<PaymentMethod, BigDecimal> dayIncomeByMethod,
             BigDecimal dayIncomeTotal,
             BigDecimal cashInDrawer,
+            BigDecimal lastHandoverCashTotal,
+            BigDecimal cashSinceLastHandover,
             List<DigitalAccountBalanceLine> digitalAccounts) {
         String employeeName = register.getOpenedBy() != null
                 ? register.getOpenedBy().getFirstName() + " " + register.getOpenedBy().getLastName()
@@ -74,10 +77,13 @@ public final class BillingCashRegisterMapper {
                 dayFiadoPaymentCount,
                 dayOtherIncomesTotal != null ? dayOtherIncomesTotal : BigDecimal.ZERO,
                 dayOtherIncomesByMethod != null ? dayOtherIncomesByMethod : Map.of(),
+                dayAutoSurplusByMethod != null ? dayAutoSurplusByMethod : Map.of(),
                 dayOtherIncomeCount,
                 dayIncomeByMethod != null ? dayIncomeByMethod : Map.of(),
                 dayIncomeTotal != null ? dayIncomeTotal : BigDecimal.ZERO,
                 cashInDrawer != null ? cashInDrawer : BigDecimal.ZERO,
+                lastHandoverCashTotal,
+                cashSinceLastHandover,
                 digitalAccounts != null ? digitalAccounts : List.of());
     }
 }

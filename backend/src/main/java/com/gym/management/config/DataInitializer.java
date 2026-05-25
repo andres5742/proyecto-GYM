@@ -507,6 +507,26 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureBillingRegisterLastHandoverCash(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_cash_registers
+                        ADD COLUMN IF NOT EXISTS last_handover_cash_amount NUMERIC(12, 2)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE billing_cash_registers
+                        ADD COLUMN IF NOT EXISTS last_handover_at TIMESTAMPTZ
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner ensureBillingModuleAndDayPlan() {
         return args -> {
             if (appModuleRepository.findById("FACTURACION").isEmpty()) {

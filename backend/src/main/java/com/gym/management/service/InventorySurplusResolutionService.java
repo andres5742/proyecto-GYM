@@ -48,16 +48,24 @@ public class InventorySurplusResolutionService {
     @Transactional
     public SurplusInventoryResolutionResult applyCreditToPendingInventory(
             Employee employee, LocalDate shiftDate, BigDecimal creditAmount, Employee settledBy) {
+        return applyCreditToPendingInventory(employee, shiftDate, creditAmount, settledBy, null);
+    }
+
+    @Transactional
+    public SurplusInventoryResolutionResult applyCreditToPendingInventory(
+            Employee employee,
+            LocalDate shiftDate,
+            BigDecimal creditAmount,
+            Employee settledBy,
+            Long prioritizeShortfallId) {
         BigDecimal credit = MoneyUtil.roundPesos(creditAmount);
         if (credit.compareTo(BigDecimal.ZERO) <= 0) {
             return emptyResult(credit);
         }
-        List<EmployeeCashShortfall> pending = shortfallRepository
-                .findPendingInventoryByEmployeeAndDate(
-                        employee.getId(), shiftDate, CashShortfallStatus.PENDING, CashShortfallKind.INVENTORY)
-                .stream()
-                .sorted(Comparator.comparing(EmployeeCashShortfall::getCreatedAt))
-                .toList();
+        List<EmployeeCashShortfall> pending = orderPendingInventory(
+                shortfallRepository.findPendingInventoryByEmployeeAndDate(
+                        employee.getId(), shiftDate, CashShortfallStatus.PENDING, CashShortfallKind.INVENTORY),
+                prioritizeShortfallId);
         if (pending.isEmpty()) {
             return new SurplusInventoryResolutionResult(
                     BigDecimal.ZERO,
@@ -122,6 +130,24 @@ public class InventorySurplusResolutionService {
                 remainingCredit,
                 remainingDebt.compareTo(BigDecimal.ZERO) <= 0,
                 message);
+    }
+
+    private List<EmployeeCashShortfall> orderPendingInventory(
+            List<EmployeeCashShortfall> pending, Long prioritizeShortfallId) {
+        if (prioritizeShortfallId == null || pending.size() <= 1) {
+            return pending.stream()
+                    .sorted(Comparator.comparing(EmployeeCashShortfall::getCreatedAt))
+                    .toList();
+        }
+        List<EmployeeCashShortfall> ordered = new ArrayList<>();
+        for (EmployeeCashShortfall record : pending) {
+            if (prioritizeShortfallId.equals(record.getId())) {
+                ordered.add(0, record);
+            } else {
+                ordered.add(record);
+            }
+        }
+        return ordered;
     }
 
     private SurplusInventoryResolutionResult emptyResult(BigDecimal credit) {

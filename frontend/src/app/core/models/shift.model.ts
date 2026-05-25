@@ -80,6 +80,9 @@ export interface WorkShiftOpenResult {
   cashShortfallRegistered: boolean;
   cashShortfallAmount: number;
   cashShortfallNotes: string | null;
+  cashSurplusRegistered: boolean;
+  cashSurplusAmount: number;
+  cashSurplusBillingObservation: string | null;
 }
 
 export interface PaymentMethodTotals {

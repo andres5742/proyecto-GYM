@@ -50,7 +50,6 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             new ApiModuleRule("/api/sales", "VENTAS", Set.of()),
             new ApiModuleRule("/api/billing", "FACTURACION", Set.of()),
             new ApiModuleRule("/api/shifts", "VENTAS", Set.of()),
-            new ApiModuleRule("/api/shift-handovers", "ENTREGA_TURNO", Set.of()),
             new ApiModuleRule("/api/cash-shortfalls", "DESCUADRES_CAJA", Set.of()),
             new ApiModuleRule("/api/product-credits", "FIADO", Set.of()),
             new ApiModuleRule("/api/attendance", "JORNADA", Set.of()));
@@ -91,19 +90,13 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
             return;
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        /** Entrega de turno: recepción (TRAINER/ADMIN); permisos finos en ShiftHandoverService. */
+        /** Entrega de turno: roles en {@link com.gym.management.config.ApiAuthorizationRules}. */
         if (isShiftHandoverApi(path)) {
-            if (allowsShiftHandoverAccess(authentication)) {
-                filterChain.doFilter(request, response);
-                return;
-            }
-            response.sendError(
-                    HttpServletResponse.SC_FORBIDDEN,
-                    "No tienes acceso a entrega de turno. Use un usuario de recepción o administración.");
+            filterChain.doFilter(request, response);
             return;
         }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null
                 || !authentication.isAuthenticated()
@@ -175,16 +168,4 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
         return path.startsWith("/api/shift-handovers");
     }
 
-    private static boolean allowsShiftHandoverAccess(Authentication authentication) {
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return false;
-        }
-        if (SecurityUtils.isSuperAdmin()) {
-            return true;
-        }
-        UserRole role = SecurityUtils.currentRole();
-        return role == UserRole.ADMIN || role == UserRole.TRAINER;
-    }
 }

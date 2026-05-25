@@ -50,9 +50,12 @@ public final class TreasuryAccess {
                 response.dayFiadoPaymentCount(),
                 response.dayOtherIncomesTotal(),
                 response.dayOtherIncomesByMethod(),
+                response.dayAutoSurplusByMethod(),
                 response.dayOtherIncomeCount(),
                 response.dayIncomeByMethod(),
                 response.dayIncomeTotal(),
+                null,
+                null,
                 null,
                 List.<DigitalAccountBalanceLine>of());
     }

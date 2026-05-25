@@ -162,8 +162,15 @@
           <article class="day-income-summary__item">
             <span class="day-income-summary__item-label">{{ pm.label }}</span>
             <strong class="day-income-summary__item-value" [class]="methodChipClass(pm.value)">
-              {{ dayIncomeByMethodAmount(reg, pm.value) | cop }}
+                {{ dayIncomeByMethodAmount(reg, pm.value) | cop }}
             </strong>
+              <button
+                type="button"
+                class="summary-kpi__breakdown-btn"
+                (click)="openDayIncomeMethodBreakdown(reg, pm.value)"
+              >
+                Ver detalle
+              </button>
           </article>
         }
       </div>
@@ -397,37 +404,56 @@
             <span class="kpi-card__label">Efectivo en caja</span>
             <strong class="kpi-card__value">{{ neto | cop }}</strong>
             <ul class="kpi-cash-breakdown" aria-label="Desglose efectivo en caja">
-              <li>
-                <span>Inicio</span>
-                <strong>+ {{ reg.openingCashAmount | cop }}</strong>
-              </li>
-              <li>
-                <span>Facturación (efectivo)</span>
-                <strong>+ {{ sessionCashBillingTotal(reg) | cop }}</strong>
-              </li>
-              @if (reg.dayProductSalesCash > 0) {
+              @if (reg.lastHandoverCashTotal != null && reg.lastHandoverCashTotal > 0) {
                 <li>
-                  <span>Productos (efectivo)</span>
-                  <strong>+ {{ reg.dayProductSalesCash | cop }}</strong>
+                  <span>Efectivo entregado en turno</span>
+                  <strong>+ {{ reg.lastHandoverCashTotal | cop }}</strong>
                 </li>
-              }
-              @if (fiadoCashCollected(reg) > 0) {
+                @if (reg.cashSinceLastHandover != null && reg.cashSinceLastHandover !== 0) {
+                  <li>
+                    <span>Movimientos en efectivo desde entrega (facturación, productos, fiado y otros ingresos)</span>
+                    <strong>
+                      @if (reg.cashSinceLastHandover > 0) {
+                        + {{ reg.cashSinceLastHandover | cop }}
+                      } @else {
+                        − {{ -reg.cashSinceLastHandover | cop }}
+                      }
+                    </strong>
+                  </li>
+                }
+              } @else {
                 <li>
-                  <span>Fiado cobrado (efectivo)</span>
-                  <strong>+ {{ fiadoCashCollected(reg) | cop }}</strong>
+                  <span>Inicio</span>
+                  <strong>+ {{ reg.openingCashAmount | cop }}</strong>
                 </li>
-              }
-              @if (otherIncomeCashCollected(reg) > 0) {
                 <li>
-                  <span>Otros ingresos (efectivo)</span>
-                  <strong>+ {{ otherIncomeCashCollected(reg) | cop }}</strong>
+                  <span>Facturación (efectivo)</span>
+                  <strong>+ {{ sessionCashBillingTotal(reg) | cop }}</strong>
                 </li>
-              }
-              @if (closeRegisterCashExpenses(reg) > 0) {
-                <li>
-                  <span>Gastos (efectivo)</span>
-                  <strong>− {{ closeRegisterCashExpenses(reg) | cop }}</strong>
-                </li>
+                @if (reg.dayProductSalesCash > 0) {
+                  <li>
+                    <span>Productos (efectivo)</span>
+                    <strong>+ {{ reg.dayProductSalesCash | cop }}</strong>
+                  </li>
+                }
+                @if (fiadoCashCollected(reg) > 0) {
+                  <li>
+                    <span>Fiado cobrado (efectivo)</span>
+                    <strong>+ {{ fiadoCashCollected(reg) | cop }}</strong>
+                  </li>
+                }
+                @if (otherIncomeCashCollected(reg) > 0) {
+                  <li>
+                    <span>Otros ingresos (efectivo)</span>
+                    <strong>+ {{ otherIncomeCashCollected(reg) | cop }}</strong>
+                  </li>
+                }
+                @if (closeRegisterCashExpenses(reg) > 0) {
+                  <li>
+                    <span>Gastos (efectivo)</span>
+                    <strong>− {{ closeRegisterCashExpenses(reg) | cop }}</strong>
+                  </li>
+                }
               }
             </ul>
             @if (sessionNonCashIncome(reg) > 0) {
@@ -1259,6 +1285,52 @@
       </ul>
       <div class="modal-actions modal-actions--footer">
         <button type="button" class="btn btn-secondary" (click)="closeSummaryBreakdown()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (dayIncomeMethodBreakdownModal(); as breakdown) {
+  <div class="modal-backdrop modal-backdrop--stack" (click)="closeDayIncomeMethodBreakdown()">
+    <div
+      class="modal-panel modal-panel--breakdown"
+      role="dialog"
+      aria-labelledby="day-income-method-breakdown-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-header">
+        <div>
+          <span class="modal-header__icon" aria-hidden="true">🧾</span>
+          <h3 id="day-income-method-breakdown-title">Ingresos del día · {{ breakdown.methodLabel }}</h3>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeDayIncomeMethodBreakdown()">
+          ×
+        </button>
+      </header>
+      <p class="breakdown-modal__total">
+        Ingresado hoy ({{ breakdown.methodLabel }}): <strong>{{ breakdown.total | cop }}</strong>
+      </p>
+      @if (breakdown.method === 'CASH' && breakdown.cashDrawerTotal != null) {
+        <p class="breakdown-modal__total">
+          Efectivo en caja (general): <strong>{{ breakdown.cashDrawerTotal | cop }}</strong>
+        </p>
+      }
+      <ul class="breakdown-modal__list">
+        @for (line of breakdown.lines; track line.label) {
+          <li class="breakdown-modal__row">
+            <span>{{ line.label }}</span>
+            <strong>
+              @if (line.amount >= 0) {
+                {{ line.amount | cop }}
+              } @else {
+                - {{ -line.amount | cop }}
+              }
+            </strong>
+          </li>
+        }
+      </ul>
+      <div class="modal-actions modal-actions--footer">
+        <button type="button" class="btn btn-secondary" (click)="closeDayIncomeMethodBreakdown()">Cerrar</button>
       </div>
     </div>
   </div>
