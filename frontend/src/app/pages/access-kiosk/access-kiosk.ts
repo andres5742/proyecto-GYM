@@ -492,7 +492,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   }
 
   private shouldForceLocalUnlock(res: AccessVerifyResponse): boolean {
-    if (res.result !== 'GRANTED') {
+    if (res.result === 'SELECT_MEMBER') {
       return false;
     }
     return this.isShortcutPass(res.deviceUserId) || this.isBilledDayPass(res.deviceUserId);
