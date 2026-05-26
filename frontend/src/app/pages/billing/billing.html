@@ -43,7 +43,36 @@
           }
         </div>
       </div>
-      @if (paymentAccountSettings(); as settings) {
+      @if (todayRegister()?.digitalAccounts; as digitalAccountsToday) {
+        <div class="treasury-setup__accounts">
+          @for (acc of digitalAccountsToday; track acc.paymentMethod) {
+            <article class="treasury-setup__account">
+              <header class="treasury-setup__account-head">
+                <h4>{{ acc.paymentMethodLabel }}</h4>
+                <strong class="treasury-setup__account-total">{{ acc.closingBalance | cop }}</strong>
+              </header>
+              <dl class="treasury-setup__account-rows">
+                <div>
+                  <dt>Saldo actual</dt>
+                  <dd>{{ acc.closingBalance | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Saldo hasta ayer</dt>
+                  <dd>{{ acc.openingBalance | cop }}</dd>
+                </div>
+                <div>
+                  <dt>+ Ingresos hoy</dt>
+                  <dd class="pos">+ {{ acc.incomeTotal | cop }}</dd>
+                </div>
+                <div>
+                  <dt>− Gastos hoy</dt>
+                  <dd class="neg">− {{ acc.expenseTotal | cop }}</dd>
+                </div>
+              </dl>
+            </article>
+          }
+        </div>
+      } @else if (paymentAccountSettings(); as settings) {
         <div class="treasury-setup__accounts">
           @for (acc of settings.currentMonthBalances; track acc.paymentMethod) {
             <article class="treasury-setup__account">
@@ -53,15 +82,19 @@
               </header>
               <dl class="treasury-setup__account-rows">
                 <div>
-                  <dt>Saldo inicial</dt>
+                  <dt>Saldo actual</dt>
+                  <dd>{{ acc.closingBalance | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Saldo inicial global</dt>
                   <dd>{{ acc.openingBalance | cop }}</dd>
                 </div>
                 <div>
-                  <dt>+ Ingresos del mes</dt>
+                  <dt>+ Ingresos acumulados</dt>
                   <dd class="pos">+ {{ acc.incomeTotal | cop }}</dd>
                 </div>
                 <div>
-                  <dt>− Gastos del mes</dt>
+                  <dt>− Gastos acumulados</dt>
                   <dd class="neg">− {{ acc.expenseTotal | cop }}</dd>
                 </div>
               </dl>
@@ -149,20 +182,20 @@
     <section class="day-income-summary" aria-label="Total ingresado en el día">
       <div class="day-income-summary__head">
         <div>
-          <h4 class="day-income-summary__title">Ingresado en el día</h4>
+          <h4 class="day-income-summary__title">Ganancia del día</h4>
           <p class="day-income-summary__hint">
-            Total cobrado hoy (facturación, productos, fiado y otros ingresos). No incluye el efectivo
-            inicial de la caja.
+            Para efectivo: <strong>Efectivo en caja − Efectivo inicial</strong>. Para Nequi/Bancolombia:
+            cobrado hoy por ese medio.
           </p>
         </div>
-        <strong class="day-income-summary__total">{{ dayIncomeTotal(reg) | cop }}</strong>
+        <strong class="day-income-summary__total">{{ dayIncomeDisplayTotal(reg) | cop }}</strong>
       </div>
       <div class="day-income-summary__methods">
         @for (pm of incomeSummaryMethods; track pm.value) {
           <article class="day-income-summary__item">
             <span class="day-income-summary__item-label">{{ pm.label }}</span>
             <strong class="day-income-summary__item-value" [class]="methodChipClass(pm.value)">
-                {{ dayIncomeByMethodAmount(reg, pm.value) | cop }}
+                {{ dayIncomeDisplayByMethodAmount(reg, pm.value) | cop }}
             </strong>
               <button
                 type="button"
@@ -350,7 +383,7 @@
           <span class="kpi-card__label">Productos vendidos</span>
           <strong class="kpi-card__value">{{ reg.dayProductSalesTotal | cop }}</strong>
           <span class="kpi-card__sub">
-            Efectivo de turno Ventas (suma a caja del día)
+            Ventas de productos del día por medio de pago
             @if (reg.dayProductSalesShiftCount > 0) {
               · {{ reg.dayProductSalesShiftCount }}
               {{ reg.dayProductSalesShiftCount === 1 ? 'turno' : 'turnos' }}
@@ -365,11 +398,15 @@
             </span>
           }
         </div>
-        @if (reg.dayProductSalesCash > 0) {
-          <div class="method-chips method-chips--kpi">
-            <span class="method-chip method-chip--cash">Efectivo {{ reg.dayProductSalesCash | cop }}</span>
-          </div>
-        }
+        <div class="method-chips method-chips--kpi">
+          @for (pm of paymentMethods; track pm.value) {
+            @if (productSalesByMethodAmount(reg, pm.value) > 0) {
+              <span [class]="methodChipClass(pm.value)">
+                {{ pm.label }} {{ productSalesByMethodAmount(reg, pm.value) | cop }}
+              </span>
+            }
+          }
+        </div>
       </article>
       <article class="kpi-card kpi-card--concept-cash">
         <div class="kpi-card__body">
@@ -403,59 +440,51 @@
           <div class="kpi-card__body">
             <span class="kpi-card__label">Efectivo en caja</span>
             <strong class="kpi-card__value">{{ neto | cop }}</strong>
+            <span class="kpi-card__sub">
+              Efectivo del día (sin arrastre): {{ dayCashWithoutCarry(reg) | cop }}
+            </span>
             <ul class="kpi-cash-breakdown" aria-label="Desglose efectivo en caja">
-              @if (reg.lastHandoverCashTotal != null && reg.lastHandoverCashTotal > 0) {
+              <li>
+                <span>Inicio</span>
+                <strong>+ {{ reg.openingCashAmount | cop }}</strong>
+              </li>
+              <li>
+                <span>Facturación (efectivo)</span>
+                <strong>+ {{ sessionCashBillingTotal(reg) | cop }}</strong>
+              </li>
+              @if (reg.dayProductSalesCash > 0) {
                 <li>
-                  <span>Efectivo entregado en turno</span>
-                  <strong>+ {{ reg.lastHandoverCashTotal | cop }}</strong>
+                  <span>Productos (efectivo)</span>
+                  <strong>+ {{ reg.dayProductSalesCash | cop }}</strong>
                 </li>
-                @if (reg.cashSinceLastHandover != null && reg.cashSinceLastHandover !== 0) {
-                  <li>
-                    <span>Movimientos en efectivo desde entrega (facturación, productos, fiado y otros ingresos)</span>
-                    <strong>
-                      @if (reg.cashSinceLastHandover > 0) {
-                        + {{ reg.cashSinceLastHandover | cop }}
-                      } @else {
-                        − {{ -reg.cashSinceLastHandover | cop }}
-                      }
-                    </strong>
-                  </li>
-                }
-              } @else {
+              }
+              @if (fiadoCashCollected(reg) > 0) {
                 <li>
-                  <span>Inicio</span>
-                  <strong>+ {{ reg.openingCashAmount | cop }}</strong>
+                  <span>Fiado cobrado (efectivo)</span>
+                  <strong>+ {{ fiadoCashCollected(reg) | cop }}</strong>
                 </li>
+              }
+              @if (otherIncomeCashCollected(reg) > 0) {
                 <li>
-                  <span>Facturación (efectivo)</span>
-                  <strong>+ {{ sessionCashBillingTotal(reg) | cop }}</strong>
+                  <span>Otros ingresos (efectivo)</span>
+                  <strong>+ {{ otherIncomeCashCollected(reg) | cop }}</strong>
                 </li>
-                @if (reg.dayProductSalesCash > 0) {
-                  <li>
-                    <span>Productos (efectivo)</span>
-                    <strong>+ {{ reg.dayProductSalesCash | cop }}</strong>
-                  </li>
-                }
-                @if (fiadoCashCollected(reg) > 0) {
-                  <li>
-                    <span>Fiado cobrado (efectivo)</span>
-                    <strong>+ {{ fiadoCashCollected(reg) | cop }}</strong>
-                  </li>
-                }
-                @if (otherIncomeCashCollected(reg) > 0) {
-                  <li>
-                    <span>Otros ingresos (efectivo)</span>
-                    <strong>+ {{ otherIncomeCashCollected(reg) | cop }}</strong>
-                  </li>
-                }
-                @if (closeRegisterCashExpenses(reg) > 0) {
-                  <li>
-                    <span>Gastos (efectivo)</span>
-                    <strong>− {{ closeRegisterCashExpenses(reg) | cop }}</strong>
-                  </li>
-                }
+              }
+              @if (closeRegisterCashExpenses(reg) > 0) {
+                <li>
+                  <span>Gastos (efectivo)</span>
+                  <strong>− {{ closeRegisterCashExpenses(reg) | cop }}</strong>
+                </li>
               }
             </ul>
+            @if (reg.lastHandoverCashTotal != null && reg.lastHandoverCashTotal > 0) {
+              <span class="kpi-card__sub">
+                Referencia entrega turno: {{ reg.lastHandoverCashTotal | cop }}
+                @if (reg.cashSinceLastHandover != null) {
+                  · movimientos desde entrega: {{ reg.cashSinceLastHandover | cop }}
+                }
+              </span>
+            }
             @if (sessionNonCashIncome(reg) > 0) {
               <span class="kpi-card__sub kpi-card__sub--aside">
                 Cobros digitales hoy (sin base inicial): {{ sessionNonCashIncome(reg) | cop }}.
@@ -472,7 +501,7 @@
               <strong class="kpi-card__value">{{ nequiAcc.closingBalance | cop }}</strong>
               <ul class="kpi-cash-breakdown" [attr.aria-label]="'Movimientos ' + nequiAcc.paymentMethodLabel">
                 <li>
-                  <span>Apertura del día</span>
+                  <span>Saldo hasta ayer</span>
                   <strong>{{ nequiAcc.openingBalance | cop }}</strong>
                 </li>
                 <li>
@@ -497,7 +526,7 @@
               <strong class="kpi-card__value">{{ bancoAcc.closingBalance | cop }}</strong>
               <ul class="kpi-cash-breakdown" [attr.aria-label]="'Movimientos ' + bancoAcc.paymentMethodLabel">
                 <li>
-                  <span>Apertura del día</span>
+                  <span>Saldo hasta ayer</span>
                   <strong>{{ bancoAcc.openingBalance | cop }}</strong>
                 </li>
                 <li>
@@ -1307,28 +1336,82 @@
           ×
         </button>
       </header>
-      <p class="breakdown-modal__total">
-        Ingresado hoy ({{ breakdown.methodLabel }}): <strong>{{ breakdown.total | cop }}</strong>
-      </p>
-      @if (breakdown.method === 'CASH' && breakdown.cashDrawerTotal != null) {
-        <p class="breakdown-modal__total">
-          Efectivo en caja (general): <strong>{{ breakdown.cashDrawerTotal | cop }}</strong>
-        </p>
-      }
-      <ul class="breakdown-modal__list">
-        @for (line of breakdown.lines; track line.label) {
-          <li class="breakdown-modal__row">
-            <span>{{ line.label }}</span>
-            <strong>
-              @if (line.amount >= 0) {
-                {{ line.amount | cop }}
-              } @else {
-                - {{ -line.amount | cop }}
+      @if (breakdown.method === 'CASH') {
+        <section class="breakdown-modal__section">
+          <h4 class="breakdown-modal__section-title">Resumen</h4>
+          <ul class="breakdown-modal__list">
+            <li class="breakdown-modal__row">
+              <span>Efectivo en caja (general)</span>
+              <strong>{{ breakdown.cashDrawerTotal | cop }}</strong>
+            </li>
+            <li class="breakdown-modal__row">
+              <span>Efectivo inicial</span>
+              <strong>{{ breakdown.openingCash | cop }}</strong>
+            </li>
+            <li class="breakdown-modal__row">
+              <span>Variación vs inicial (general - inicial)</span>
+              <strong>{{ breakdown.gainAgainstOpening | cop }}</strong>
+            </li>
+            <li class="breakdown-modal__row">
+              <span>Ingresado bruto hoy (efectivo)</span>
+              <strong>{{ breakdown.dayOnlyTotal | cop }}</strong>
+            </li>
+            <li class="breakdown-modal__row">
+              <span>Gastos hoy (efectivo)</span>
+              <strong>- {{ breakdown.cashExpensesToday | cop }}</strong>
+            </li>
+            <li class="breakdown-modal__row">
+              <span>Neto hoy (ingresos - gastos)</span>
+              <strong>{{ breakdown.netCashMovementToday | cop }}</strong>
+            </li>
+          </ul>
+          <p class="breakdown-modal__note">
+            General = Inicial + Ingresos efectivo del día - Gastos efectivo del día.
+            @if (breakdown.carryFromHandover != null && breakdown.carryFromHandover > 0) {
+              <br />
+              Referencia entrega de turno: {{ breakdown.carryFromHandover | cop }}
+              @if (breakdown.cashMovementsSinceHandover != null) {
+                · movimientos desde entrega: {{ breakdown.cashMovementsSinceHandover | cop }}
               }
-            </strong>
-          </li>
-        }
-      </ul>
+            }
+          </p>
+        </section>
+        <section class="breakdown-modal__section">
+          <h4 class="breakdown-modal__section-title">Desglose ingresos de hoy</h4>
+          <ul class="breakdown-modal__list">
+            @for (line of breakdown.lines; track line.label) {
+              <li class="breakdown-modal__row">
+                <span>{{ line.label }}</span>
+                <strong>
+                  @if (line.amount >= 0) {
+                    {{ line.amount | cop }}
+                  } @else {
+                    - {{ -line.amount | cop }}
+                  }
+                </strong>
+              </li>
+            }
+          </ul>
+        </section>
+      } @else {
+        <p class="breakdown-modal__total">
+          Ingresado hoy ({{ breakdown.methodLabel }}): <strong>{{ breakdown.total | cop }}</strong>
+        </p>
+        <ul class="breakdown-modal__list">
+          @for (line of breakdown.lines; track line.label) {
+            <li class="breakdown-modal__row">
+              <span>{{ line.label }}</span>
+              <strong>
+                @if (line.amount >= 0) {
+                  {{ line.amount | cop }}
+                } @else {
+                  - {{ -line.amount | cop }}
+                }
+              </strong>
+            </li>
+          }
+        </ul>
+      }
       <div class="modal-actions modal-actions--footer">
         <button type="button" class="btn btn-secondary" (click)="closeDayIncomeMethodBreakdown()">Cerrar</button>
       </div>
@@ -1864,14 +1947,22 @@
 
 @if (otherIncomesDayModalOpen()) {
   <div class="modal-backdrop" (click)="closeOtherIncomesDayModal()">
-    <div class="modal-panel modal-panel--other-incomes-day" role="dialog" (click)="$event.stopPropagation()">
+    <div
+      class="modal-panel modal-panel--other-incomes-day"
+      role="dialog"
+      aria-labelledby="other-incomes-day-title"
+      (click)="$event.stopPropagation()"
+    >
       <header class="modal-header">
         <div>
           <span class="modal-header__icon" aria-hidden="true">💵</span>
-          <h3>Otros ingresos del día</h3>
+          <h3 id="other-incomes-day-title">Otros ingresos del día</h3>
         </div>
         <button type="button" class="btn-close" aria-label="Cerrar" (click)="closeOtherIncomesDayModal()">×</button>
       </header>
+      <p class="modal-lead">
+        Registros adicionales de caja que no vienen de facturación o productos.
+      </p>
       <div class="other-incomes-day-total">
         <p>
           Total otros ingresos: <strong>{{ dayOtherIncomesTotal() | cop }}</strong>
@@ -1896,8 +1987,8 @@
             <p>Sin otros ingresos registrados hoy.</p>
           </div>
         } @else {
-          <div class="data-table-wrap">
-            <table class="data-table">
+          <div class="data-table-wrap other-incomes-day-table-wrap">
+            <table class="data-table data-table--other-incomes">
               <thead>
                 <tr>
                   <th>Hora</th>
@@ -1913,7 +2004,7 @@
                     <td class="col-time">{{ inc.createdAt | date: 'HH:mm' }}</td>
                     <td class="col-amount">{{ inc.amount | cop }}</td>
                     <td class="col-method">{{ inc.paymentMethodLabel }}</td>
-                    <td>{{ inc.observation }}</td>
+                    <td class="col-concept" [title]="inc.observation">{{ inc.observation }}</td>
                     <td class="col-user">{{ inc.recordedByEmployeeName }}</td>
                   </tr>
                 }

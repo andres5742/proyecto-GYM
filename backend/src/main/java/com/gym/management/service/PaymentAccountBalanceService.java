@@ -62,7 +62,7 @@ public class PaymentAccountBalanceService {
         return settingsRepository.save(settings);
     }
 
-    /** Saldos del día: apertura de caja + ingresos − gastos por medio digital. */
+    /** Saldos del día: saldo hasta ayer + movimientos del día por medio digital. */
     @Transactional(readOnly = true)
     public List<DigitalAccountBalanceLine> computeDailyBalances(
             LocalDate date, Map<PaymentMethod, BigDecimal> incomeByMethod, Map<PaymentMethod, BigDecimal> expensesByMethod) {
@@ -161,10 +161,9 @@ public class PaymentAccountBalanceService {
     private BigDecimal dayOpeningBalance(
             Optional<BillingCashRegister> register, PaymentAccountSettings settings, PaymentMethod method) {
         if (register.isPresent()) {
-            BigDecimal fromRegister = openingFromRegister(register.get(), method);
-            if (fromRegister.compareTo(BigDecimal.ZERO) > 0) {
-                return fromRegister;
-            }
+            // Regla de negocio: en facturación el digital abre con lo acumulado previo
+            // (saldo inicial global + ingresos históricos - gastos históricos hasta ayer).
+            return openingBeforeDate(settings, method, register.get().getRegisterDate());
         }
         return globalInitial(settings, method);
     }

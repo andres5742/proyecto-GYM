@@ -133,6 +133,36 @@
       </article>
     </section>
 
+    <section class="report-card">
+      <header class="section-head section-head--compact">
+        <span class="section-head__icon" aria-hidden="true">🧮</span>
+        <div>
+          <h2>Ganancia por medio de pago</h2>
+          <p>Ganancia neta = ingresos del período − gastos del período por cada medio.</p>
+        </div>
+      </header>
+      <div class="method-gain-grid">
+        @for (row of methodGains(); track row.key) {
+          <article class="method-gain-card">
+            <h3>{{ row.label }}</h3>
+            <strong class="method-gain-card__value" [class]="gainClass(row.gain)">
+              {{ row.gain | cop }}
+            </strong>
+            <dl class="method-gain-card__rows">
+              <div>
+                <dt>Ingresos</dt>
+                <dd class="pos">+ {{ row.income | cop }}</dd>
+              </div>
+              <div>
+                <dt>Gastos</dt>
+                <dd class="neg">− {{ row.expense | cop }}</dd>
+              </div>
+            </dl>
+          </article>
+        }
+      </div>
+    </section>
+
     <section class="report-card report-card--highlight">
       <header class="section-head">
         <span class="section-head__icon" aria-hidden="true">📊</span>

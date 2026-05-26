@@ -490,18 +490,113 @@
   margin-bottom: 1rem;
 }
 
+.modal-panel.modal-panel--other-incomes-day {
+  width: min(68rem, 96vw);
+  max-width: min(68rem, 96vw);
+  max-height: 92vh;
+  padding: 1.35rem 1.75rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  .modal-header h3 {
+    font-size: 1.2rem;
+  }
+}
+
 .other-incomes-day-form__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  grid-template-columns: 11rem 11rem minmax(0, 1fr);
+  gap: 1rem 1.1rem;
+  margin-bottom: 0.9rem;
+  align-items: end;
 }
 
 .other-incomes-day-form__obs {
   grid-column: 1 / -1;
 }
 
+.other-incomes-day-total {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 0.9rem;
+}
+
+.other-incomes-day-list {
+  flex: 1;
+  min-height: 9rem;
+  max-height: min(50vh, 30rem);
+  overflow: auto;
+
+  .other-incomes-day-table-wrap {
+    overflow: auto;
+  }
+
+  .data-table--other-incomes {
+    width: 100%;
+    min-width: 52rem;
+    table-layout: auto;
+    font-size: 0.94rem;
+
+    th,
+    td {
+      padding: 0.62rem 0.75rem;
+      vertical-align: middle;
+    }
+
+    .col-time {
+      white-space: nowrap;
+      width: 5rem;
+    }
+
+    .col-amount {
+      white-space: nowrap;
+      width: 8rem;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .col-method {
+      white-space: nowrap;
+      width: 7.5rem;
+    }
+
+    .col-concept {
+      min-width: 17rem;
+      word-break: break-word;
+    }
+
+    .col-user {
+      white-space: nowrap;
+      width: 11rem;
+    }
+  }
+}
+
+.other-incomes-day-form {
+  margin-top: auto;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--color-border);
+
+  .btn-primary {
+    min-width: 10rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .other-incomes-day-form__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 520px) {
+  .modal-panel.modal-panel--other-incomes-day {
+    width: min(94vw, 34rem);
+    max-width: min(94vw, 34rem);
+    padding: 1.1rem 1rem;
+  }
+
   .other-incomes-day-form__grid {
     grid-template-columns: 1fr;
   }
@@ -2560,6 +2655,30 @@
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
+  }
+
+  .breakdown-modal__section + .breakdown-modal__section {
+    margin-top: 1rem;
+  }
+
+  .breakdown-modal__section-title {
+    margin: 0 0 0.55rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+  }
+
+  .breakdown-modal__note {
+    margin: 0.7rem 0 0;
+    padding: 0.65rem 0.7rem;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-muted);
   }
 
   .breakdown-modal__row {

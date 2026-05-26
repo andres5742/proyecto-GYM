@@ -87,6 +87,10 @@ interface DayIncomeMethodBreakdown {
   dayOnlyTotal?: number;
   lines: { label: string; amount: number }[];
   cashDrawerTotal?: number;
+  openingCash?: number;
+  cashExpensesToday?: number;
+  netCashMovementToday?: number;
+  gainAgainstOpening?: number;
   carryFromHandover?: number;
   cashMovementsSinceHandover?: number;
 }
@@ -576,6 +580,32 @@ export class BillingPage implements OnInit, OnDestroy {
     );
   }
 
+  /** Ganancia del día en efectivo según caja: efectivo en caja - efectivo inicial. */
+  protected cashDayGain(reg: BillingCashRegister): number {
+    return this.cashSnapshot(reg).gainAgainstOpening;
+  }
+
+  /** Total mostrado en el bloque superior: usa ganancia para efectivo y cobros para digital. */
+  protected dayIncomeDisplayTotal(reg: BillingCashRegister): number {
+    const cash = this.cashSnapshot(reg);
+    return roundCop(
+      this.incomeSummaryMethods.reduce((sum, pm) => {
+        if (pm.value === 'CASH') {
+          return sum + cash.gainAgainstOpening;
+        }
+        return sum + this.dayIncomeByMethodAmount(reg, pm.value);
+      }, 0),
+    );
+  }
+
+  /** Monto mostrado por método en el bloque superior (efectivo = ganancia del día). */
+  protected dayIncomeDisplayByMethodAmount(reg: BillingCashRegister, method: PaymentMethod): number {
+    if (method === 'CASH') {
+      return this.cashSnapshot(reg).gainAgainstOpening;
+    }
+    return this.dayIncomeByMethodAmount(reg, method);
+  }
+
   protected dayIncomeByMethodAmount(reg: BillingCashRegister, method: PaymentMethod): number {
     if (reg.dayIncomeByMethod) {
       return this.methodTotal(reg.dayIncomeByMethod, method);
@@ -588,11 +618,28 @@ export class BillingPage implements OnInit, OnDestroy {
     );
   }
 
+  /** Desglose de ventas de productos por medio de pago para la tarjeta "Productos vendidos". */
+  protected productSalesByMethodAmount(reg: BillingCashRegister, method: PaymentMethod): number {
+    if (method === 'CASH') {
+      return roundCop(reg.dayProductSalesCash ?? 0);
+    }
+    const totalMethodIncome = this.dayIncomeByMethodAmount(reg, method);
+    const billing = this.methodTotal(reg.sessionIncomeByMethod, method);
+    const fiado = this.methodTotal(reg.dayFiadoCollectedByMethod, method);
+    const other = this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, method);
+    return roundCop(Math.max(0, totalMethodIncome - billing - fiado - other));
+  }
+
   protected openDayIncomeMethodBreakdown(reg: BillingCashRegister, method: PaymentMethod): void {
+    const cash = this.cashSnapshot(reg);
     const methodLabel = this.paymentMethodLabel(method);
-    const total = this.dayIncomeByMethodAmount(reg, method);
-    const dayOnlyTotal = total;
-    const cashDrawerTotal = method === 'CASH' ? this.billingCashInDrawer(reg) : undefined;
+    const total = this.dayIncomeDisplayByMethodAmount(reg, method);
+    const dayOnlyTotal = this.dayIncomeByMethodAmount(reg, method);
+    const cashDrawerTotal = method === 'CASH' ? cash.general : undefined;
+    const openingCash = method === 'CASH' ? cash.opening : undefined;
+    const cashExpensesToday = method === 'CASH' ? cash.expensesToday : undefined;
+    const netCashMovementToday = method === 'CASH' ? cash.netMovementToday : undefined;
+    const gainAgainstOpening = method === 'CASH' ? cash.gainAgainstOpening : undefined;
     const carryFromHandover =
       method === 'CASH' && reg.lastHandoverCashTotal != null ? roundCop(reg.lastHandoverCashTotal) : undefined;
     const cashMovementsSinceHandover =
@@ -627,10 +674,6 @@ export class BillingPage implements OnInit, OnDestroy {
     }
     lines.push({ label: 'Sobrantes registrados', amount: surplus });
     lines.push({ label: 'Otros ingresos', amount: otherManual });
-    if (method === 'CASH' && (carryFromHandover ?? 0) > 0) {
-      lines.push({ label: 'Efectivo arrastrado (turno anterior)', amount: carryFromHandover ?? 0 });
-    }
-
     this.dayIncomeMethodBreakdownModal.set({
       method,
       methodLabel,
@@ -638,6 +681,10 @@ export class BillingPage implements OnInit, OnDestroy {
       dayOnlyTotal,
       lines,
       cashDrawerTotal,
+      openingCash,
+      cashExpensesToday,
+      netCashMovementToday,
+      gainAgainstOpening,
       carryFromHandover,
       cashMovementsSinceHandover,
     });
@@ -663,6 +710,11 @@ export class BillingPage implements OnInit, OnDestroy {
     return this.methodTotal(reg.dayOtherIncomesByMethod ?? {}, 'CASH');
   }
 
+  /** Apertura + movimientos de hoy en efectivo, sin arrastre de entrega de turno previa. */
+  protected dayCashWithoutCarry(reg: BillingCashRegister): number {
+    return this.cashSnapshot(reg).dayWithoutCarry;
+  }
+
   /** Efectivo físico en caja (usa el total calculado en el servidor). */
   protected billingCashInDrawer(reg: BillingCashRegister): number {
     if (reg.cashInDrawer != null && !Number.isNaN(reg.cashInDrawer)) {
@@ -674,6 +726,37 @@ export class BillingPage implements OnInit, OnDestroy {
     const fiadoCash = this.fiadoCashCollected(reg);
     const otherCash = this.otherIncomeCashCollected(reg);
     return roundCop(reg.openingCashAmount + billingCash + productCash + fiadoCash + otherCash - cashOut);
+  }
+
+  /**
+   * Fuente única de verdad para métricas de efectivo en la UI.
+   * Evita cruces entre "general", "sin arrastre" y "ganancia vs inicial".
+   */
+  private cashSnapshot(reg: BillingCashRegister): {
+    opening: number;
+    general: number;
+    grossIncomeToday: number;
+    expensesToday: number;
+    netMovementToday: number;
+    dayWithoutCarry: number;
+    gainAgainstOpening: number;
+  } {
+    const opening = roundCop(reg.openingCashAmount ?? 0);
+    const general = this.billingCashInDrawer(reg);
+    const grossIncomeToday = roundCop(this.dayIncomeByMethodAmount(reg, 'CASH'));
+    const expensesToday = roundCop(this.methodTotal(reg.sessionExpensesByMethod, 'CASH'));
+    const netMovementToday = roundCop(grossIncomeToday - expensesToday);
+    const dayWithoutCarry = roundCop(opening + netMovementToday);
+    const gainAgainstOpening = roundCop(general - opening);
+    return {
+      opening,
+      general,
+      grossIncomeToday,
+      expensesToday,
+      netMovementToday,
+      dayWithoutCarry,
+      gainAgainstOpening,
+    };
   }
 
   protected sessionNonCashIncome(reg: BillingCashRegister): number {

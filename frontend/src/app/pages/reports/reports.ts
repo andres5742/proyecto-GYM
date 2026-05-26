@@ -22,6 +22,14 @@ interface ChartBar {
   color: string;
 }
 
+interface MethodGainRow {
+  key: PaymentMethod;
+  label: string;
+  income: number;
+  expense: number;
+  gain: number;
+}
+
 const METHOD_COLORS: Record<PaymentMethod, string> = {
   CASH: '#3d7fb8',
   NEQUI: '#3d8f58',
@@ -99,6 +107,26 @@ export class ReportsPage implements OnInit {
       return [] as ChartBar[];
     }
     return this.buildBars(r.expensesByMethod, r.expensesTotal);
+  });
+
+  protected readonly methodGains = computed(() => {
+    const r = this.reportView();
+    if (!r) {
+      return [] as MethodGainRow[];
+    }
+    const targetMethods: PaymentMethod[] = ['CASH', 'NEQUI', 'BANCOLOMBIA'];
+    return targetMethods.map((method) => {
+      const income = roundCop(r.totalIncomeByMethod[method] ?? 0);
+      const expense = roundCop(r.expensesByMethod[method] ?? 0);
+      const gain = roundCop(income - expense);
+      return {
+        key: method,
+        label: this.paymentMethodLabel(method),
+        income,
+        expense,
+        gain,
+      };
+    });
   });
 
   protected readonly fiadoBars = computed(() => {
@@ -201,6 +229,10 @@ export class ReportsPage implements OnInit {
 
   paymentBadgeClass(method: PaymentMethod): string {
     return `pay-badge pay-badge--${method.toLowerCase()}`;
+  }
+
+  gainClass(value: number): string {
+    return value >= 0 ? 'pos' : 'neg';
   }
 
   methodAmount(totals: Partial<Record<PaymentMethod, number>>, method: PaymentMethod): number {

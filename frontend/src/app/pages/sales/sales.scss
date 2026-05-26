@@ -867,7 +867,7 @@
   border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  overflow: hidden;
+  overflow: visible;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 60%);
 }
 
@@ -1038,12 +1038,27 @@
 .fiado-split__search {
   position: relative;
   width: 100%;
-  max-width: 22rem;
+  max-width: 24rem;
+  z-index: 1;
+
+  &--open {
+    z-index: 30;
+  }
+
+  .fiado-split__search-label {
+    display: inline-block;
+    margin-bottom: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #7a5a10;
+  }
 
   input[type='search'] {
     width: 100%;
-    padding: 0.45rem 0.65rem;
-    border: 1px solid var(--color-border);
+    padding: 0.5rem 0.65rem;
+    border: 2px solid color-mix(in srgb, var(--color-warning-border) 65%, var(--color-border));
     border-radius: var(--radius-sm);
     background: var(--color-surface);
 
@@ -1056,26 +1071,22 @@
 
   &--open input[type='search'] {
     border-color: var(--color-primary);
-    border-end-end-radius: 0;
-    border-end-start-radius: 0;
+    border-end-end-radius: var(--radius-sm);
+    border-end-start-radius: var(--radius-sm);
   }
 }
 
 .fiado-split__suggest {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  z-index: 20;
+  position: static;
+  z-index: auto;
   list-style: none;
-  margin: 0;
-  padding: 0.2rem;
-  max-height: 10rem;
+  margin: 0.35rem 0 0;
+  padding: 0.3rem;
+  max-height: 14rem;
   overflow-y: auto;
   background: var(--color-surface);
-  border: 1px solid var(--color-primary);
-  border-top: none;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border: 2px solid color-mix(in srgb, var(--color-primary) 75%, var(--color-border));
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-hover);
 
   button {

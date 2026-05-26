@@ -496,32 +496,69 @@
         </button>
       }
     </header>
-    <app-data-table
-      [rows]="logs()"
-      [columns]="logColumns"
-      searchPlaceholder="Buscar código, afiliado, tipo…"
-      emptyMessage="Aún no hay lecturas. Pase una tarjeta en el lector (ZKT conectado al servidor)."
-      [pageSizeDefault]="25"
-      [rowClass]="logRowClass"
-      [showActions]="true"
-    >
-      <ng-template #actions let-row>
-        @if (canDeleteAccessLog(row)) {
-          <button
-            type="button"
-            class="btn btn-delete btn-sm"
-            [disabled]="deletingLogId() === row.id"
-            (click)="deleteAccessLog(row)"
-          >
-            {{ deletingLogId() === row.id ? 'Eliminando…' : deleteAccessLogLabel(row) }}
-          </button>
+    <div class="logs-group-toolbar">
+      <label class="logs-group-toolbar__search">
+        <span>Buscar en ingresos</span>
+        <input
+          type="search"
+          [value]="logsSearchQuery()"
+          (input)="updateLogsSearch($any($event.target).value)"
+          placeholder="Buscar código, afiliado, tipo, mensaje..."
+        />
+      </label>
+      <p class="muted small logs-group-toolbar__count">
+        {{ filteredLogs().length }} registro(s) en {{ logsByDay().length }} día(s)
+      </p>
+    </div>
+
+    @if (logsByDay().length === 0) {
+      <p class="muted small">
+        Aún no hay lecturas. Pase una tarjeta en el lector (ZKT conectado al servidor).
+      </p>
+    } @else {
+      <div class="logs-day-groups">
+        @for (group of logsByDay(); track group.dayKey; let i = $index) {
+          <details class="logs-day-group" [attr.open]="i === 0 ? '' : null">
+            <summary class="logs-day-group__summary">
+              <div>
+                <strong>{{ group.dayLabel }}</strong>
+                <span>{{ group.rows.length }} registro(s)</span>
+              </div>
+              <div class="logs-day-group__meta">
+                <span class="ok">Permisos: {{ group.grantedCount }}</span>
+                <span class="deny">Denegados: {{ group.deniedCount }}</span>
+              </div>
+            </summary>
+
+            <app-data-table
+              [rows]="group.rows"
+              [columns]="logColumns"
+              [pageSizeDefault]="10"
+              [rowClass]="logRowClass"
+              [showActions]="true"
+              [showSearch]="false"
+            >
+              <ng-template #actions let-row>
+                @if (canDeleteAccessLog(row)) {
+                  <button
+                    type="button"
+                    class="btn btn-delete btn-sm"
+                    [disabled]="deletingLogId() === row.id"
+                    (click)="deleteAccessLog(row)"
+                  >
+                    {{ deletingLogId() === row.id ? 'Eliminando…' : deleteAccessLogLabel(row) }}
+                  </button>
+                }
+                @if (row.result === 'DENIED' && (row.credentialType === 'CARD' || row.credentialType === 'FINGERPRINT')) {
+                  <button type="button" class="btn btn-primary btn-sm" (click)="linkCardFromLog(row)">
+                    Vincular
+                  </button>
+                }
+              </ng-template>
+            </app-data-table>
+          </details>
         }
-        @if (row.result === 'DENIED' && (row.credentialType === 'CARD' || row.credentialType === 'FINGERPRINT')) {
-          <button type="button" class="btn btn-primary btn-sm" (click)="linkCardFromLog(row)">
-            Vincular
-          </button>
-        }
-      </ng-template>
-    </app-data-table>
+      </div>
+    }
   </section>
 }

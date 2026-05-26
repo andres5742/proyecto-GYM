@@ -274,6 +274,7 @@ export class MainLayout implements OnInit {
 
     request$.subscribe({
       next: (res) => {
+        this.syncLocalGateForDayPass(kind, Boolean(res.gateOpened));
         const announcement =
           res.speechText?.trim() ||
           (kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno registrado.');
@@ -317,6 +318,28 @@ export class MainLayout implements OnInit {
       return 'sports-dance';
     }
     return null;
+  }
+
+  private syncLocalGateForDayPass(kind: DayPassShortcut, gateOpened: boolean): void {
+    if (gateOpened) {
+      return;
+    }
+    const deviceUserId = kind === 'sports-dance' ? `BAILES-BILL-${Date.now()}` : `ENTRENO-BILL-${Date.now()}`;
+    const payload = {
+      result: 'GRANTED',
+      gateOpened: true,
+      credentialType: 'CARD',
+      deviceUserId,
+    };
+    window.sportGymDesktop?.syncAccessResult?.(payload);
+    if (window.sportGymDesktop?.syncAccessResult) {
+      return;
+    }
+    fetch('http://127.0.0.1:8765/gate/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => undefined);
   }
 
   private canUseDayPassShortcuts(): boolean {

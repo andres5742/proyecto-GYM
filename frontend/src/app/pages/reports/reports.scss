@@ -341,6 +341,66 @@
   border-left: 4px solid var(--color-danger);
 }
 
+.method-gain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.method-gain-card {
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+
+  h3 {
+    margin: 0 0 0.35rem;
+    font-size: 0.94rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+}
+
+.method-gain-card__value {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 1.12rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+
+  &.pos {
+    color: var(--color-success);
+  }
+
+  &.neg {
+    color: var(--color-danger);
+  }
+}
+
+.method-gain-card__rows {
+  margin: 0;
+  font-size: 0.82rem;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.55rem;
+    padding: 0.1rem 0;
+  }
+
+  dt {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 .report-card--inventory .section-head {
   flex-wrap: wrap;
 }
@@ -794,6 +854,10 @@
   }
 
   .split-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .method-gain-grid {
     grid-template-columns: 1fr;
   }
 

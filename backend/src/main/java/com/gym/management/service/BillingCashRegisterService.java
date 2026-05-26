@@ -790,6 +790,10 @@ public class BillingCashRegisterService {
             BigDecimal total, BigDecimal lastHandoverCash, BigDecimal cashSinceHandover) {}
 
     private CashInDrawerTotals resolveCashInDrawerTotals(BillingCashRegister register, boolean includeFiadoCash) {
+        // Regla de negocio vigente:
+        // "Efectivo en caja" siempre acumula desde la apertura de caja del día.
+        // La última entrega de turno se conserva solo como referencia informativa.
+        BigDecimal total = computeCashInDrawerFormula(register, includeFiadoCash);
         BigDecimal lastHandoverCash = register.getLastHandoverCashAmount();
         Instant lastHandoverAt = register.getLastHandoverAt();
         if (lastHandoverCash == null || lastHandoverAt == null) {
@@ -808,10 +812,9 @@ public class BillingCashRegisterService {
                                 register.getRegisterDate(), lastHandoverAt));
                 since = MoneyUtil.roundPesos(since.subtract(fiadoSince));
             }
-            return new CashInDrawerTotals(
-                    MoneyUtil.roundPesos(lastHandoverCash.add(since)), lastHandoverCash, since);
+            return new CashInDrawerTotals(total, lastHandoverCash, since);
         }
-        return new CashInDrawerTotals(computeCashInDrawerFormula(register, includeFiadoCash), null, null);
+        return new CashInDrawerTotals(total, null, null);
     }
 
     private FiadoDayTotals loadFiadoTotalsForDate(LocalDate date) {

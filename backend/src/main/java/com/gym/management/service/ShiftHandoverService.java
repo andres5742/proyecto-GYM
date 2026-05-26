@@ -206,19 +206,9 @@ public class ShiftHandoverService {
         java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall =
                 cashShortfallService.registerFromHandover(saved, expected.total(), declared);
 
+        // Regla de negocio: el sobrante de efectivo SIEMPRE entra completo a caja (otros ingresos).
+        // En paralelo, ese sobrante puede cruzar deuda de inventario para evitar cobro total/parcial al responsable.
         BigDecimal cashSurplusForBilling = cashSurplus;
-        if (inventoryResolution != null) {
-            BigDecimal appliedToInventory = MoneyUtil.roundPesos(inventoryResolution.appliedToInventory());
-            BigDecimal productSurplusCredit = MoneyUtil.roundPesos(inventoryResult.productSurplusCredit());
-            BigDecimal cashUsedOnInventory = MoneyUtil.roundPesos(appliedToInventory.subtract(productSurplusCredit));
-            if (cashUsedOnInventory.compareTo(BigDecimal.ZERO) < 0) {
-                cashUsedOnInventory = BigDecimal.ZERO;
-            }
-            cashSurplusForBilling = MoneyUtil.roundPesos(cashSurplus.subtract(cashUsedOnInventory));
-            if (cashSurplusForBilling.compareTo(BigDecimal.ZERO) < 0) {
-                cashSurplusForBilling = BigDecimal.ZERO;
-            }
-        }
         Optional<com.gym.management.dto.BillingCashRegisterOtherIncomeResponse> surplusBilling =
                 billingCashRegisterService.registerHandoverCashSurplusAmount(saved, cashSurplusForBilling);
 

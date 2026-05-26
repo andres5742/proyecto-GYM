@@ -45,6 +45,36 @@ function formatAccessDateTime(value: string | null | undefined): string {
   }
 }
 
+function accessDayKey(value: string | null | undefined): string {
+  if (!value) {
+    return 'sin-fecha';
+  }
+  try {
+    return formatDate(value, 'yyyy-MM-dd', ACCESS_DATE_LOCALE, ACCESS_DATE_TZ);
+  } catch {
+    return 'sin-fecha';
+  }
+}
+
+function formatAccessDayLabel(value: string | null | undefined): string {
+  if (!value) {
+    return 'Sin fecha';
+  }
+  try {
+    return formatDate(value, "EEEE, d 'de' MMMM 'de' y", ACCESS_DATE_LOCALE, ACCESS_DATE_TZ);
+  } catch {
+    return 'Sin fecha';
+  }
+}
+
+interface AccessLogDayGroup {
+  dayKey: string;
+  dayLabel: string;
+  rows: AccessLogEntry[];
+  grantedCount: number;
+  deniedCount: number;
+}
+
 const CAPTURE_POLL_MS = 1000;
 /** Tu PC (panel web) ve al instante lo que pasa en el .exe de entrada. */
 const LOGS_POLL_MS = 2000;
@@ -80,6 +110,7 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly trainers = signal<Employee[]>([]);
   protected readonly enrollments = signal<BiometricEnrollResponse[]>([]);
   protected readonly logs = signal<AccessLogEntry[]>([]);
+  protected readonly logsSearchQuery = signal('');
   protected readonly lastCapturedPin = signal<string | null>(null);
   protected readonly captureWaiting = signal(false);
 
@@ -98,6 +129,58 @@ export class AccessControlPage implements OnInit, OnDestroy {
   protected readonly staffFingerprintCount = computed(() => this.staffFingerprintEnrollments().length);
   protected readonly staffCardCount = computed(() => this.staffCardEnrollments().length);
   protected readonly logsCount = computed(() => this.logs().length);
+  protected readonly filteredLogs = computed(() => {
+    const query = this.logsSearchQuery().trim().toLowerCase();
+    if (!query) {
+      return this.logs();
+    }
+    return this.logs().filter((row) => {
+      const haystack = [
+        formatAccessDateTime(row.createdAt),
+        row.resultLabel,
+        row.credentialTypeLabel,
+        this.logDeviceCode(row),
+        this.logPersonLabel(row),
+        row.message ?? '',
+        row.gateOpened ? 'abierto' : 'cerrado',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  });
+  protected readonly logsByDay = computed<AccessLogDayGroup[]>(() => {
+    const rows = [...this.filteredLogs()].sort((a, b) => {
+      const aTime = Date.parse(a.createdAt ?? '');
+      const bTime = Date.parse(b.createdAt ?? '');
+      if (Number.isFinite(aTime) && Number.isFinite(bTime)) {
+        return bTime - aTime;
+      }
+      return String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+    });
+    const groups = new Map<string, AccessLogDayGroup>();
+    for (const row of rows) {
+      const dayKey = accessDayKey(row.createdAt);
+      const existing = groups.get(dayKey);
+      if (existing) {
+        existing.rows.push(row);
+        if (row.result === 'GRANTED') {
+          existing.grantedCount += 1;
+        } else {
+          existing.deniedCount += 1;
+        }
+        continue;
+      }
+      groups.set(dayKey, {
+        dayKey,
+        dayLabel: formatAccessDayLabel(row.createdAt),
+        rows: [row],
+        grantedCount: row.result === 'GRANTED' ? 1 : 0,
+        deniedCount: row.result === 'DENIED' ? 1 : 0,
+      });
+    }
+    return Array.from(groups.values());
+  });
 
   protected readonly memberFingerprintEnrollments = computed(() =>
     this.enrollments().filter((e) => e.credentialType === 'FINGERPRINT' && isMemberPerson(e)),
@@ -522,6 +605,10 @@ export class AccessControlPage implements OnInit, OnDestroy {
 
   protected logRowClass(row: AccessLogEntry): string {
     return row.result === 'GRANTED' ? 'row-granted' : 'row-denied';
+  }
+
+  protected updateLogsSearch(value: string): void {
+    this.logsSearchQuery.set(value);
   }
 
   protected goVincularCapturedPin(): void {

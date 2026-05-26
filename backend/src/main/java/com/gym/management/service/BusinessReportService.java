@@ -23,6 +23,7 @@ import com.gym.management.repository.SaleRepository;
 import com.gym.management.util.TreasuryAccess;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -188,8 +189,11 @@ public class BusinessReportService {
     }
 
     private List<ProductSaleByPaymentLine> loadProductSalesByPayment(LocalDate start, LocalDate end) {
+        LocalDateTime startAt = start.atStartOfDay();
+        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
         List<ProductSaleByPaymentLine> lines = new ArrayList<>();
-        for (Object[] row : saleRepository.aggregateByProductAndPaymentBetweenDates(start, end)) {
+        // Ventas normales de producto por medio de pago.
+        for (Object[] row : saleRepository.aggregateByProductAndPaymentOnSaleDateBetween(startAt, endExclusive)) {
             long units = row[3] instanceof Number n ? n.longValue() : 0L;
             BigDecimal amount = row[4] instanceof BigDecimal b ? b : BigDecimal.ZERO;
             if (units <= 0 && amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -202,10 +206,31 @@ public class BusinessReportService {
                     units,
                     amount));
         }
+
+        // Abonos de fiado por producto/medio, visibles como filas separadas.
+        for (Object[] row :
+                productCreditPaymentRepository.aggregateByProductAndPaymentOnPaidAtBetween(startAt, endExclusive)) {
+            BigDecimal amount = row[3] instanceof BigDecimal b ? b : BigDecimal.ZERO;
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            String productName = (String) row[1];
+            lines.add(new ProductSaleByPaymentLine(
+                    (Long) row[0],
+                    "Abono fiado · " + productName,
+                    (PaymentMethod) row[2],
+                    0L,
+                    amount));
+        }
+
+        lines.sort(Comparator.comparing(ProductSaleByPaymentLine::productName, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(ProductSaleByPaymentLine::paymentMethod));
         return lines;
     }
 
     private PeriodTotals loadPeriodTotals(LocalDate start, LocalDate end) {
+        LocalDateTime startAt = start.atStartOfDay();
+        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
         Map<PaymentMethod, BigDecimal> billingIncomeByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
                         billingPaymentRepository.sumByPaymentMethodBetweenDates(start, end));
@@ -217,19 +242,11 @@ public class BusinessReportService {
         long productUnitsSold;
         BigDecimal productSalesTotal;
 
-        if (start.equals(end)) {
-            productSalesByMethod = BillingPaymentMethodTotals.fromAmountRows(
-                    saleRepository.sumByShiftDateGroupByPaymentMethod(start));
-            productSaleCount = saleRepository.countSalesByShiftDate(start);
-            productUnitsSold = saleRepository.sumQuantityByShiftDate(start);
-            productSalesTotal = saleRepository.sumTotalAmountByShiftDate(start);
-        } else {
-            productSalesByMethod = BillingPaymentMethodTotals.fromAmountRows(
-                    saleRepository.sumByShiftDateBetweenGroupByPaymentMethod(start, end));
-            productSaleCount = saleRepository.countSalesByShiftDateBetween(start, end);
-            productUnitsSold = saleRepository.sumQuantityByShiftDateBetween(start, end);
-            productSalesTotal = saleRepository.sumTotalAmountByShiftDateBetween(start, end);
-        }
+        productSalesByMethod = BillingPaymentMethodTotals.fromAmountRows(
+                saleRepository.sumBySaleDateBetweenGroupByPaymentMethod(startAt, endExclusive));
+        productSaleCount = saleRepository.countSalesBySaleDateBetween(startAt, endExclusive);
+        productUnitsSold = saleRepository.sumQuantityBySaleDateBetween(startAt, endExclusive);
+        productSalesTotal = saleRepository.sumTotalAmountBySaleDateBetween(startAt, endExclusive);
         if (productSalesTotal == null) {
             productSalesTotal = BigDecimal.ZERO;
         }
@@ -238,15 +255,9 @@ public class BusinessReportService {
 
         BigDecimal fiadoTotal;
         Map<PaymentMethod, BigDecimal> fiadoByMethod;
-        if (start.equals(end)) {
-            fiadoTotal = productCreditPaymentRepository.sumAmountByShiftDate(start);
-            fiadoByMethod = BillingPaymentMethodTotals.fromAmountRows(
-                    productCreditPaymentRepository.sumByShiftDateGroupByPaymentMethod(start));
-        } else {
-            fiadoTotal = productCreditPaymentRepository.sumAmountByShiftDateBetween(start, end);
-            fiadoByMethod = BillingPaymentMethodTotals.fromAmountRows(
-                    productCreditPaymentRepository.sumByShiftDateBetweenGroupByPaymentMethod(start, end));
-        }
+        fiadoTotal = productCreditPaymentRepository.sumAmountByPaidAtBetween(startAt, endExclusive);
+        fiadoByMethod = BillingPaymentMethodTotals.fromAmountRows(
+                productCreditPaymentRepository.sumByPaidAtBetweenGroupByPaymentMethod(startAt, endExclusive));
         if (fiadoTotal == null) {
             fiadoTotal = BigDecimal.ZERO;
         }
@@ -290,15 +301,16 @@ public class BusinessReportService {
     }
 
     private List<ProductInventoryReportLine> buildInventoryForSingleDate(LocalDate date) {
-        return buildInventoryFromRows(saleRepository.aggregateQuantityByProductOnShiftDate(date));
+        LocalDateTime startAt = date.atStartOfDay();
+        LocalDateTime endExclusive = date.plusDays(1).atStartOfDay();
+        return buildInventoryFromRows(saleRepository.aggregateQuantityByProductOnSaleDateBetween(startAt, endExclusive));
     }
 
     private List<ProductInventoryReportLine> buildInventoryForDateRange(LocalDate start, LocalDate end) {
-        if (start.equals(end)) {
-            return buildInventoryForSingleDate(start);
-        }
+        LocalDateTime startAt = start.atStartOfDay();
+        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
         return buildInventoryFromRows(
-                saleRepository.aggregateQuantityByProductOnShiftDateBetween(start, end));
+                saleRepository.aggregateQuantityByProductOnSaleDateBetween(startAt, endExclusive));
     }
 
     private List<ProductInventoryReportLine> buildInventoryFromRows(List<Object[]> salesRows) {

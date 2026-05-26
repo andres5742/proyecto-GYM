@@ -5,6 +5,7 @@ import com.gym.management.model.ProductCreditPayment;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -86,6 +87,37 @@ public interface ProductCreditPaymentRepository extends JpaRepository<ProductCre
             """)
     List<Object[]> sumByShiftDateBetweenGroupByPaymentMethod(
             @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM ProductCreditPayment p
+            WHERE p.paidAt >= :startAt AND p.paidAt < :endExclusive
+            """)
+    BigDecimal sumAmountByPaidAtBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
+            SELECT p.paymentMethod, COALESCE(SUM(p.amount), 0)
+            FROM ProductCreditPayment p
+            WHERE p.paidAt >= :startAt AND p.paidAt < :endExclusive
+            GROUP BY p.paymentMethod
+            """)
+    List<Object[]> sumByPaidAtBetweenGroupByPaymentMethod(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
+            SELECT c.product.id, c.product.name, p.paymentMethod, COALESCE(SUM(p.amount), 0)
+            FROM ProductCreditPayment p
+            JOIN p.credit c
+            WHERE p.paidAt >= :startAt AND p.paidAt < :endExclusive
+            GROUP BY c.product.id, c.product.name, p.paymentMethod
+            ORDER BY c.product.name, p.paymentMethod
+            """)
+    List<Object[]> aggregateByProductAndPaymentOnPaidAtBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
 
     @Query(
             """

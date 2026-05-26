@@ -152,6 +152,58 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     @Query(
             """
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive
+            """)
+    BigDecimal sumTotalAmountBySaleDateBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query("SELECT COUNT(s) FROM Sale s WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive")
+    long countSalesBySaleDateBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(s.quantity), 0) FROM Sale s
+            WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive
+            """)
+    long sumQuantityBySaleDateBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
+            SELECT s.paymentMethod, COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive
+            GROUP BY s.paymentMethod
+            """)
+    List<Object[]> sumBySaleDateBetweenGroupByPaymentMethod(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
+            SELECT s.product.id, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive
+            GROUP BY s.product.id
+            """)
+    List<Object[]> aggregateQuantityByProductOnSaleDateBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
+            SELECT s.product.id, s.product.name, s.paymentMethod,
+                   COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
+            FROM Sale s
+            WHERE s.saleDate >= :startAt AND s.saleDate < :endExclusive
+            GROUP BY s.product.id, s.product.name, s.paymentMethod
+            ORDER BY s.product.name, s.paymentMethod
+            """)
+    List<Object[]> aggregateByProductAndPaymentOnSaleDateBetween(
+            @Param("startAt") LocalDateTime startAt, @Param("endExclusive") LocalDateTime endExclusive);
+
+    @Query(
+            """
             SELECT s.product.id, s.product.name, s.paymentMethod,
                    COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.totalAmount), 0)
             FROM Sale s
