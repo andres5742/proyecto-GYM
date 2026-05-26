@@ -47,7 +47,7 @@ End If
 ' Sin Electron: pantalla /acceso en Edge o Chrome (modo app)
 url = "https://sportgymr10.com/acceso"
 profile = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\SportGymAcceso\EdgeProfile")
-If Not fso.FolderExists(profile) Then fso.CreateFolder profile
+EnsureFolder profile
 args = "--app=" & url & " --window-size=1400,900 --disable-features=TranslateUI --user-data-dir=""" & profile & """"
 
 edge = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe")
@@ -75,3 +75,15 @@ If fso.FileExists(chrome) Then
 End If
 
 sh.Run url, 1, False
+
+Sub EnsureFolder(path)
+  If fso.FolderExists(path) Then Exit Sub
+  Dim parent
+  parent = fso.GetParentFolderName(path)
+  If Len(parent) > 0 And Not fso.FolderExists(parent) Then
+    EnsureFolder parent
+  End If
+  If Not fso.FolderExists(path) Then
+    fso.CreateFolder path
+  End If
+End Sub
