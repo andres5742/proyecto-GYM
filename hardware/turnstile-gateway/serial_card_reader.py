@@ -152,6 +152,42 @@ def normalize_card(raw: bytes) -> str | None:
     return text if len(text) >= 4 else None
 
 
+def alternate_card_pin(raw: bytes, primary: str) -> str | None:
+    if not raw or not primary:
+        return None
+    if 1 <= len(raw) <= 8:
+        hex_pin = raw.hex().upper()
+        dec_pin = str(int.from_bytes(raw, "big"))
+        if PIN_FORMAT == "hex" and dec_pin != primary and len(dec_pin) >= 4:
+            return dec_pin
+        if PIN_FORMAT == "decimal" and hex_pin != primary and len(hex_pin) >= 4:
+            return hex_pin
+    return None
+
+
+def should_retry_with_alternate(body: str) -> bool:
+    try:
+        data = json.loads(body or "{}")
+    except json.JSONDecodeError:
+        return False
+    result = str(data.get("result", "")).upper()
+    if result != "DENIED":
+        return False
+    msg = str(data.get("message", "")).strip().lower()
+    if not msg:
+        return False
+    markers = (
+        "no se encontró",
+        "no se encontro",
+        "no encontrado",
+        "no registrada",
+        "no registrado",
+        "credencial no",
+        "sin afiliado",
+    )
+    return any(marker in msg for marker in markers)
+
+
 _last_pin = ""
 _last_at = 0.0
 
@@ -172,17 +208,10 @@ def handle_frame(data: bytes) -> None:
         return
     _last_pin = pin
     _last_at = now
-    post_pin(pin)
+    post_pin(pin, alternate_card_pin(data, pin))
 
 
-def post_pin(pin: str) -> None:
-    try:
-        from turnstile_gate import lock_gate
-
-        lock_gate()
-    except ImportError:
-        pass
-
+def send_pin_request(pin: str) -> str | None:
     body = json.dumps({"pin": pin}).encode()
     req = urllib.request.Request(
         API,
@@ -190,16 +219,34 @@ def post_pin(pin: str) -> None:
         headers={"Content-Type": "application/json", "X-Device-Key": KEY},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            body = resp.read().decode()
-            print(f"[{time.strftime('%H:%M:%S')}] {pin} → {body}")
-            try:
-                from turnstile_gate import after_api_response
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return resp.read().decode()
 
-                after_api_response(body)
-            except ImportError:
-                pass
+
+def post_pin(pin: str, alternate_pin: str | None = None) -> None:
+    try:
+        from turnstile_gate import lock_gate
+
+        lock_gate()
+    except ImportError:
+        pass
+
+    try:
+        body = send_pin_request(pin)
+        if body is None:
+            return
+        print(f"[{time.strftime('%H:%M:%S')}] {pin} → {body}")
+        if alternate_pin and alternate_pin != pin and should_retry_with_alternate(body):
+            retry_body = send_pin_request(alternate_pin)
+            if retry_body:
+                body = retry_body
+                print(f"[{time.strftime('%H:%M:%S')}] {pin} ↻ {alternate_pin} → {body}")
+        try:
+            from turnstile_gate import after_api_response
+
+            after_api_response(body)
+        except ImportError:
+            pass
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
         print(f"[{time.strftime('%H:%M:%S')}] {pin} → HTTP {e.code}: {err_body}", file=sys.stderr)
