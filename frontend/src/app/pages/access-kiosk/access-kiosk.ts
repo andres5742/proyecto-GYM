@@ -350,27 +350,28 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.releaseTimer = null;
     }
 
-    const forceLocalUnlock = this.shouldForceLocalUnlock(res);
+    const normalized = this.normalizeVerifyResponse(res);
+    const forceLocalUnlock = this.shouldForceLocalUnlock(normalized);
     window.sportGymDesktop?.syncAccessResult?.({
-      result: res.result,
-      gateOpened: Boolean(res.gateOpened) || forceLocalUnlock,
-      deviceUserId: res.deviceUserId,
-      credentialType: res.credentialType,
+      result: normalized.result,
+      gateOpened: Boolean(normalized.gateOpened) || forceLocalUnlock,
+      deviceUserId: normalized.deviceUserId,
+      credentialType: normalized.credentialType,
     });
-    if (res.credentialType !== 'CARD' || this.isShortcutPass(res.deviceUserId)) {
-      this.syncLocalGate(res, forceLocalUnlock);
+    if (normalized.credentialType !== 'CARD' || this.isShortcutPass(normalized.deviceUserId)) {
+      this.syncLocalGate(normalized, forceLocalUnlock);
     }
 
-    this.lastResult.set(res);
-    if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {
-      this.lastProcessedLogId = res.accessLogId;
+    this.lastResult.set(normalized);
+    if (normalized.accessLogId && normalized.accessLogId > this.lastProcessedLogId) {
+      this.lastProcessedLogId = normalized.accessLogId;
     }
 
-    if (res.result === 'SELECT_MEMBER') {
-      const candidates = res.cardSelectionCandidates ?? [];
+    if (normalized.result === 'SELECT_MEMBER') {
+      const candidates = normalized.cardSelectionCandidates ?? [];
       if (candidates.length > 0) {
         this.cardSelection.set({
-          pin: res.deviceUserId,
+          pin: normalized.deviceUserId,
           candidates,
         });
       } else {
@@ -380,8 +381,8 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.showWelcomeAudioBtn.set(false);
       this.statusLine.set(
         candidates.length > 0
-          ? res.message
-          : `${res.message} Actualice el servidor (git pull + actualizar-acceso-tarjetas.sh).`,
+          ? normalized.message
+          : `${normalized.message} Actualice el servidor (git pull + actualizar-acceso-tarjetas.sh).`,
       );
       this.scheduleRelease(SELECT_MEMBER_DISPLAY_MS);
       return;
@@ -389,33 +390,33 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
     this.cardSelection.set(null);
 
-    if (res.result === 'GRANTED') {
-      const staff = isStaffPerson(res);
-      const firstName = firstNameFromFullName(res.memberName);
-      const gender = res.gender ?? null;
+    if (normalized.result === 'GRANTED') {
+      const staff = isStaffPerson(normalized);
+      const firstName = firstNameFromFullName(normalized.memberName);
+      const gender = normalized.gender ?? null;
       const welcomeText = staff
-        ? resolveStaffWelcomeText(res.message, gender)
-        : resolveMemberWelcomeText(res.message, firstName, gender);
+        ? resolveStaffWelcomeText(normalized.message, gender)
+        : resolveMemberWelcomeText(normalized.message, firstName, gender);
       this.welcomeTitle.set(welcomeText);
       prepareWelcomeSpeech();
-      if (this.shouldSpeakWelcome(res)) {
+      if (this.shouldSpeakWelcome(normalized)) {
         if (isWelcomeAudioUnlocked()) {
           const spoke = staff
-            ? playStaffAccessWelcome(gender, res.message)
-            : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
+            ? playStaffAccessWelcome(gender, normalized.message)
+            : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(normalized), normalized.message);
           this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
         } else {
           this.showWelcomeAudioBtn.set(this.audioSupported);
         }
-        this.markWelcomeSpoken(res);
+        this.markWelcomeSpoken(normalized);
       } else {
         this.showWelcomeAudioBtn.set(false);
       }
       if (staff) {
         this.statusLine.set(`${welcomeText}. Pasa al torniquete.`);
       } else {
-        const cedula = this.displayCedula(res);
-        const accessHint = this.memberAccessHint(res);
+        const cedula = this.displayCedula(normalized);
+        const accessHint = this.memberAccessHint(normalized);
         this.statusLine.set(
           cedula
             ? `${welcomeText} · Cédula ${cedula}${accessHint ? ` · ${accessHint}` : ''}. Pasa al torniquete.`
@@ -426,10 +427,35 @@ export class AccessKiosk implements OnInit, OnDestroy {
     } else {
       this.welcomeTitle.set(null);
       this.showWelcomeAudioBtn.set(false);
-      const cedula = this.displayCedula(res);
-      this.statusLine.set(cedula ? `${res.message} (Cédula ${cedula})` : res.message);
+      const cedula = this.displayCedula(normalized);
+      this.statusLine.set(cedula ? `${normalized.message} (Cédula ${cedula})` : normalized.message);
       this.scheduleRelease(DENIED_DISPLAY_MS);
     }
+  }
+
+  private normalizeVerifyResponse(res: AccessVerifyResponse): AccessVerifyResponse {
+    const rawResult = String((res as { result?: unknown }).result ?? '')
+      .trim()
+      .toUpperCase();
+    if (rawResult === 'GRANTED' || rawResult === 'DENIED' || rawResult === 'SELECT_MEMBER') {
+      return res;
+    }
+    const successAliases = new Set([
+      'OPEN',
+      'OPENED',
+      'ALLOW',
+      'ALLOWED',
+      'SUCCESS',
+      'OK',
+      'VALID',
+      'VALIDATED',
+      'VERIFIED',
+      'PASS',
+    ]);
+    if (successAliases.has(rawResult) || Boolean(res.gateOpened)) {
+      return { ...res, result: 'GRANTED' };
+    }
+    return res;
   }
 
   protected displayCedula(res: AccessVerifyResponse | null): string | null {
