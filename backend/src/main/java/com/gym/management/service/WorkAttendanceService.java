@@ -18,6 +18,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class WorkAttendanceService {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final WorkAttendanceRepository attendanceRepository;
     private final EmployeeService employeeService;
@@ -72,7 +74,7 @@ public class WorkAttendanceService {
         if (attendance.getClockOut() != null) {
             throw new BusinessException("La jornada ya fue cerrada");
         }
-        attendance.setClockOut(normalizeToWholeHour(LocalDateTime.now()));
+        attendance.setClockOut(normalizeToWholeHour(LocalDateTime.now(GYM_ZONE)));
         applyPayrollCalculation(attendance);
         return WorkAttendanceMapper.toResponse(attendanceRepository.save(attendance));
     }
@@ -81,7 +83,7 @@ public class WorkAttendanceService {
     public WorkAttendanceResponse create(WorkAttendanceRequest request) {
         ensureCanManageEmployee(request.employeeId());
         Employee employee = employeeService.getEmployee(request.employeeId());
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(GYM_ZONE);
         validateWorkDateIsToday(request.workDate());
         validateTimesOnToday(request.clockIn(), request.clockOut());
 
@@ -109,7 +111,7 @@ public class WorkAttendanceService {
         validateWorkDateIsToday(attendance.getWorkDate());
         validateWorkDateIsToday(request.workDate());
         Employee employee = employeeService.getEmployee(request.employeeId());
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(GYM_ZONE);
         validateTimesOnToday(request.clockIn(), request.clockOut());
 
         attendance.setEmployee(employee);
@@ -143,7 +145,7 @@ public class WorkAttendanceService {
         if (!Boolean.TRUE.equals(employee.getActive())) {
             throw new BusinessException("El empleado no está activo");
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(GYM_ZONE);
         if (attendanceRepository.findByEmployeeIdAndWorkDateAndClockOutIsNull(employeeId, today)
                 .isPresent()) {
             throw new BusinessException("El empleado ya tiene una jornada abierta hoy");
@@ -153,7 +155,7 @@ public class WorkAttendanceService {
         WorkAttendance attendance = WorkAttendance.builder()
                 .employee(employee)
                 .workDate(today)
-                .clockIn(normalizeToWholeHour(LocalDateTime.now()))
+                .clockIn(normalizeToWholeHour(LocalDateTime.now(GYM_ZONE)))
                 .sunday(sunday)
                 .build();
         return WorkAttendanceMapper.toResponse(attendanceRepository.save(attendance));
@@ -203,7 +205,7 @@ public class WorkAttendanceService {
             LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
             return new DateRange(start, end);
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(GYM_ZONE);
         LocalDate start = today.withDayOfMonth(1);
         LocalDate end = today.withDayOfMonth(today.lengthOfMonth());
         return new DateRange(start, end);
@@ -214,7 +216,7 @@ public class WorkAttendanceService {
             throw new BusinessException("Mes inválido");
         }
         YearMonth selected = YearMonth.of(year, month);
-        YearMonth current = YearMonth.now();
+        YearMonth current = YearMonth.now(GYM_ZONE);
         if (selected.isAfter(current)) {
             throw new BusinessException("No se puede consultar un mes futuro");
         }
@@ -242,14 +244,14 @@ public class WorkAttendanceService {
     }
 
     private void validateWorkDateIsToday(LocalDate workDate) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(GYM_ZONE);
         if (!today.equals(workDate)) {
             throw new BusinessException("Solo se permiten registros del día actual");
         }
     }
 
     private void validateTimesOnToday(LocalDateTime clockIn, LocalDateTime clockOut) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(GYM_ZONE);
         if (!today.equals(clockIn.toLocalDate())) {
             throw new BusinessException("La hora de entrada debe ser del día actual");
         }

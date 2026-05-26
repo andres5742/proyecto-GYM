@@ -24,6 +24,7 @@ import com.gym.management.repository.ProductCreditPaymentRepository;
 import com.gym.management.repository.ProductCreditRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ProductCreditService {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final ProductCreditRepository creditRepository;
     private final ProductCreditPaymentRepository paymentRepository;
@@ -90,7 +92,7 @@ public class ProductCreditService {
                 .totalAmount(totalAmount)
                 .balance(totalAmount)
                 .status(ProductCreditStatus.OPEN)
-                .creditedAt(LocalDateTime.now())
+                .creditedAt(LocalDateTime.now(GYM_ZONE))
                 .notes(request.notes())
                 .build();
 
@@ -123,7 +125,7 @@ public class ProductCreditService {
                 .workShift(shift)
                 .amount(request.amount())
                 .paymentMethod(request.paymentMethod())
-                .paidAt(LocalDateTime.now())
+                .paidAt(LocalDateTime.now(GYM_ZONE))
                 .notes(request.notes())
                 .build();
         paymentRepository.save(payment);

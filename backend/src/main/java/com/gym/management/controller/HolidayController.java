@@ -5,6 +5,7 @@ import com.gym.management.dto.HolidayResponse;
 import com.gym.management.service.HolidayService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/holidays")
 @RequiredArgsConstructor
 public class HolidayController {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final HolidayService holidayService;
 
@@ -36,7 +38,7 @@ public class HolidayController {
         if (year != null && month != null) {
             return holidayService.findByYearMonth(year, month);
         }
-        LocalDate start = from != null ? from : LocalDate.now().withDayOfMonth(1);
+        LocalDate start = from != null ? from : LocalDate.now(GYM_ZONE).withDayOfMonth(1);
         LocalDate end = to != null ? to : start.plusMonths(1).minusDays(1);
         return holidayService.findBetween(start, end);
     }

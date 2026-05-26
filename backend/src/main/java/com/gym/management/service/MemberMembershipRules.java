@@ -3,13 +3,15 @@ package com.gym.management.service;
 import com.gym.management.model.Member;
 import com.gym.management.model.MembershipStatus;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 public final class MemberMembershipRules {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private MemberMembershipRules() {}
 
     public static boolean isMembershipExpired(LocalDate membershipEnd) {
-        return membershipEnd != null && membershipEnd.isBefore(LocalDate.now());
+        return membershipEnd != null && membershipEnd.isBefore(LocalDate.now(GYM_ZONE));
     }
 
     public static MembershipStatus effectiveStatus(Member member) {

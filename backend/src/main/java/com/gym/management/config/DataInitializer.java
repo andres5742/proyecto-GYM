@@ -25,6 +25,7 @@ import com.gym.management.service.BusinessHoursService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +36,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 @RequiredArgsConstructor
 public class DataInitializer {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final AppModuleRepository appModuleRepository;
     private final AppModuleService appModuleService;
@@ -767,7 +769,7 @@ public class DataInitializer {
     }
 
     private void seedColombiaHolidays() {
-        int currentYear = LocalDate.now().getYear();
+        int currentYear = LocalDate.now(GYM_ZONE).getYear();
         for (int year = currentYear - 1; year <= currentYear + 1; year++) {
             for (ColombiaHolidayCatalog.HolidayEntry entry : ColombiaHolidayCatalog.forYear(year)) {
                 if (holidayRepository.existsByDate(entry.date())) {

@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 @RequiredArgsConstructor
 public class MemberImportService {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private static final Pattern NON_ALNUM = Pattern.compile("[^a-z0-9]");
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
@@ -112,7 +114,7 @@ public class MemberImportService {
                     String landline = cellText(row, columns.get("tel"), formatter);
                     String memberCode = cellText(row, columns.get("codigo"), formatter);
                     String eps = cellText(row, columns.get("eps"), formatter);
-                    int currentYear = LocalDate.now().getYear();
+                    int currentYear = LocalDate.now(GYM_ZONE).getYear();
                     Optional<LocalDate> membershipEndOpt = tryParseDate(row, columns.get("fechav"), formatter);
                     if (membershipEndOpt.isEmpty()) {
                         skipped++;
@@ -270,7 +272,7 @@ public class MemberImportService {
 
         if (plan != null) {
             member.setPlan(plan);
-            LocalDate start = membershipStart != null ? membershipStart : LocalDate.now();
+            LocalDate start = membershipStart != null ? membershipStart : LocalDate.now(GYM_ZONE);
             member.setMembershipStart(start);
             member.setMembershipEnd(membershipEnd != null ? membershipEnd : start.plusDays(plan.getDurationDays()));
         } else {

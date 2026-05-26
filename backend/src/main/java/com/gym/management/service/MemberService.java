@@ -16,6 +16,7 @@ import com.gym.management.repository.MemberFaceEmbeddingRepository;
 import com.gym.management.repository.MemberRepository;
 import com.gym.management.security.SecurityUtils;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class MemberService {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final MemberRepository memberRepository;
     private final MemberBiometricCredentialRepository biometricCredentialRepository;
@@ -36,7 +38,7 @@ public class MemberService {
 
     @Transactional
     public List<MemberResponse> findAll() {
-        memberRepository.markExpiredActiveMembers(LocalDate.now());
+        memberRepository.markExpiredActiveMembers(LocalDate.now(GYM_ZONE));
         return memberRepository.findAll().stream()
                 .map(MemberMapper::toResponse)
                 .toList();
@@ -168,7 +170,7 @@ public class MemberService {
             member.setPlan(plan);
             LocalDate start = request.membershipStart() != null
                     ? request.membershipStart()
-                    : LocalDate.now();
+                    : LocalDate.now(GYM_ZONE);
             member.setMembershipStart(start);
             member.setMembershipEnd(request.membershipEnd() != null
                     ? request.membershipEnd()
@@ -197,7 +199,7 @@ public class MemberService {
 
     @Transactional
     public void syncExpiredMemberships() {
-        memberRepository.markExpiredActiveMembers(LocalDate.now());
+        memberRepository.markExpiredActiveMembers(LocalDate.now(GYM_ZONE));
     }
 
     private String resolveEmail(MemberRequest request, Member existing) {
