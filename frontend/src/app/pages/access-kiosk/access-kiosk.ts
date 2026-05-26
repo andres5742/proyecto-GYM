@@ -350,14 +350,15 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.releaseTimer = null;
     }
 
+    const forceLocalUnlock = this.shouldForceLocalUnlock(res);
     window.sportGymDesktop?.syncAccessResult?.({
       result: res.result,
-      gateOpened: Boolean(res.gateOpened),
+      gateOpened: Boolean(res.gateOpened) || forceLocalUnlock,
       deviceUserId: res.deviceUserId,
       credentialType: res.credentialType,
     });
     if (res.credentialType !== 'CARD' || this.isShortcutPass(res.deviceUserId)) {
-      this.syncLocalGate(res);
+      this.syncLocalGate(res, forceLocalUnlock);
     }
 
     this.lastResult.set(res);
@@ -485,13 +486,25 @@ export class AccessKiosk implements OnInit, OnDestroy {
     return id === 'F2-ENTRENO' || id === 'F3-BAILES' || id === 'F8-BAILES';
   }
 
-  private syncLocalGate(res: AccessVerifyResponse): void {
+  private isBilledDayPass(deviceUserId: string | null | undefined): boolean {
+    const id = deviceUserId?.trim().toUpperCase() ?? '';
+    return id.startsWith('ENTRENO-BILL-') || id.startsWith('BAILES-BILL-');
+  }
+
+  private shouldForceLocalUnlock(res: AccessVerifyResponse): boolean {
+    if (res.result !== 'GRANTED') {
+      return false;
+    }
+    return this.isShortcutPass(res.deviceUserId) || this.isBilledDayPass(res.deviceUserId);
+  }
+
+  private syncLocalGate(res: AccessVerifyResponse, forceUnlock = false): void {
     if (window.sportGymDesktop?.syncAccessResult) {
       return;
     }
     const body = JSON.stringify({
       result: res.result,
-      gateOpened: Boolean(res.gateOpened),
+      gateOpened: Boolean(res.gateOpened) || forceUnlock,
       credentialType: res.credentialType,
       deviceUserId: res.deviceUserId,
       accessLogId: res.accessLogId ?? null,
