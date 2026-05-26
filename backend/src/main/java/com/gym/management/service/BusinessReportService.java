@@ -189,8 +189,9 @@ public class BusinessReportService {
     }
 
     private List<ProductSaleByPaymentLine> loadProductSalesByPayment(LocalDate start, LocalDate end) {
-        LocalDateTime startAt = start.atStartOfDay();
-        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
+        PeriodDateTimeBounds bounds = resolvePeriodDateTimeBounds(start, end);
+        LocalDateTime startAt = bounds.startAt();
+        LocalDateTime endExclusive = bounds.endExclusive();
         List<ProductSaleByPaymentLine> lines = new ArrayList<>();
         // Ventas normales de producto por medio de pago.
         for (Object[] row : saleRepository.aggregateByProductAndPaymentOnSaleDateBetween(startAt, endExclusive)) {
@@ -229,8 +230,9 @@ public class BusinessReportService {
     }
 
     private PeriodTotals loadPeriodTotals(LocalDate start, LocalDate end) {
-        LocalDateTime startAt = start.atStartOfDay();
-        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
+        PeriodDateTimeBounds bounds = resolvePeriodDateTimeBounds(start, end);
+        LocalDateTime startAt = bounds.startAt();
+        LocalDateTime endExclusive = bounds.endExclusive();
         Map<PaymentMethod, BigDecimal> billingIncomeByMethod =
                 BillingPaymentMethodTotals.fromAmountRows(
                         billingPaymentRepository.sumByPaymentMethodBetweenDates(start, end));
@@ -301,16 +303,35 @@ public class BusinessReportService {
     }
 
     private List<ProductInventoryReportLine> buildInventoryForSingleDate(LocalDate date) {
-        LocalDateTime startAt = date.atStartOfDay();
-        LocalDateTime endExclusive = date.plusDays(1).atStartOfDay();
+        PeriodDateTimeBounds bounds = resolvePeriodDateTimeBounds(date, date);
+        LocalDateTime startAt = bounds.startAt();
+        LocalDateTime endExclusive = bounds.endExclusive();
         return buildInventoryFromRows(saleRepository.aggregateQuantityByProductOnSaleDateBetween(startAt, endExclusive));
     }
 
     private List<ProductInventoryReportLine> buildInventoryForDateRange(LocalDate start, LocalDate end) {
-        LocalDateTime startAt = start.atStartOfDay();
-        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
+        PeriodDateTimeBounds bounds = resolvePeriodDateTimeBounds(start, end);
+        LocalDateTime startAt = bounds.startAt();
+        LocalDateTime endExclusive = bounds.endExclusive();
         return buildInventoryFromRows(
                 saleRepository.aggregateQuantityByProductOnSaleDateBetween(startAt, endExclusive));
+    }
+
+    /**
+     * Para periodos que incluyen hoy, corta en "ahora" (zona del gym) para no sumar registros
+     * con timestamp futuro dentro del mismo día por desfaces históricos de zona horaria.
+     */
+    private PeriodDateTimeBounds resolvePeriodDateTimeBounds(LocalDate start, LocalDate end) {
+        LocalDateTime startAt = start.atStartOfDay();
+        LocalDateTime endExclusive = end.plusDays(1).atStartOfDay();
+        LocalDate today = LocalDate.now(GYM_ZONE);
+        if (end.equals(today)) {
+            LocalDateTime now = LocalDateTime.now(GYM_ZONE);
+            if (now.isAfter(startAt) && now.isBefore(endExclusive)) {
+                endExclusive = now;
+            }
+        }
+        return new PeriodDateTimeBounds(startAt, endExclusive);
     }
 
     private List<ProductInventoryReportLine> buildInventoryFromRows(List<Object[]> salesRows) {
@@ -353,6 +374,8 @@ public class BusinessReportService {
     }
 
     private record CashRegisterSnapshot(String status, BigDecimal openingCashAmount) {}
+
+    private record PeriodDateTimeBounds(LocalDateTime startAt, LocalDateTime endExclusive) {}
 
     private static final class PlanAggregate {
         final Long planId;
