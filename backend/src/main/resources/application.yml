@@ -35,6 +35,7 @@ app:
   access:
     device-api-key: ${ACCESS_DEVICE_KEY:gym-turnstile-dev-key}
     turnstile-webhook-url: ${TURNSTILE_WEBHOOK:}
+    turnstile-webhook-key: ${TURNSTILE_WEBHOOK_KEY:}
     # Distancia euclidiana face-api: menor = más parecido (típico 0.45–0.55)
     face-match-max-distance: ${FACE_MATCH_MAX_DISTANCE:0.55}
   sales:

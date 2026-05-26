@@ -14,9 +14,13 @@ public class TurnstileGatewayService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final String webhookUrl;
+    private final String webhookKey;
 
-    public TurnstileGatewayService(@Value("${app.access.turnstile-webhook-url:}") String webhookUrl) {
+    public TurnstileGatewayService(
+            @Value("${app.access.turnstile-webhook-url:}") String webhookUrl,
+            @Value("${app.access.turnstile-webhook-key:}") String webhookKey) {
         this.webhookUrl = webhookUrl == null ? "" : webhookUrl.trim();
+        this.webhookKey = webhookKey == null ? "" : webhookKey.trim();
     }
 
     public boolean openGate(String memberName, Long memberId) {
@@ -48,6 +52,9 @@ public class TurnstileGatewayService {
             }
             var headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            if (!webhookKey.isEmpty()) {
+                headers.set("X-Device-Key", webhookKey);
+            }
             restTemplate.postForEntity(webhookUrl, new HttpEntity<>(body, headers), String.class);
             log.info("Señal {} enviada al torniquete para {}", action, memberName);
             return true;

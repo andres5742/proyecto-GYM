@@ -44,6 +44,13 @@ DEBUG = os.environ.get("SERIAL_DEBUG", "").lower() in ("1", "true", "yes", "si",
 PIN_FORMAT = os.environ.get("SERIAL_PIN_FORMAT", "hex").lower()
 PID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".lector-tarjeta.pid")
 GATE_HTTP_PORT = int(os.environ.get("GATE_HTTP_PORT", "8765"))
+GATE_HTTP_HOST = os.environ.get("GATE_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1"
+GATE_SYNC_KEY = os.environ.get("GATE_SYNC_KEY", KEY).strip()
+
+
+def _is_loopback(client_ip: str | None) -> bool:
+    ip = (client_ip or "").strip()
+    return ip in ("127.0.0.1", "::1", "localhost")
 
 
 class _GateSyncHandler(BaseHTTPRequestHandler):
@@ -55,15 +62,33 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        remote_ip = self.client_address[0] if self.client_address else ""
+        # En local permitimos sin clave; desde red exigimos X-Device-Key.
+        if not _is_loopback(remote_ip) and GATE_SYNC_KEY:
+            supplied_key = (self.headers.get("X-Device-Key") or "").strip()
+            if supplied_key != GATE_SYNC_KEY:
+                self.send_response(403)
+                self.end_headers()
+                return
         length = int(self.headers.get("Content-Length", "0") or "0")
         raw = self.rfile.read(length).decode("utf-8", errors="ignore") if length else "{}"
         try:
             data = json.loads(raw or "{}")
-            result = str(data.get("result", "")).upper()
-            gate_opened = bool(data.get("gateOpened", False))
+            action = str(data.get("action", "")).strip().lower()
+            if action == "open":
+                result = "GRANTED"
+                gate_opened = True
+            elif action == "lock":
+                result = "DENIED"
+                gate_opened = False
+            else:
+                result = str(data.get("result", "")).upper()
+                gate_opened = bool(data.get("gateOpened", False))
             credential_type = str(data.get("credentialType", "")).upper()
+            device_user_id = str(data.get("deviceUserId", "")).upper()
+            is_shortcut = device_user_id.startswith("ENTRENO-BILL-") or device_user_id.startswith("BAILES-BILL-")
             # Tarjeta ya se gestiona por after_api_response del lector (evita unlock duplicado).
-            if credential_type == "CARD" and result == "GRANTED":
+            if credential_type == "CARD" and result == "GRANTED" and not is_shortcut:
                 self.send_response(204)
                 self.end_headers()
                 return
@@ -80,8 +105,8 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
 def start_gate_http_server() -> None:
     def _run() -> None:
         try:
-            server = HTTPServer(("127.0.0.1", GATE_HTTP_PORT), _GateSyncHandler)
-            print(f"Gate sync local: http://127.0.0.1:{GATE_HTTP_PORT}/gate/sync")
+            server = HTTPServer((GATE_HTTP_HOST, GATE_HTTP_PORT), _GateSyncHandler)
+            print(f"Gate sync: http://{GATE_HTTP_HOST}:{GATE_HTTP_PORT}/gate/sync")
             server.serve_forever()
         except OSError as ex:
             print(f"No se pudo abrir gate HTTP {GATE_HTTP_PORT}: {ex}", file=sys.stderr)
