@@ -20,6 +20,7 @@ import com.gym.management.model.WorkShift;
 import com.gym.management.repository.SaleRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class SaleService {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final SaleRepository saleRepository;
     private final EmployeeService employeeService;
@@ -157,7 +159,7 @@ public class SaleService {
         }
 
         List<SaleResponse> created = new ArrayList<>();
-        LocalDateTime saleDate = LocalDateTime.now();
+        LocalDateTime saleDate = LocalDateTime.now(GYM_ZONE);
         for (var line : request.lines()) {
             Product product = productService.getProduct(line.productId());
             if (!Boolean.TRUE.equals(product.getActive())) {
@@ -215,9 +217,9 @@ public class SaleService {
 
         product.setQuantity(product.getQuantity() - request.quantity());
 
-        LocalDateTime saleDate = LocalDateTime.now();
+        LocalDateTime saleDate = LocalDateTime.now(GYM_ZONE);
         if (request.saleDate() != null) {
-            if (!java.time.LocalDate.now().equals(request.saleDate().toLocalDate())) {
+            if (!java.time.LocalDate.now(GYM_ZONE).equals(request.saleDate().toLocalDate())) {
                 throw new BusinessException("Las ventas solo se pueden registrar en el día actual");
             }
             saleDate = request.saleDate();

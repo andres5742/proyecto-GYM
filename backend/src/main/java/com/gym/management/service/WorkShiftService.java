@@ -19,6 +19,7 @@ import com.gym.management.security.SecurityUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class WorkShiftService {
+    private static final ZoneId GYM_ZONE = ZoneId.of("America/Bogota");
 
     private final WorkShiftRepository workShiftRepository;
     private final SaleRepository saleRepository;
@@ -63,14 +65,14 @@ public class WorkShiftService {
             throw new BusinessException("Ya hay un turno abierto. Ciérrelo antes de abrir otro.");
         }
         Employee seller = resolveSellerForOpen(request.employeeId());
-        LocalDate shiftDate = request.shiftDate() != null ? request.shiftDate() : LocalDate.now();
+        LocalDate shiftDate = request.shiftDate() != null ? request.shiftDate() : LocalDate.now(GYM_ZONE);
         ShiftInventoryService.InventoryOpenResult inventoryResult =
                 shiftInventoryService.processBeforeOpen(shiftDate, request.inventoryCounts(), request.cashCount());
         WorkShift shift = WorkShift.builder()
                 .shiftDate(shiftDate)
                 .name(request.name())
                 .employee(seller)
-                .openedAt(LocalDateTime.now())
+                .openedAt(LocalDateTime.now(GYM_ZONE))
                 .status(ShiftStatus.OPEN)
                 .build();
         WorkShiftResponse response =
@@ -98,7 +100,7 @@ public class WorkShiftService {
             throw new BusinessException("El turno ya está cerrado");
         }
         shift.setStatus(ShiftStatus.CLOSED);
-        shift.setClosedAt(LocalDateTime.now());
+        shift.setClosedAt(LocalDateTime.now(GYM_ZONE));
         return toResponseWithTotals(workShiftRepository.save(shift));
     }
 
