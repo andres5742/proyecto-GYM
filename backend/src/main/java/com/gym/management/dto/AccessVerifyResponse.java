@@ -5,6 +5,7 @@ import com.gym.management.model.AccessPersonType;
 import com.gym.management.model.AccessResult;
 import com.gym.management.model.BiometricCredentialType;
 import com.gym.management.model.Gender;
+import java.time.LocalDate;
 import java.util.List;
 
 public record AccessVerifyResponse(
@@ -24,6 +25,8 @@ public record AccessVerifyResponse(
         Long accessLogId,
         /** Días hasta vencimiento (1–5); null si no aplica. */
         Integer membershipDaysRemaining,
+        /** Fecha de vencimiento de la membresía cuando aplica. */
+        LocalDate membershipEndDate,
         /** Entrenos tiquetera tras este ingreso; null si no es tiquetera. */
         Integer tiqueteraEntriesRemainingAfter,
         Boolean tiqueteraPlan,
@@ -52,6 +55,7 @@ public record AccessVerifyResponse(
                 deviceUserId,
                 credentialType,
                 gender,
+                null,
                 null,
                 null,
                 null,

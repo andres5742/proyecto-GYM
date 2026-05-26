@@ -65,6 +65,9 @@
                 @if (displayCedula(r); as cedula) {
                   <span class="result-cedula">Cédula {{ cedula }}</span>
                 }
+                @if (memberAccessHint(r); as accessHint) {
+                  <span class="result-membership">{{ accessHint }}</span>
+                }
                 <p>{{ r.message }}</p>
                 @if (r.gateOpened) {
                   <span class="gate-open">Torniquete liberado</span>

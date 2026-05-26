@@ -45,6 +45,8 @@ export interface AccessVerifyResponse {
   accessLogId?: number | null;
   /** Días hasta vencimiento (1–5); voz y mensaje en torniquete. */
   membershipDaysRemaining?: number | null;
+  /** Fecha de vencimiento de la membresía (ISO yyyy-MM-dd). */
+  membershipEndDate?: string | null;
   /** Entrenos tiquetera tras este ingreso. */
   tiqueteraEntriesRemainingAfter?: number | null;
   tiqueteraPlan?: boolean | null;
@@ -107,6 +109,7 @@ export interface KioskAccessEvent {
   gender?: Gender | null;
   documentId?: string | null;
   membershipDaysRemaining?: number | null;
+  membershipEndDate?: string | null;
   tiqueteraEntriesRemainingAfter?: number | null;
   tiqueteraPlan?: boolean | null;
   cardSelectionCandidates?: CardSelectionCandidate[];

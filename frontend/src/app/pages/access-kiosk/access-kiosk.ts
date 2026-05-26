@@ -304,6 +304,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       documentId: event.documentId ?? null,
       accessLogId: event.id,
       membershipDaysRemaining: event.membershipDaysRemaining ?? null,
+      membershipEndDate: event.membershipEndDate ?? null,
       tiqueteraEntriesRemainingAfter: event.tiqueteraEntriesRemainingAfter ?? null,
       tiqueteraPlan: event.tiqueteraPlan ?? null,
       cardSelectionCandidates: event.cardSelectionCandidates ?? [],
@@ -355,7 +356,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       deviceUserId: res.deviceUserId,
       credentialType: res.credentialType,
     });
-    if (res.credentialType !== 'CARD') {
+    if (res.credentialType !== 'CARD' || this.isShortcutPass(res.deviceUserId)) {
       this.syncLocalGate(res);
     }
 
@@ -413,10 +414,11 @@ export class AccessKiosk implements OnInit, OnDestroy {
         this.statusLine.set(`${welcomeText}. Pasa al torniquete.`);
       } else {
         const cedula = this.displayCedula(res);
+        const accessHint = this.memberAccessHint(res);
         this.statusLine.set(
           cedula
-            ? `${welcomeText} · Cédula ${cedula}. Pasa al torniquete.`
-            : `${welcomeText}. Pasa al torniquete.`,
+            ? `${welcomeText} · Cédula ${cedula}${accessHint ? ` · ${accessHint}` : ''}. Pasa al torniquete.`
+            : `${welcomeText}${accessHint ? ` · ${accessHint}` : ''}. Pasa al torniquete.`,
         );
       }
       this.scheduleRelease(GRANTED_DISPLAY_MS);
@@ -442,6 +444,45 @@ export class AccessKiosk implements OnInit, OnDestroy {
       return pin;
     }
     return null;
+  }
+
+  protected memberAccessHint(res: AccessVerifyResponse | null): string | null {
+    if (!res || res.result !== 'GRANTED' || isStaffPerson(res)) {
+      return null;
+    }
+    if (res.tiqueteraPlan && res.tiqueteraEntriesRemainingAfter != null) {
+      const left = res.tiqueteraEntriesRemainingAfter;
+      return left === 1 ? 'Te queda 1 entreno' : `Te quedan ${left} entrenos`;
+    }
+    const end = this.formatMembershipEndDate(res.membershipEndDate ?? null);
+    if (end) {
+      return `Membresía vence: ${end}`;
+    }
+    if (res.membershipDaysRemaining != null) {
+      const days = res.membershipDaysRemaining;
+      return days === 1 ? 'Te queda 1 día de membresía' : `Te quedan ${days} días de membresía`;
+    }
+    return null;
+  }
+
+  private formatMembershipEndDate(value: string | null): string | null {
+    if (!value?.trim()) {
+      return null;
+    }
+    const date = new Date(`${value.trim()}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  private isShortcutPass(deviceUserId: string | null | undefined): boolean {
+    const id = deviceUserId?.trim().toUpperCase() ?? '';
+    return id === 'F2-ENTRENO' || id === 'F3-BAILES' || id === 'F8-BAILES';
   }
 
   private syncLocalGate(res: AccessVerifyResponse): void {

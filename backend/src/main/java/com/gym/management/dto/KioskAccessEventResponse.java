@@ -5,6 +5,7 @@ import com.gym.management.model.AccessResult;
 import com.gym.management.model.BiometricCredentialType;
 import com.gym.management.model.Gender;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /** Evento de acceso para la pantalla /acceso (polling tras lectura ZKTeco). */
@@ -24,6 +25,7 @@ public record KioskAccessEventResponse(
         Gender gender,
         String documentId,
         Integer membershipDaysRemaining,
+        LocalDate membershipEndDate,
         Integer tiqueteraEntriesRemainingAfter,
         Boolean tiqueteraPlan,
         List<CardSelectionCandidate> cardSelectionCandidates) {

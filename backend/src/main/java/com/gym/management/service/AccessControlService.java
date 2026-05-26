@@ -138,6 +138,7 @@ public class AccessControlService {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -519,6 +520,7 @@ public class AccessControlService {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -727,6 +729,7 @@ public class AccessControlService {
                 memberDocumentId(member),
                 logId,
                 voiceHints.membershipDaysRemaining(),
+                member != null ? member.getMembershipEnd() : null,
                 voiceHints.tiqueteraEntriesRemainingAfter(),
                 voiceHints.tiqueteraPlan() ? Boolean.TRUE : null,
                 null);
@@ -793,6 +796,7 @@ public class AccessControlService {
                 null,
                 null,
                 null,
+                null,
                 candidates);
     }
 
@@ -826,6 +830,7 @@ public class AccessControlService {
                 member != null ? member.getGender() : null,
                 memberDocumentId(member),
                 logId,
+                null,
                 null,
                 null,
                 null,
@@ -947,6 +952,7 @@ public class AccessControlService {
                 gender,
                 documentId,
                 voiceHints.membershipDaysRemaining(),
+                log.getMember() != null ? log.getMember().getMembershipEnd() : null,
                 voiceHints.tiqueteraEntriesRemainingAfter(),
                 voiceHints.tiqueteraPlan() ? Boolean.TRUE : null,
                 CardSelectionJson.read(log.getCardSelectionJson()));
