@@ -160,14 +160,6 @@ export class MainLayout implements OnInit {
     if (!this.auth.isLoggedIn() || !this.canUseDayPassShortcuts()) {
       return;
     }
-    const target = event.target;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement
-    ) {
-      return;
-    }
     event.preventDefault();
     this.openDayPassModal(shortcut);
   }
