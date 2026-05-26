@@ -352,26 +352,29 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
     const normalized = this.normalizeVerifyResponse(res);
     const forceLocalUnlock = this.shouldForceLocalUnlock(normalized);
+    const effectiveForGate = forceLocalUnlock && normalized.result !== 'SELECT_MEMBER'
+      ? { ...normalized, result: 'GRANTED' as const, gateOpened: true }
+      : normalized;
     window.sportGymDesktop?.syncAccessResult?.({
-      result: normalized.result,
-      gateOpened: Boolean(normalized.gateOpened) || forceLocalUnlock,
-      deviceUserId: normalized.deviceUserId,
-      credentialType: normalized.credentialType,
+      result: effectiveForGate.result,
+      gateOpened: effectiveForGate.gateOpened,
+      deviceUserId: effectiveForGate.deviceUserId,
+      credentialType: effectiveForGate.credentialType,
     });
-    if (normalized.credentialType !== 'CARD' || this.isShortcutPass(normalized.deviceUserId)) {
-      this.syncLocalGate(normalized, forceLocalUnlock);
+    if (effectiveForGate.credentialType !== 'CARD' || this.isShortcutPass(effectiveForGate.deviceUserId)) {
+      this.syncLocalGate(effectiveForGate, false);
     }
 
-    this.lastResult.set(normalized);
-    if (normalized.accessLogId && normalized.accessLogId > this.lastProcessedLogId) {
-      this.lastProcessedLogId = normalized.accessLogId;
+    this.lastResult.set(effectiveForGate);
+    if (effectiveForGate.accessLogId && effectiveForGate.accessLogId > this.lastProcessedLogId) {
+      this.lastProcessedLogId = effectiveForGate.accessLogId;
     }
 
-    if (normalized.result === 'SELECT_MEMBER') {
-      const candidates = normalized.cardSelectionCandidates ?? [];
+    if (effectiveForGate.result === 'SELECT_MEMBER') {
+      const candidates = effectiveForGate.cardSelectionCandidates ?? [];
       if (candidates.length > 0) {
         this.cardSelection.set({
-          pin: normalized.deviceUserId,
+          pin: effectiveForGate.deviceUserId,
           candidates,
         });
       } else {
@@ -381,8 +384,8 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.showWelcomeAudioBtn.set(false);
       this.statusLine.set(
         candidates.length > 0
-          ? normalized.message
-          : `${normalized.message} Actualice el servidor (git pull + actualizar-acceso-tarjetas.sh).`,
+          ? effectiveForGate.message
+          : `${effectiveForGate.message} Actualice el servidor (git pull + actualizar-acceso-tarjetas.sh).`,
       );
       this.scheduleRelease(SELECT_MEMBER_DISPLAY_MS);
       return;
@@ -390,33 +393,38 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
     this.cardSelection.set(null);
 
-    if (normalized.result === 'GRANTED') {
-      const staff = isStaffPerson(normalized);
-      const firstName = firstNameFromFullName(normalized.memberName);
-      const gender = normalized.gender ?? null;
+    if (effectiveForGate.result === 'GRANTED') {
+      const staff = isStaffPerson(effectiveForGate);
+      const firstName = firstNameFromFullName(effectiveForGate.memberName);
+      const gender = effectiveForGate.gender ?? null;
       const welcomeText = staff
-        ? resolveStaffWelcomeText(normalized.message, gender)
-        : resolveMemberWelcomeText(normalized.message, firstName, gender);
+        ? resolveStaffWelcomeText(effectiveForGate.message, gender)
+        : resolveMemberWelcomeText(effectiveForGate.message, firstName, gender);
       this.welcomeTitle.set(welcomeText);
       prepareWelcomeSpeech();
-      if (this.shouldSpeakWelcome(normalized)) {
+      if (this.shouldSpeakWelcome(effectiveForGate)) {
         if (isWelcomeAudioUnlocked()) {
           const spoke = staff
-            ? playStaffAccessWelcome(gender, normalized.message)
-            : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(normalized), normalized.message);
+            ? playStaffAccessWelcome(gender, effectiveForGate.message)
+            : playAccessWelcome(
+                firstName,
+                gender,
+                accessWelcomeHintsFromResponse(effectiveForGate),
+                effectiveForGate.message,
+              );
           this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
         } else {
           this.showWelcomeAudioBtn.set(this.audioSupported);
         }
-        this.markWelcomeSpoken(normalized);
+        this.markWelcomeSpoken(effectiveForGate);
       } else {
         this.showWelcomeAudioBtn.set(false);
       }
       if (staff) {
         this.statusLine.set(`${welcomeText}. Pasa al torniquete.`);
       } else {
-        const cedula = this.displayCedula(normalized);
-        const accessHint = this.memberAccessHint(normalized);
+        const cedula = this.displayCedula(effectiveForGate);
+        const accessHint = this.memberAccessHint(effectiveForGate);
         this.statusLine.set(
           cedula
             ? `${welcomeText} · Cédula ${cedula}${accessHint ? ` · ${accessHint}` : ''}. Pasa al torniquete.`
@@ -427,8 +435,8 @@ export class AccessKiosk implements OnInit, OnDestroy {
     } else {
       this.welcomeTitle.set(null);
       this.showWelcomeAudioBtn.set(false);
-      const cedula = this.displayCedula(normalized);
-      this.statusLine.set(cedula ? `${normalized.message} (Cédula ${cedula})` : normalized.message);
+      const cedula = this.displayCedula(effectiveForGate);
+      this.statusLine.set(cedula ? `${effectiveForGate.message} (Cédula ${cedula})` : effectiveForGate.message);
       this.scheduleRelease(DENIED_DISPLAY_MS);
     }
   }

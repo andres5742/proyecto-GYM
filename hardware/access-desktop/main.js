@@ -98,6 +98,7 @@ function queueGateCommand(cmd, data) {
 function syncGateFromPayload(payload) {
   const result = payload && String(payload.result || '').toUpperCase();
   const granted = result === 'GRANTED';
+  const deniedOrSelection = result === 'DENIED' || result === 'SELECT_MEMBER';
   const opened = payload && Boolean(payload.gateOpened);
   const shouldUnlock = granted && opened;
   const deviceUserId = payload && String(payload.deviceUserId || '');
@@ -106,9 +107,10 @@ function syncGateFromPayload(payload) {
     payload && payload.credentialType === 'CARD' && !isShortcut;
 
   // Con lector activo, unlock lo maneja serial_card_reader (after_api_response).
-  // Solo omitimos unlock duplicado; DENIED siempre debe encolar lock por si el lector falló.
+  // Solo omitimos unlock duplicado. Si GRANTED llega con gateOpened=false (webhook remoto caído),
+  // serial_card_reader igual abre por criterio local; no debemos encolar lock aquí.
   if (config.spawnCardReader && isCardFromReader) {
-    if (!shouldUnlock) {
+    if (deniedOrSelection) {
       queueGateCommand('lock');
     }
     return;
