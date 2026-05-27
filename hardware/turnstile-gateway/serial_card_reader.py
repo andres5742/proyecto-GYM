@@ -86,7 +86,13 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
                 gate_opened = bool(data.get("gateOpened", False))
             credential_type = str(data.get("credentialType", "")).upper()
             device_user_id = str(data.get("deviceUserId", "")).upper()
-            is_shortcut = device_user_id.startswith("ENTRENO-BILL-") or device_user_id.startswith("BAILES-BILL-")
+            is_shortcut = (
+                device_user_id.startswith("ENTRENO-BILL-")
+                or device_user_id.startswith("BAILES-BILL-")
+                or device_user_id.startswith("F2-")
+                or device_user_id.startswith("F3-")
+                or device_user_id.startswith("F8-")
+            )
             # Tarjeta ya se gestiona por after_api_response del lector (evita unlock duplicado).
             if credential_type == "CARD" and result == "GRANTED" and not is_shortcut:
                 self.send_response(204)
