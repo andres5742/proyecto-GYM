@@ -156,15 +156,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       }
       return;
     }
-    if (event.key === 'F2') {
-      event.preventDefault();
-      this.triggerShortcutGate('workout');
-      return;
-    }
-    if (event.key === 'F8') {
-      event.preventDefault();
-      this.triggerShortcutGate('sports-dance');
-    }
+    // F2/F8 se gestionan en el layout principal con modal de pago.
   }
 
   @HostListener('pointerdown')
@@ -220,45 +212,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
       );
     }
     this.showWelcomeAudioBtn.set(false);
-  }
-
-  private triggerShortcutGate(reason: 'workout' | 'sports-dance'): void {
-    const label = reason === 'sports-dance' ? 'F8 Bailes' : 'F2 Entreno';
-    // En modo navegador (o cuando el backend tarda), disparamos apertura local inmediata
-    // para que F2/F8 se comporte igual que el comando curl directo al gateway.
-    const localShortcutOpen: AccessVerifyResponse = {
-      result: 'GRANTED',
-      gateOpened: true,
-      message: label,
-      deviceUserId: reason === 'sports-dance' ? 'F8-BAILES' : 'F2-ENTRENO',
-      credentialType: 'CARD',
-    };
-    window.sportGymDesktop?.syncAccessResult?.({
-      result: localShortcutOpen.result,
-      gateOpened: localShortcutOpen.gateOpened,
-      deviceUserId: localShortcutOpen.deviceUserId,
-      credentialType: localShortcutOpen.credentialType,
-    });
-    this.syncLocalGate(localShortcutOpen, false);
-    this.statusLine.set(`Abriendo torniquete (${label})…`);
-    this.accessService.kioskOpenGate(reason).subscribe({
-      next: (res) => this.applyVerifyResponse(res),
-      error: (err: HttpErrorResponse) => {
-        const msg =
-          typeof err.error === 'object' && err.error?.message
-            ? String(err.error.message)
-            : 'No se pudo abrir el torniquete.';
-        this.statusLine.set(msg);
-        this.lastResult.set({
-          result: 'DENIED',
-          gateOpened: false,
-          message: msg,
-          deviceUserId: reason === 'sports-dance' ? 'F8' : 'F2',
-          credentialType: 'CARD',
-        });
-        this.scheduleRelease(DENIED_DISPLAY_MS);
-      },
-    });
   }
 
   private startPolling(): void {

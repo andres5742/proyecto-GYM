@@ -286,9 +286,9 @@ export class MainLayout implements OnInit {
         }
         const announcement =
           res.speechText?.trim() ||
-          (kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno registrado.');
+          (kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno activado.');
         speakAnnouncement(announcement);
-        this.showShortcutMessage(res.message);
+        this.showShortcutMessage(kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno activado.');
         this.billingContext.notifyBillingPaymentRecorded();
         this.refreshOpenCashRegister();
         this.dayPassProcessing.set(false);
