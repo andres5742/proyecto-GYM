@@ -224,6 +224,16 @@ export class AccessKiosk implements OnInit, OnDestroy {
 
   private triggerShortcutGate(reason: 'workout' | 'sports-dance'): void {
     const label = reason === 'sports-dance' ? 'F8 Bailes' : 'F2 Entreno';
+    // En modo navegador (o cuando el backend tarda), disparamos apertura local inmediata
+    // para que F2/F8 se comporte igual que el comando curl directo al gateway.
+    const localShortcutOpen: AccessVerifyResponse = {
+      result: 'GRANTED',
+      gateOpened: true,
+      message: label,
+      deviceUserId: reason === 'sports-dance' ? 'F8-BAILES' : 'F2-ENTRENO',
+      credentialType: 'CARD',
+    };
+    this.syncLocalGate(localShortcutOpen, false);
     this.statusLine.set(`Abriendo torniquete (${label})…`);
     this.accessService.kioskOpenGate(reason).subscribe({
       next: (res) => this.applyVerifyResponse(res),
