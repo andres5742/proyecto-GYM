@@ -51,7 +51,6 @@ export class MainLayout implements OnInit {
   protected readonly roundCop = roundCop;
 
   private lastTicketAt = 0;
-  private lastShortcutGateAt = 0;
   private shortcutTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly dayPassChargeTotal = computed(() => {
@@ -165,9 +164,6 @@ export class MainLayout implements OnInit {
     }
     event.preventDefault();
     this.openDayPassModal(shortcut);
-    if (this.dayPassModal() === shortcut) {
-      this.triggerShortcutGateOpen(shortcut);
-    }
   }
 
   dayPassModalTitle(): string {
@@ -280,9 +276,7 @@ export class MainLayout implements OnInit {
 
     request$.subscribe({
       next: (res) => {
-        if (Date.now() - this.lastShortcutGateAt > 7000) {
-          this.syncLocalGateForDayPass(kind);
-        }
+        this.syncLocalGateForDayPass(kind);
         if (!res.gateOpened) {
           const reason = kind === 'sports-dance' ? 'sports-dance' : 'workout';
           this.accessService.kioskOpenGate(reason).subscribe({
@@ -333,30 +327,6 @@ export class MainLayout implements OnInit {
       return 'sports-dance';
     }
     return null;
-  }
-
-  private triggerShortcutGateOpen(kind: DayPassShortcut): void {
-    this.lastShortcutGateAt = Date.now();
-    const reason = kind === 'sports-dance' ? 'sports-dance' : 'workout';
-    const deviceUserId = kind === 'sports-dance' ? 'F8-BAILES' : 'F2-ENTRENO';
-    const payload = {
-      result: 'GRANTED',
-      gateOpened: true,
-      credentialType: 'CARD',
-      deviceUserId,
-    };
-    window.sportGymDesktop?.syncAccessResult?.(payload);
-    if (!window.sportGymDesktop?.syncAccessResult) {
-      fetch('http://127.0.0.1:8765/gate/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).catch(() => undefined);
-    }
-    this.accessService.kioskOpenGate(reason).subscribe({
-      next: () => undefined,
-      error: () => undefined,
-    });
   }
 
   private syncLocalGateForDayPass(kind: DayPassShortcut): void {
