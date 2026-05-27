@@ -57,6 +57,34 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args) -> None:
         return
 
+    def _read_request_body(self) -> str:
+        """Read JSON body supporting Content-Length and chunked transfer."""
+        transfer_encoding = (self.headers.get("Transfer-Encoding") or "").strip().lower()
+        if "chunked" in transfer_encoding:
+            chunks: list[bytes] = []
+            while True:
+                size_line = self.rfile.readline()
+                if not size_line:
+                    break
+                try:
+                    size_token = size_line.split(b";", 1)[0].strip()
+                    chunk_size = int(size_token, 16)
+                except ValueError:
+                    break
+                if chunk_size <= 0:
+                    # Consume trailing CRLF after last chunk and ignore trailers.
+                    self.rfile.readline()
+                    break
+                chunk = self.rfile.read(chunk_size)
+                chunks.append(chunk)
+                # Consume CRLF after each chunk payload.
+                self.rfile.read(2)
+            return b"".join(chunks).decode("utf-8", errors="ignore")
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        if length <= 0:
+            return "{}"
+        return self.rfile.read(length).decode("utf-8", errors="ignore")
+
     def do_POST(self) -> None:
         if self.path != "/gate/sync":
             self.send_response(404)
@@ -70,8 +98,7 @@ class _GateSyncHandler(BaseHTTPRequestHandler):
                 self.send_response(403)
                 self.end_headers()
                 return
-        length = int(self.headers.get("Content-Length", "0") or "0")
-        raw = self.rfile.read(length).decode("utf-8", errors="ignore") if length else "{}"
+        raw = self._read_request_body() or "{}"
         try:
             data = json.loads(raw or "{}")
             action = str(data.get("action", "")).strip().lower()
