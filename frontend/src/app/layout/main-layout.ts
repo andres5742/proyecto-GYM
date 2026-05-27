@@ -274,7 +274,7 @@ export class MainLayout implements OnInit {
 
     request$.subscribe({
       next: (res) => {
-        this.syncLocalGateForDayPass(kind, Boolean(res.gateOpened));
+        this.syncLocalGateForDayPass(kind);
         const announcement =
           res.speechText?.trim() ||
           (kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno registrado.');
@@ -320,10 +320,7 @@ export class MainLayout implements OnInit {
     return null;
   }
 
-  private syncLocalGateForDayPass(kind: DayPassShortcut, gateOpened: boolean): void {
-    if (gateOpened) {
-      return;
-    }
+  private syncLocalGateForDayPass(kind: DayPassShortcut): void {
     const deviceUserId = kind === 'sports-dance' ? `BAILES-BILL-${Date.now()}` : `ENTRENO-BILL-${Date.now()}`;
     const payload = {
       result: 'GRANTED',
