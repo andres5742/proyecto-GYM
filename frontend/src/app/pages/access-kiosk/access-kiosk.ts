@@ -502,8 +502,9 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (window.sportGymDesktop?.syncAccessResult) {
       return;
     }
+    const effectiveResult = forceUnlock && res.result !== 'SELECT_MEMBER' ? 'GRANTED' : res.result;
     const body = JSON.stringify({
-      result: res.result,
+      result: effectiveResult,
       gateOpened: Boolean(res.gateOpened) || forceUnlock,
       credentialType: res.credentialType,
       deviceUserId: res.deviceUserId,
