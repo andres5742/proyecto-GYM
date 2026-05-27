@@ -102,6 +102,13 @@ Flujo dos PC (recepcion + entrada):
   Cliente "quiero entreno" -> en entrada pulsa F2 (o tarjeta) -> usted ve la fila en Ingresos
   Ver FLUJO-DOS-PC.txt en access-desktop/
 
+Apertura remota en LAN (recepcion -> torniquete):
+  1) En PC torniquete debe estar abierto iniciar-lector-tarjeta.bat (puerto 8765 activo).
+  2) En PC recepcion ejecute:
+     - abrir-puerta-remota.bat   (abre)
+     - cerrar-puerta-remota.bat  (pone seguro)
+  3) Si cambia la IP del torniquete, edite TARGET_IP en esos .bat.
+
 Flujo completo:
   Tarjeta -> script (PC entrada) -> API -> GRANTED -> TURNSTILE_WEBHOOK -> puerta
                               \-> /acceso bienvenida + Ingresos en recepcion (polling)

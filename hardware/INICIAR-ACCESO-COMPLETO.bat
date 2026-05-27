@@ -36,10 +36,8 @@ if defined APP (
   exit /b 0
 )
 
-echo No hay Sport Gym Acceso.exe instalado. Abriendo navegador + lector...
-if exist "%GW%\SportGym-Acceso-App.bat" (
-  call "%GW%\SportGym-Acceso-App.bat"
-) else (
-  start "" "https://sportgymr10.com/acceso"
-)
-exit /b 0
+echo ERROR: No se encontro Sport Gym Acceso.exe.
+echo Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat para instalar o reparar la app.
+echo Este iniciador no abre navegador.
+pause
+exit /b 1
