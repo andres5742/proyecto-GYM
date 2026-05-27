@@ -21,6 +21,9 @@ let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 let cachedVoice: SpeechSynthesisVoice | undefined;
 let lastSpeechSignature = '';
 let lastSpeechAt = 0;
+const SPEECH_START_TIMEOUT_MS = 900;
+const SPEECH_RETRY_DELAY_MS = 120;
+const MAX_SPEECH_RETRIES = 1;
 
 function getSpeech(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -135,6 +138,7 @@ function speakSequence(speech: SpeechSynthesis, segments: SpeechSegment[]): void
   }
 
   unlockAudioContext();
+  prepareWelcomeSpeech();
   speech.resume();
   const voice = pickSpanishVoice(speech);
   let index = 0;
@@ -146,15 +150,61 @@ function speakSequence(speech: SpeechSynthesis, segments: SpeechSegment[]): void
     }
 
     const seg = segments[index++];
-    const run = (): void => {
+    const run = (retry = 0): void => {
       const utterance = buildUtterance(seg.text, { rate: seg.rate, pitch: seg.pitch });
       if (voice) {
         utterance.voice = voice;
       }
-      utterance.onend = speakNext;
-      utterance.onerror = speakNext;
+
+      let started = false;
+      let finished = false;
+      const finish = (): void => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        speakNext();
+      };
+
+      const startGuard = setTimeout(() => {
+        if (started || finished) {
+          return;
+        }
+        speech.cancel();
+        if (retry < MAX_SPEECH_RETRIES) {
+          setTimeout(() => run(retry + 1), SPEECH_RETRY_DELAY_MS);
+          return;
+        }
+        finish();
+      }, SPEECH_START_TIMEOUT_MS);
+
+      utterance.onstart = () => {
+        started = true;
+        clearTimeout(startGuard);
+      };
+      utterance.onend = () => {
+        clearTimeout(startGuard);
+        finish();
+      };
+      utterance.onerror = () => {
+        clearTimeout(startGuard);
+        if (!started && retry < MAX_SPEECH_RETRIES) {
+          setTimeout(() => run(retry + 1), SPEECH_RETRY_DELAY_MS);
+          return;
+        }
+        finish();
+      };
       startSpeechKeepAlive(speech);
-      speech.speak(utterance);
+      try {
+        speech.speak(utterance);
+      } catch {
+        clearTimeout(startGuard);
+        if (retry < MAX_SPEECH_RETRIES) {
+          setTimeout(() => run(retry + 1), SPEECH_RETRY_DELAY_MS);
+          return;
+        }
+        finish();
+      }
     };
 
     if (seg.pauseBeforeMs && seg.pauseBeforeMs > 0) {
@@ -293,6 +343,9 @@ export function playStaffAccessWelcome(gender?: Gender | null, logMessage?: stri
   if (!speech) {
     return false;
   }
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
   const segments = staffWelcomeSegmentsFromMessage(logMessage, gender);
   const signature = `staff|${segments.map((s) => s.text).join('|')}`;
   if (!dedupeSpeech(signature)) {
@@ -433,6 +486,9 @@ export function playAccessWelcome(
   if (!speech) {
     return false;
   }
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
   const fromLog = welcomeBaseFromLogMessage(logMessage);
   const segments = fromLog
     ? welcomeSegmentsWithHeadline(fromLog, hints, gender)
@@ -460,6 +516,9 @@ export function speakAnnouncement(text: string): boolean {
   if (!speech || !text.trim()) {
     return false;
   }
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
   speakSequence(speech, [{ text: text.trim(), rate: 0.93, pitch: 1 }]);
   return true;
 }
