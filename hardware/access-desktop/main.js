@@ -99,9 +99,11 @@ function syncGateFromPayload(payload) {
   const result = payload && String(payload.result || '').toUpperCase();
   const granted = result === 'GRANTED';
   const opened = payload && Boolean(payload.gateOpened);
-  const shouldUnlock = granted && opened;
   const deviceUserId = payload && String(payload.deviceUserId || '');
   const isShortcut = deviceUserId.startsWith('F2') || deviceUserId.startsWith('F3') || deviceUserId.startsWith('F8');
+  const isBilledDayPass = deviceUserId.startsWith('ENTRENO-BILL-') || deviceUserId.startsWith('BAILES-BILL-');
+  // F2/F8 y pases facturados pueden venir DENIED con gateOpened=true (fallback local del kiosk).
+  const shouldUnlock = opened && (granted || isShortcut || isBilledDayPass);
   const isCardFromReader =
     payload && payload.credentialType === 'CARD' && !isShortcut;
 
