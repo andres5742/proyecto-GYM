@@ -233,6 +233,12 @@ export class AccessKiosk implements OnInit, OnDestroy {
       deviceUserId: reason === 'sports-dance' ? 'F8-BAILES' : 'F2-ENTRENO',
       credentialType: 'CARD',
     };
+    window.sportGymDesktop?.syncAccessResult?.({
+      result: localShortcutOpen.result,
+      gateOpened: localShortcutOpen.gateOpened,
+      deviceUserId: localShortcutOpen.deviceUserId,
+      credentialType: localShortcutOpen.credentialType,
+    });
     this.syncLocalGate(localShortcutOpen, false);
     this.statusLine.set(`Abriendo torniquete (${label})…`);
     this.accessService.kioskOpenGate(reason).subscribe({
