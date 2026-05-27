@@ -6,6 +6,7 @@ import { ModuleService } from '../core/services/module.service';
 import { BillingContextService } from '../core/services/billing-context.service';
 import { BillingService } from '../core/services/billing.service';
 import { PlanService } from '../core/services/plan.service';
+import { AccessService } from '../core/services/access.service';
 import { BILLING_PAYMENT_METHODS, PaymentMethod } from '../core/models/sale.model';
 import { DayWorkoutRegisterRequest } from '../core/models/billing.model';
 import { normalizePlanNameKey } from '../core/models/plan.model';
@@ -33,6 +34,7 @@ export class MainLayout implements OnInit {
   private readonly billingService = inject(BillingService);
   private readonly billingContext = inject(BillingContextService);
   private readonly planService = inject(PlanService);
+  private readonly accessService = inject(AccessService);
 
   protected readonly shortcutMessage = signal<string | null>(null);
   protected readonly dayPassModal = signal<DayPassShortcut | null>(null);
@@ -275,6 +277,13 @@ export class MainLayout implements OnInit {
     request$.subscribe({
       next: (res) => {
         this.syncLocalGateForDayPass(kind);
+        if (!res.gateOpened) {
+          const reason = kind === 'sports-dance' ? 'sports-dance' : 'workout';
+          this.accessService.kioskOpenGate(reason).subscribe({
+            next: () => undefined,
+            error: () => undefined,
+          });
+        }
         const announcement =
           res.speechText?.trim() ||
           (kind === 'sports-dance' ? 'Baile deportivo activado.' : 'Entreno registrado.');
