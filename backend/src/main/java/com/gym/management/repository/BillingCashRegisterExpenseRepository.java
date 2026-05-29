@@ -12,6 +12,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface BillingCashRegisterExpenseRepository extends JpaRepository<BillingCashRegisterExpense, Long> {
 
+    boolean existsByObservationStartingWith(String prefix);
+
+    List<BillingCashRegisterExpense> findByObservationStartingWith(String prefix);
+
+    void deleteByObservationStartingWith(String prefix);
+
     @Query(
             """
             SELECT e FROM BillingCashRegisterExpense e

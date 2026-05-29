@@ -65,8 +65,9 @@ public class BillingCashRegisterService {
     private static final String SURPLUS_HANDOVER_TAG_PREFIX = "[AUTO:SOBRANTE_ENTREGA:";
     private static final String SURPLUS_SHIFT_OPEN_TAG_PREFIX = "[AUTO:SOBRANTE_APERTURA:";
     private static final String SURPLUS_CASH_CLOSE_TAG_PREFIX = "[AUTO:SOBRANTE_CIERRE_CAJA:";
+    private static final String SHORTFALL_HANDOVER_EXPENSE_TAG_PREFIX = "[AUTO:FALTANTE_ENTREGA:";
     private static final Set<CashShortfallKind> CASH_DRAWER_SHORTFALL_KINDS = EnumSet.of(
-            CashShortfallKind.CASH_HANDOVER, CashShortfallKind.CASH_REGISTER, CashShortfallKind.CASH_SHIFT_OPEN);
+            CashShortfallKind.CASH_REGISTER, CashShortfallKind.CASH_SHIFT_OPEN);
 
     private final BillingCashRegisterRepository cashRegisterRepository;
     private final BillingPaymentRepository billingPaymentRepository;
@@ -408,6 +409,48 @@ public class BillingCashRegisterService {
 
     public static String surplusHandoverTag(Long handoverId) {
         return SURPLUS_HANDOVER_TAG_PREFIX + handoverId + "]";
+    }
+
+    public static String shortfallHandoverExpenseTag(Long handoverId) {
+        return SHORTFALL_HANDOVER_EXPENSE_TAG_PREFIX + handoverId + "]";
+    }
+
+    @Transactional
+    public void registerHandoverCashShortfallExpense(ShiftHandover handover, BigDecimal shortfallAmount) {
+        if (handover == null || handover.getId() == null) {
+            return;
+        }
+        BigDecimal amount = MoneyUtil.roundPesos(shortfallAmount);
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        BillingCashRegister register = requireRegisterForDate(handover.getWorkShift().getShiftDate());
+        String tag = shortfallHandoverExpenseTag(handover.getId());
+        if (expenseRepository.existsByObservationStartingWith(tag)) {
+            return;
+        }
+        String employeeName = handover.getEmployee().getFirstName() + " " + handover.getEmployee().getLastName();
+        String label =
+                "Faltante en efectivo — entrega de turno "
+                        + handover.getWorkShift().getName()
+                        + " (responsable: "
+                        + employeeName
+                        + ")";
+        BillingCashRegisterExpense expense = BillingCashRegisterExpense.builder()
+                .cashRegister(register)
+                .amount(amount)
+                .paymentMethod(PaymentMethod.CASH)
+                .observation(tag + " " + label)
+                .recordedBy(handover.getEmployee())
+                .build();
+        expenseRepository.save(expense);
+    }
+
+    @Transactional
+    public void deleteHandoverCashShortfallExpense(Long handoverId) {
+        if (handoverId != null) {
+            expenseRepository.deleteByObservationStartingWith(shortfallHandoverExpenseTag(handoverId));
+        }
     }
 
     private static String surplusShiftOpenTag(Long previousShiftId, LocalDate registerDate) {
