@@ -59,7 +59,7 @@ set "GW=%DEST%\turnstile-gateway"
 set "LOG=%DEST%\ACTUALIZAR-LOG.txt"
 set "SETUP_NAME=SportGym-Acceso-Setup-1.0.0-win32.exe"
 set "SETUP_URL=https://sportgymr10.com/downloads/%SETUP_NAME%"
-set "GIT_BRANCH=aplicacion_torniquete"
+set "GIT_BRANCH=produccion"
 set "GIT_GW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/%GIT_BRANCH%/hardware/turnstile-gateway"
 set "GIT_HW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/%GIT_BRANCH%/hardware"
 
@@ -195,6 +195,21 @@ set /p AUTO="Instalar inicio automatico al encender Windows? S/N: "
 if /i "!AUTO!"=="S" if exist "%GW%\instalar-inicio-automatico.bat" call "%GW%\instalar-inicio-automatico.bat"
 echo.
 set /p ABRIR="Abrir Sport Gym Acceso ahora? S/N: "
-if /i "!ABRIR!"=="S" call "%DEST%\INICIAR-ACCESO-COMPLETO.bat"
+if /i "!ABRIR!"=="S" (
+  set "VBS_RUNNER=%DEST%\ABRIR-SPORT-GYM-ACCESO.vbs"
+  set "RUNNER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
+  if exist "!VBS_RUNNER!" (
+    start "" wscript.exe "!VBS_RUNNER!"
+  ) else if exist "!RUNNER!" (
+    call "!RUNNER!"
+  ) else (
+    echo ERROR: No se encontro lanzador:
+    echo   "!VBS_RUNNER!"
+    echo   "!RUNNER!"
+    echo Ejecuta manualmente:
+    echo   wscript.exe "C:\SportGym\ABRIR-SPORT-GYM-ACCESO.vbs"
+    echo o call "C:\SportGym\INICIAR-ACCESO-COMPLETO.bat"
+  )
+)
 pause
 exit /b 0
