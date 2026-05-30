@@ -2,6 +2,7 @@
   class="kiosk"
   [class.granted]="lastResult()?.result === 'GRANTED'"
   [class.denied]="lastResult()?.result === 'DENIED'"
+  [class.low-balance-alert]="lowBalanceAlert()"
   [class.selecting]="cardSelection() || lastResult()?.result === 'SELECT_MEMBER'"
   [class.waiting]="kioskReady() && !lastResult() && !cardSelection()"
 >
@@ -54,9 +55,9 @@
           }
 
           @if (lastResult(); as r) {
-            <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'" [class.pick]="r.result === 'SELECT_MEMBER'">
+            <div class="result-banner" [class.ok]="r.result === 'GRANTED'" [class.fail]="r.result === 'DENIED'" [class.pick]="r.result === 'SELECT_MEMBER'" [class.warn]="r.result === 'GRANTED' && lowBalanceWarningText(r)">
               <span class="result-icon" aria-hidden="true">{{
-                r.result === 'GRANTED' ? '✅' : r.result === 'SELECT_MEMBER' ? '🔢' : '⛔'
+                r.result === 'GRANTED' ? (lowBalanceWarningText(r) ? '⚠️' : '✅') : r.result === 'SELECT_MEMBER' ? '🔢' : '⛔'
               }}</span>
               <div class="result-banner__body">
                 @if (r.memberName) {
@@ -67,6 +68,9 @@
                 }
                 @if (memberAccessHint(r); as accessHint) {
                   <span class="result-membership">{{ accessHint }}</span>
+                }
+                @if (lowBalanceWarningText(r); as lowWarn) {
+                  <span class="result-low-balance">{{ lowWarn }}</span>
                 }
                 <p>{{ r.message }}</p>
                 @if (r.gateOpened) {

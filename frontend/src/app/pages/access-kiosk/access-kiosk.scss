@@ -49,6 +49,12 @@
       linear-gradient(168deg, #3a1818 0%, #6e2828 45%, #4a2222 100%);
   }
 
+  &.low-balance-alert {
+    background:
+      radial-gradient(ellipse 100% 70% at 50% 0%, rgb(255 120 120 / 22%), transparent 50%),
+      linear-gradient(168deg, #4a1010 0%, #8a1d1d 45%, #5f1717 100%);
+  }
+
   &.waiting {
     background:
       radial-gradient(ellipse 120% 80% at 50% -15%, rgb(255 255 255 / 6%), transparent 55%),
@@ -295,6 +301,12 @@
     border: 1px solid rgb(232 168 92 / 45%);
   }
 
+  &.warn {
+    background: rgb(255 120 120 / 18%);
+    border: 1px solid rgb(255 190 190 / 55%);
+    box-shadow: 0 0 0 1px rgb(255 120 120 / 35%), 0 0 20px rgb(255 80 80 / 20%);
+  }
+
   &__body {
     flex: 1 1 auto;
     min-width: 0;
@@ -320,6 +332,15 @@
     font-size: clamp(0.82rem, 3.1vw, 0.94rem);
     font-weight: 700;
     color: rgb(255 255 255 / 88%);
+  }
+
+  .result-low-balance {
+    display: block;
+    margin: 0.05rem 0 0.35rem;
+    font-size: clamp(0.84rem, 3.2vw, 0.96rem);
+    font-weight: 800;
+    color: #ffd7d7;
+    letter-spacing: 0.02em;
   }
 
   &__body p {
