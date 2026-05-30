@@ -49,4 +49,14 @@ export class ProductCreditService {
       request,
     );
   }
+
+  payAllForEmployee(
+    employeeId: number,
+    request: ProductCreditPayAllRequest,
+  ): Observable<ProductCreditPayAllResponse> {
+    return this.http.post<ProductCreditPayAllResponse>(
+      `${this.baseUrl}/employee/${employeeId}/pay-all`,
+      request,
+    );
+  }
 }

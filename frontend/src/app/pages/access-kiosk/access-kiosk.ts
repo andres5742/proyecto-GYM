@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AccessService } from '../../core/services/access.service';
 import {
   firstNameFromFullName,
+  ensureWelcomeAudioUnlocked,
   isWelcomeAudioSupported,
   isWelcomeAudioUnlocked,
   accessWelcomeHintsFromResponse,
@@ -32,6 +33,7 @@ const POLL_MS = 700;
 const GRANTED_DISPLAY_MS = 8000;
 const DENIED_DISPLAY_MS = 5000;
 const SELECT_MEMBER_DISPLAY_MS = 45000;
+const LOW_BALANCE_ALERT_THRESHOLD = 5;
 /** Arranque automático al abrir la página (sin botón Activar). */
 const AUTO_START_MS = 400;
 
@@ -52,6 +54,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   private pollBootstrapped = false;
   private autoStartTimer: ReturnType<typeof setTimeout> | null = null;
   private audioUnlockAttempted = false;
+  private audioBootstrapTimers: ReturnType<typeof setTimeout>[] = [];
   private lastWelcomedLogId = 0;
   private lastWelcomedAt = 0;
   private lastWelcomedKey = '';
@@ -60,6 +63,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   protected readonly clock = signal(new Date());
   protected readonly statusLine = signal('Iniciando pantalla de acceso…');
   protected readonly welcomeTitle = signal<string | null>(null);
+  protected readonly lowBalanceAlert = signal(false);
   protected readonly audioUnlocked = signal(false);
   protected readonly kioskReady = signal(false);
   protected readonly showWelcomeAudioBtn = signal(false);
@@ -135,6 +139,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (this.autoStartTimer) {
       clearTimeout(this.autoStartTimer);
     }
+    this.clearAudioBootstrapTimers();
     this.stopPolling();
     if (this.releaseTimer) {
       clearTimeout(this.releaseTimer);
@@ -167,6 +172,19 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.audioUnlockAttempted = true;
     const ok = unlockWelcomeAudio();
     this.audioUnlocked.set(ok);
+    this.scheduleAudioBootstrapRefresh();
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus(): void {
+    this.refreshAudioSession();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!document.hidden) {
+      this.refreshAudioSession();
+    }
   }
 
   private startKiosk(): void {
@@ -176,6 +194,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (this.audioSupported) {
       const ok = unlockWelcomeAudio();
       this.audioUnlocked.set(ok);
+      this.scheduleAudioBootstrapRefresh();
     }
     this.kioskReady.set(true);
     this.pollSinceIso = new Date().toISOString();
@@ -186,6 +205,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.lastWelcomedKey = '';
     this.lastResult.set(null);
     this.welcomeTitle.set(null);
+    this.lowBalanceAlert.set(false);
     this.statusLine.set('Sistema activado. Pase su tarjeta o coloque su huella en el lector…');
     this.startPolling();
   }
@@ -320,15 +340,6 @@ export class AccessKiosk implements OnInit, OnDestroy {
     }
 
     const forceLocalUnlock = this.shouldForceLocalUnlock(res);
-    window.sportGymDesktop?.syncAccessResult?.({
-      result: res.result,
-      gateOpened: Boolean(res.gateOpened) || forceLocalUnlock,
-      deviceUserId: res.deviceUserId,
-      credentialType: res.credentialType,
-    });
-    if (res.credentialType !== 'CARD' || this.isShortcutPass(res.deviceUserId)) {
-      this.syncLocalGate(res, forceLocalUnlock);
-    }
 
     this.lastResult.set(res);
     if (res.accessLogId && res.accessLogId > this.lastProcessedLogId) {
@@ -336,6 +347,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     }
 
     if (res.result === 'SELECT_MEMBER') {
+      this.dispatchGateSync(res, forceLocalUnlock);
       const candidates = res.cardSelectionCandidates ?? [];
       if (candidates.length > 0) {
         this.cardSelection.set({
@@ -346,6 +358,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
         this.cardSelection.set(null);
       }
       this.welcomeTitle.set(null);
+      this.lowBalanceAlert.set(false);
       this.showWelcomeAudioBtn.set(false);
       this.statusLine.set(
         candidates.length > 0
@@ -366,18 +379,20 @@ export class AccessKiosk implements OnInit, OnDestroy {
         ? resolveStaffWelcomeText(res.message, gender)
         : resolveMemberWelcomeText(res.message, firstName, gender);
       this.welcomeTitle.set(welcomeText);
+      const lowBalanceWarning = this.lowBalanceWarningText(res);
+      this.lowBalanceAlert.set(Boolean(lowBalanceWarning));
       prepareWelcomeSpeech();
       if (this.shouldSpeakWelcome(res)) {
-        if (isWelcomeAudioUnlocked()) {
-          const spoke = staff
-            ? playStaffAccessWelcome(gender, res.message)
-            : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
-          this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
-        } else {
-          this.showWelcomeAudioBtn.set(this.audioSupported);
-        }
+        this.refreshAudioSession();
+        const spoke = staff
+          ? playStaffAccessWelcome(gender, res.message)
+          : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
+        // Disparar apertura justo tras iniciar la locución para que voz/seguro salgan juntos.
+        this.dispatchGateSync(res, forceLocalUnlock);
+        this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
         this.markWelcomeSpoken(res);
       } else {
+        this.dispatchGateSync(res, forceLocalUnlock);
         this.showWelcomeAudioBtn.set(false);
       }
       if (staff) {
@@ -387,13 +402,15 @@ export class AccessKiosk implements OnInit, OnDestroy {
         const accessHint = this.memberAccessHint(res);
         this.statusLine.set(
           cedula
-            ? `${welcomeText} · Cédula ${cedula}${accessHint ? ` · ${accessHint}` : ''}. Pasa al torniquete.`
-            : `${welcomeText}${accessHint ? ` · ${accessHint}` : ''}. Pasa al torniquete.`,
+            ? `${welcomeText} · Cédula ${cedula}${accessHint ? ` · ${accessHint}` : ''}${lowBalanceWarning ? ` · ${lowBalanceWarning}` : ''}. Pasa al torniquete.`
+            : `${welcomeText}${accessHint ? ` · ${accessHint}` : ''}${lowBalanceWarning ? ` · ${lowBalanceWarning}` : ''}. Pasa al torniquete.`,
         );
       }
       this.scheduleRelease(GRANTED_DISPLAY_MS);
     } else {
+      this.dispatchGateSync(res, forceLocalUnlock);
       this.welcomeTitle.set(null);
+      this.lowBalanceAlert.set(false);
       this.showWelcomeAudioBtn.set(false);
       const cedula = this.displayCedula(res);
       this.statusLine.set(cedula ? `${res.message} (Cédula ${cedula})` : res.message);
@@ -431,6 +448,30 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (res.membershipDaysRemaining != null) {
       const days = res.membershipDaysRemaining;
       return days === 1 ? 'Te queda 1 día de membresía' : `Te quedan ${days} días de membresía`;
+    }
+    return null;
+  }
+
+  protected lowBalanceWarningText(res: AccessVerifyResponse | null): string | null {
+    if (!res || res.result !== 'GRANTED' || isStaffPerson(res)) {
+      return null;
+    }
+    if (res.tiqueteraPlan && res.tiqueteraEntriesRemainingAfter != null) {
+      const left = res.tiqueteraEntriesRemainingAfter;
+      if (left <= LOW_BALANCE_ALERT_THRESHOLD) {
+        return left === 1
+          ? 'ALERTA: queda 1 entreno'
+          : `ALERTA: quedan ${left} entrenos`;
+      }
+      return null;
+    }
+    if (res.membershipDaysRemaining != null) {
+      const days = res.membershipDaysRemaining;
+      if (days <= LOW_BALANCE_ALERT_THRESHOLD) {
+        return days === 1
+          ? 'ALERTA: queda 1 día de membresía'
+          : `ALERTA: quedan ${days} días de membresía`;
+      }
     }
     return null;
   }
@@ -521,8 +562,50 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.cardSelection.set(null);
       this.lastResult.set(null);
       this.welcomeTitle.set(null);
+      this.lowBalanceAlert.set(false);
       this.showWelcomeAudioBtn.set(false);
       this.statusLine.set('Pase su tarjeta o coloque su huella en el lector…');
     }, ms);
+  }
+
+  private scheduleAudioBootstrapRefresh(): void {
+    this.clearAudioBootstrapTimers();
+    for (const ms of [700, 1900, 3800]) {
+      const timer = setTimeout(() => this.refreshAudioSession(), ms);
+      this.audioBootstrapTimers.push(timer);
+    }
+  }
+
+  private clearAudioBootstrapTimers(): void {
+    for (const timer of this.audioBootstrapTimers) {
+      clearTimeout(timer);
+    }
+    this.audioBootstrapTimers = [];
+  }
+
+  private refreshAudioSession(): void {
+    if (!this.audioSupported || this.configError()) {
+      return;
+    }
+    if (!isWelcomeAudioUnlocked()) {
+      const ok = ensureWelcomeAudioUnlocked();
+      this.audioUnlocked.set(ok);
+      return;
+    }
+    const ok = ensureWelcomeAudioUnlocked();
+    this.audioUnlocked.set(ok);
+    prepareWelcomeSpeech();
+  }
+
+  private dispatchGateSync(res: AccessVerifyResponse, forceLocalUnlock: boolean): void {
+    window.sportGymDesktop?.syncAccessResult?.({
+      result: res.result,
+      gateOpened: Boolean(res.gateOpened) || forceLocalUnlock,
+      deviceUserId: res.deviceUserId,
+      credentialType: res.credentialType,
+    });
+    if (res.credentialType !== 'CARD' || this.isShortcutPass(res.deviceUserId)) {
+      this.syncLocalGate(res, forceLocalUnlock);
+    }
   }
 }

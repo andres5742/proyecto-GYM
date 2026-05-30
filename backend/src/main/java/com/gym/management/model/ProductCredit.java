@@ -37,12 +37,21 @@ public class ProductCredit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "member_id", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "debtor_type", nullable = false, length = 20)
+    @Builder.Default
+    private ProductCreditDebtorType debtorType = ProductCreditDebtorType.MEMBER;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
     private Member member;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "debtor_employee_id")
+    private Employee debtorEmployee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
     private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -79,6 +88,13 @@ public class ProductCredit {
 
     @Column(length = 500)
     private String notes;
+
+    @Column(name = "prior_debt", nullable = false)
+    @Builder.Default
+    private boolean priorDebt = false;
+
+    @Column(name = "concept", length = 200)
+    private String concept;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

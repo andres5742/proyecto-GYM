@@ -1,7 +1,7 @@
-' Sport Gym Acceso — lanzador oficial (Electron o navegador + lector COM3)
+' Sport Gym Acceso — lanzador oficial (solo Electron + lector COM3)
 Option Explicit
 
-Dim sh, fso, dest, gw, app, url, profile, edge, chrome, args, errMsg
+Dim sh, fso, dest, gw, app, errMsg
 
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -44,46 +44,12 @@ If fso.FileExists(app) Then
   WScript.Quit 0
 End If
 
-' Sin Electron: pantalla /acceso en Edge o Chrome (modo app)
-url = "https://sportgymr10.com/acceso"
-profile = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\SportGymAcceso\EdgeProfile")
-EnsureFolder profile
-args = "--app=" & url & " --window-size=1400,900 --disable-features=TranslateUI --user-data-dir=""" & profile & """"
-
-edge = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe")
-If fso.FileExists(edge) Then
-  sh.Run """" & edge & """ " & args, 1, False
-  WScript.Quit 0
-End If
-
-edge = sh.ExpandEnvironmentStrings("%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
-If fso.FileExists(edge) Then
-  sh.Run """" & edge & """ " & args, 1, False
-  WScript.Quit 0
-End If
-
-chrome = sh.ExpandEnvironmentStrings("%ProgramFiles%\Google\Chrome\Application\chrome.exe")
-If fso.FileExists(chrome) Then
-  sh.Run """" & chrome & """ --app=" & url & " --window-size=1400,900", 1, False
-  WScript.Quit 0
-End If
-
-chrome = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
-If fso.FileExists(chrome) Then
-  sh.Run """" & chrome & """ --app=" & url & " --window-size=1400,900", 1, False
-  WScript.Quit 0
-End If
-
-sh.Run url, 1, False
-
-Sub EnsureFolder(path)
-  If fso.FolderExists(path) Then Exit Sub
-  Dim parent
-  parent = fso.GetParentFolderName(path)
-  If Len(parent) > 0 And Not fso.FolderExists(parent) Then
-    EnsureFolder parent
-  End If
-  If Not fso.FolderExists(path) Then
-    fso.CreateFolder path
-  End If
-End Sub
+errMsg = "No se encontro Sport Gym Acceso.exe." & vbCrLf & vbCrLf & _
+         "Ruta esperada:" & vbCrLf & _
+         " - %LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" & vbCrLf & _
+         " - C:\SportGym\Sport Gym Acceso.exe" & vbCrLf & _
+         " - %ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" & vbCrLf & _
+         " - %ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe" & vbCrLf & vbCrLf & _
+         "Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat para reinstalar."
+MsgBox errMsg, vbCritical, "Sport Gym Acceso"
+WScript.Quit 1

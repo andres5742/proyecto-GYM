@@ -6,7 +6,7 @@ REM  INSTALADOR OFICIAL — PC del torniquete (instalar y actualizar).
 REM  Copie SOLO este archivo al PC y ejecutelo con internet.
 REM
 REM  GitHub:
-REM  https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+REM  https://raw.githubusercontent.com/andres5742/proyecto-GYM/aplicacion_torniquete/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
 REM ============================================================
 goto :Main
 
@@ -59,8 +59,9 @@ set "GW=%DEST%\turnstile-gateway"
 set "LOG=%DEST%\ACTUALIZAR-LOG.txt"
 set "SETUP_NAME=SportGym-Acceso-Setup-1.0.0-win32.exe"
 set "SETUP_URL=https://sportgymr10.com/downloads/%SETUP_NAME%"
-set "GIT_GW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware/turnstile-gateway"
-set "GIT_HW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/master/hardware"
+set "GIT_BRANCH=aplicacion_torniquete"
+set "GIT_GW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/%GIT_BRANCH%/hardware/turnstile-gateway"
+set "GIT_HW=https://raw.githubusercontent.com/andres5742/proyecto-GYM/%GIT_BRANCH%/hardware"
 
 mkdir "%DEST%" 2>nul
 mkdir "%GW%" 2>nul

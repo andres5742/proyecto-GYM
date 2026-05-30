@@ -1,6 +1,6 @@
 @echo off
 REM Arranque al encender Windows o al iniciar sesion (Sport Gym torniquete).
-REM Orden: cerrar ATP -^> liberar COM3 -^> lector -^> pantalla Electron (o Edge).
+REM Orden: cerrar ATP -^> liberar COM3 -^> lector -^> pantalla Electron.
 
 setlocal
 title Sport Gym - Arranque
@@ -50,11 +50,7 @@ if exist "%DEST%\INICIAR-ACCESO-COMPLETO.bat" (
   exit /b 0
 )
 
-if exist "%GW%\SportGym-Acceso-App.bat" (
-  call "%GW%\SportGym-Acceso-App.bat"
-  exit /b 0
-)
-
-echo ERROR: Instale Sport Gym Acceso desde sportgymr10.com/downloads/
+echo ERROR: No se encontro Sport Gym Acceso.exe.
+echo Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat para instalar la app.
 timeout /t 20
 exit /b 1

@@ -290,6 +290,7 @@ function registerExitShortcuts() {
 
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
 
 ipcMain.on('app-request-quit', () => {

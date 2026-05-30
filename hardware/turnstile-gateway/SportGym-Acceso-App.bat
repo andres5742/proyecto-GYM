@@ -2,45 +2,37 @@
 title Sport Gym - App Acceso
 cd /d "%~dp0"
 
-set URL=https://sportgymr10.com/acceso
-
-echo Abriendo aplicacion de acceso (ventana propia, sin barra del navegador)...
-echo URL: %URL%
+echo Abriendo Sport Gym Acceso (app de escritorio)...
 echo.
 
 if exist "%~dp0preparar-com3.bat" call "%~dp0preparar-com3.bat"
 
 start "Sport Gym - Lector tarjeta COM3" /min cmd /k call "%~dp0iniciar-lector-tarjeta.bat"
-timeout /t 5 /nobreak >nul
-
-set "PROFILE=%LOCALAPPDATA%\SportGymAcceso\EdgeProfile"
-mkdir "%PROFILE%" 2>nul
-
-REM Microsoft Edge (modo app = ventana propia con logo del gym desde el servidor)
-if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" (
-  start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --app=%URL% --window-size=1400,900 --disable-features=TranslateUI --user-data-dir="%PROFILE%"
+timeout /t 8 /nobreak >nul
+if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" (
+  start "" "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe"
   goto :ok
 )
-if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" (
-  start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --app=%URL% --window-size=1400,900 --disable-features=TranslateUI --user-data-dir="%PROFILE%"
+if exist "C:\SportGym\Sport Gym Acceso.exe" (
+  start "" "C:\SportGym\Sport Gym Acceso.exe"
   goto :ok
 )
-
-REM Google Chrome
-if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
-  start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=%URL% --window-size=1400,900
+if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" (
+  start "" "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe"
   goto :ok
 )
-if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" (
-  start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" --app=%URL% --window-size=1400,900
+if exist "%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe" (
+  start "" "%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe"
   goto :ok
 )
 
-echo No se encontro Edge ni Chrome. Abriendo navegador predeterminado...
-start "" %URL%
+echo ERROR: No se encontro Sport Gym Acceso.exe
+echo Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat para instalar la app.
+pause
+exit /b 1
 
 :ok
 echo.
-echo App abierta desde %URL% (pantalla del servidor, logo Sport Gym).
-echo Lector COM3 en ventana aparte. Para pantalla completa: SportGym-Acceso-Kiosk.bat
+echo App abierta en modo escritorio.
+echo Lector COM3 en ventana aparte.
 exit /b 0

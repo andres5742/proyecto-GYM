@@ -12,8 +12,9 @@ public interface ProductCreditRepository extends JpaRepository<ProductCredit, Lo
     @Query(
             """
             SELECT c FROM ProductCredit c
-            JOIN FETCH c.member
-            JOIN FETCH c.product
+            LEFT JOIN FETCH c.member
+            LEFT JOIN FETCH c.debtorEmployee
+            LEFT JOIN FETCH c.product
             JOIN FETCH c.employee
             JOIN FETCH c.workShift
             ORDER BY c.creditedAt DESC, c.createdAt DESC
@@ -23,8 +24,9 @@ public interface ProductCreditRepository extends JpaRepository<ProductCredit, Lo
     @Query(
             """
             SELECT c FROM ProductCredit c
-            JOIN FETCH c.member
-            JOIN FETCH c.product
+            LEFT JOIN FETCH c.member
+            LEFT JOIN FETCH c.debtorEmployee
+            LEFT JOIN FETCH c.product
             JOIN FETCH c.employee
             JOIN FETCH c.workShift
             WHERE c.status = :status
@@ -37,8 +39,9 @@ public interface ProductCreditRepository extends JpaRepository<ProductCredit, Lo
     @Query(
             """
             SELECT c FROM ProductCredit c
-            JOIN FETCH c.member
-            JOIN FETCH c.product
+            LEFT JOIN FETCH c.member
+            LEFT JOIN FETCH c.debtorEmployee
+            LEFT JOIN FETCH c.product
             JOIN FETCH c.employee
             JOIN FETCH c.workShift
             LEFT JOIN FETCH c.payments p
@@ -50,4 +53,7 @@ public interface ProductCreditRepository extends JpaRepository<ProductCredit, Lo
 
     List<ProductCredit> findByMemberIdAndStatusOrderByCreditedAtAsc(
             Long memberId, ProductCreditStatus status);
+
+    List<ProductCredit> findByDebtorEmployeeIdAndStatusOrderByCreditedAtAsc(
+            Long debtorEmployeeId, ProductCreditStatus status);
 }

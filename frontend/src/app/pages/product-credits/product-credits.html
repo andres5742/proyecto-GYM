@@ -2,7 +2,7 @@
   <header class="page-header">
     <h1>Fiado de productos</h1>
     <p class="page-lead">
-      Deuda consolidada por afiliado. Los cobros en <strong>efectivo</strong> suman en la entrega de turno.
+      Deuda consolidada por afiliado y entrenador. Los cobros en <strong>efectivo</strong> suman en la entrega de turno.
     </p>
   </header>
 
@@ -19,56 +19,107 @@
   <section class="panel form-panel">
     <h2>Nuevo fiado</h2>
     <div class="form-grid">
+      <label class="field">
+        <span>Deudor</span>
+        <select
+          [ngModel]="debtorType()"
+          (ngModelChange)="debtorType.set($event); selectedMemberId.set(null); selectedTrainerId.set(null); memberSearch.set('')"
+        >
+          <option value="MEMBER">Afiliado</option>
+          <option value="STAFF">Entrenador</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Tipo de registro</span>
+        <select
+          [ngModel]="debtMode()"
+          (ngModelChange)="debtMode.set($event)"
+        >
+          <option value="PRODUCT">Fiar producto (afecta inventario)</option>
+          <option value="PRIOR_DEBT">Deuda anterior (no afecta inventario)</option>
+        </select>
+      </label>
       <label class="field field--wide">
-        <span>Afiliado</span>
+        <span>{{ debtorTypeLabel() }}</span>
         <input
           type="search"
           placeholder="Nombre, documento o teléfono…"
           [ngModel]="memberSearch()"
-          (ngModelChange)="memberSearch.set($event); selectedMemberId.set(null)"
+          (ngModelChange)="memberSearch.set($event); selectedMemberId.set(null); selectedTrainerId.set(null)"
         />
-        @if (memberSearch() && !selectedMemberId()) {
+        @if (memberSearch() && !selectedMemberId() && !selectedTrainerId()) {
           <ul class="member-suggest">
-            @for (m of filteredMembers(); track m.id) {
-              <li>
-                <button type="button" (click)="selectMember(m.id)">
-                  {{ m.firstName }} {{ m.lastName }}
-                  @if (m.documentId) {
-                    <small>· {{ m.documentId }}</small>
-                  }
-                </button>
-              </li>
+            @if (debtorType() === 'MEMBER') {
+              @for (m of filteredMembers(); track m.id) {
+                <li>
+                  <button type="button" (click)="selectMember(m.id)">
+                    {{ m.firstName }} {{ m.lastName }}
+                    @if (m.documentId) {
+                      <small>· {{ m.documentId }}</small>
+                    }
+                  </button>
+                </li>
+              }
+            } @else {
+              @for (t of filteredTrainers(); track t.id) {
+                <li>
+                  <button type="button" (click)="selectTrainer(t.id)">
+                    {{ t.firstName }} {{ t.lastName }}
+                  </button>
+                </li>
+              }
             }
           </ul>
         }
       </label>
-      <label class="field">
-        <span>Producto</span>
-        <select
-          [ngModel]="selectedProductId()"
-          (ngModelChange)="selectedProductId.set($event ? +$event : null)"
-        >
-          <option [ngValue]="null">— Seleccionar —</option>
-          @for (p of products(); track p.id) {
-            <option [value]="p.id">{{ p.name }} ({{ p.unitPrice | cop }}) · stock {{ p.quantity }}</option>
-          }
-        </select>
-      </label>
-      <label class="field">
-        <span>Cantidad</span>
-        <input
-          type="number"
-          min="1"
-          [ngModel]="quantity()"
-          (ngModelChange)="quantity.set(+$event || 1)"
-        />
-      </label>
+      @if (debtMode() === 'PRODUCT') {
+        <label class="field">
+          <span>Producto</span>
+          <select
+            [ngModel]="selectedProductId()"
+            (ngModelChange)="selectedProductId.set($event ? +$event : null)"
+          >
+            <option [ngValue]="null">— Seleccionar —</option>
+            @for (p of products(); track p.id) {
+              <option [value]="p.id">{{ p.name }} ({{ p.unitPrice | cop }}) · stock {{ p.quantity }}</option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span>Cantidad</span>
+          <input
+            type="number"
+            min="1"
+            [ngModel]="quantity()"
+            (ngModelChange)="quantity.set(+$event || 1)"
+          />
+        </label>
+      } @else {
+        <label class="field">
+          <span>Monto deuda anterior</span>
+          <input
+            type="number"
+            min="1"
+            [ngModel]="priorDebtAmount()"
+            (ngModelChange)="priorDebtAmount.set($event != null ? +$event : null)"
+          />
+        </label>
+        <label class="field">
+          <span>Concepto</span>
+          <input
+            type="text"
+            placeholder="Ej. deuda meses anteriores"
+            [ngModel]="priorDebtConcept()"
+            (ngModelChange)="priorDebtConcept.set($event)"
+          />
+        </label>
+      }
       <label class="field field--wide">
         <span>Notas (opcional)</span>
         <input type="text" [ngModel]="creditNotes()" (ngModelChange)="creditNotes.set($event)" />
       </label>
     </div>
-    @if (selectedProduct()) {
+    @if (creditLineTotal() > 0) {
       <p class="line-total">Total fiado: <strong>{{ creditLineTotal() | cop }}</strong></p>
     }
     <button

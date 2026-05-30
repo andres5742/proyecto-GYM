@@ -14,11 +14,13 @@ import com.gym.management.model.Member;
 import com.gym.management.model.PaymentMethod;
 import com.gym.management.model.Product;
 import com.gym.management.model.ProductCredit;
+import com.gym.management.model.ProductCreditDebtorType;
 import com.gym.management.model.ProductCreditPayment;
 import com.gym.management.model.ProductCreditStatus;
 import com.gym.management.model.Sale;
 import com.gym.management.model.ShiftStatus;
 import com.gym.management.model.WorkShift;
+import com.gym.management.repository.EmployeeRepository;
 import com.gym.management.repository.MemberRepository;
 import com.gym.management.repository.ProductCreditPaymentRepository;
 import com.gym.management.repository.ProductCreditRepository;
@@ -39,6 +41,7 @@ public class ProductCreditService {
     private final ProductCreditRepository creditRepository;
     private final ProductCreditPaymentRepository paymentRepository;
     private final MemberRepository memberRepository;
+    private final EmployeeRepository employeeRepository;
     private final ProductService productService;
     private final WorkShiftService workShiftService;
 
@@ -66,33 +69,81 @@ public class ProductCreditService {
             throw new BusinessException("El vendedor del turno no está activo");
         }
 
-        Member member = memberRepository
-                .findById(request.memberId())
-                .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado"));
-        Product product = productService.getProduct(request.productId());
-        if (!Boolean.TRUE.equals(product.getActive())) {
-            throw new BusinessException("El producto no está activo");
+        Member member = null;
+        Employee debtorEmployee = null;
+        if (request.memberId() != null && request.employeeDebtorId() != null) {
+            throw new BusinessException("Seleccione afiliado o entrenador, no ambos");
         }
-        if (product.getQuantity() < request.quantity()) {
-            throw new BusinessException(
-                    "Stock insuficiente. Disponible: " + product.getQuantity());
+        if (request.memberId() != null) {
+            member = memberRepository
+                    .findById(request.memberId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado"));
+        } else if (request.employeeDebtorId() != null) {
+            debtorEmployee = employeeRepository
+                    .findById(request.employeeDebtorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado"));
+            if (!Boolean.TRUE.equals(debtorEmployee.getActive())) {
+                throw new BusinessException("El entrenador no está activo");
+            }
+        } else {
+            throw new BusinessException("Seleccione el deudor (afiliado o entrenador)");
         }
+        ProductCreditDebtorType debtorType = debtorEmployee != null
+                ? ProductCreditDebtorType.STAFF
+                : ProductCreditDebtorType.MEMBER;
 
-        BigDecimal unitPrice = product.getUnitPrice();
-        BigDecimal totalAmount = unitPrice.multiply(BigDecimal.valueOf(request.quantity()));
-        product.setQuantity(product.getQuantity() - request.quantity());
+        boolean priorDebt = Boolean.TRUE.equals(request.priorDebt());
+        Product product = null;
+        int quantity = request.quantity() != null ? Math.max(1, request.quantity()) : 1;
+        BigDecimal unitPrice;
+        BigDecimal totalAmount;
+        String concept = request.concept() != null && !request.concept().isBlank()
+                ? request.concept().trim()
+                : null;
+
+        if (priorDebt) {
+            BigDecimal amount = request.manualAmount();
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Indique el monto de la deuda anterior");
+            }
+            totalAmount = amount;
+            unitPrice = amount;
+            quantity = 1;
+        } else {
+            if (request.productId() == null) {
+                throw new BusinessException("Seleccione el producto fiado");
+            }
+            if (request.quantity() == null || request.quantity() < 1) {
+                throw new BusinessException("Indique la cantidad del producto");
+            }
+            product = productService.getProduct(request.productId());
+            if (!Boolean.TRUE.equals(product.getActive())) {
+                throw new BusinessException("El producto no está activo");
+            }
+            if (product.getQuantity() < request.quantity()) {
+                throw new BusinessException(
+                        "Stock insuficiente. Disponible: " + product.getQuantity());
+            }
+            unitPrice = product.getUnitPrice();
+            totalAmount = unitPrice.multiply(BigDecimal.valueOf(request.quantity()));
+            product.setQuantity(product.getQuantity() - request.quantity());
+        }
 
         ProductCredit credit = ProductCredit.builder()
+                .debtorType(debtorType)
                 .member(member)
+                .debtorEmployee(debtorEmployee)
                 .product(product)
                 .employee(employee)
                 .workShift(shift)
-                .quantity(request.quantity())
+                .quantity(quantity)
                 .unitPrice(unitPrice)
                 .totalAmount(totalAmount)
                 .balance(totalAmount)
                 .status(ProductCreditStatus.OPEN)
                 .creditedAt(LocalDateTime.now(GYM_ZONE))
+                .priorDebt(priorDebt)
+                .concept(concept)
                 .notes(request.notes())
                 .build();
 
@@ -161,6 +212,7 @@ public class ProductCreditService {
                 .orElseThrow(() -> new ResourceNotFoundException("Afiliado no encontrado"));
 
         ProductCredit credit = ProductCredit.builder()
+                .debtorType(ProductCreditDebtorType.MEMBER)
                 .member(member)
                 .product(sale.getProduct())
                 .employee(sale.getEmployee())
@@ -172,6 +224,7 @@ public class ProductCreditService {
                 .balance(sale.getTotalAmount())
                 .status(ProductCreditStatus.OPEN)
                 .creditedAt(sale.getSaleDate())
+                .priorDebt(false)
                 .notes("Registrado desde ventas (pendiente/deuda)")
                 .build();
         creditRepository.save(credit);
@@ -187,6 +240,35 @@ public class ProductCreditService {
                 creditRepository.findByMemberIdAndStatusOrderByCreditedAtAsc(memberId, ProductCreditStatus.OPEN);
         if (openCredits.isEmpty()) {
             throw new BusinessException("Este afiliado no tiene deuda pendiente");
+        }
+        List<ProductCreditPaymentResponse> payments = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO;
+        for (ProductCredit credit : openCredits) {
+            BigDecimal amount = credit.getBalance();
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            ProductCreditPaymentRequest line = new ProductCreditPaymentRequest(
+                    amount, request.paymentMethod(), request.workShiftId(), request.notes());
+            payments.add(registerPayment(credit.getId(), line));
+            total = total.add(amount);
+        }
+        if (payments.isEmpty()) {
+            throw new BusinessException("No hay saldo pendiente por cobrar");
+        }
+        return new ProductCreditPayAllResponse(payments.size(), total, payments);
+    }
+
+    /** Liquida todas las líneas OPEN del entrenador deudor. */
+    @Transactional
+    public ProductCreditPayAllResponse payAllForEmployee(Long employeeId, ProductCreditPayAllRequest request) {
+        employeeRepository
+                .findById(employeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Entrenador no encontrado"));
+        List<ProductCredit> openCredits =
+                creditRepository.findByDebtorEmployeeIdAndStatusOrderByCreditedAtAsc(employeeId, ProductCreditStatus.OPEN);
+        if (openCredits.isEmpty()) {
+            throw new BusinessException("Este entrenador no tiene deuda pendiente");
         }
         List<ProductCreditPaymentResponse> payments = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;

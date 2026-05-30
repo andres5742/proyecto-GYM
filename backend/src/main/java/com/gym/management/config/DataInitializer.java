@@ -529,6 +529,79 @@ public class DataInitializer {
     }
 
     @Bean
+    CommandLineRunner ensureProductCreditsDebtorAndPriorDebtColumns(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ADD COLUMN IF NOT EXISTS debtor_type VARCHAR(20)
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE product_credits
+                        SET debtor_type = 'MEMBER'
+                        WHERE debtor_type IS NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ALTER COLUMN debtor_type SET NOT NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        DROP CONSTRAINT IF EXISTS product_credits_debtor_type_check
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ADD CONSTRAINT product_credits_debtor_type_check
+                        CHECK (debtor_type IN ('MEMBER', 'STAFF'))
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ADD COLUMN IF NOT EXISTS debtor_employee_id BIGINT REFERENCES employees(id)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ADD COLUMN IF NOT EXISTS prior_debt BOOLEAN DEFAULT FALSE
+                        """);
+                jdbc.execute(
+                        """
+                        UPDATE product_credits
+                        SET prior_debt = FALSE
+                        WHERE prior_debt IS NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ALTER COLUMN prior_debt SET NOT NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ADD COLUMN IF NOT EXISTS concept VARCHAR(200)
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ALTER COLUMN member_id DROP NOT NULL
+                        """);
+                jdbc.execute(
+                        """
+                        ALTER TABLE product_credits
+                        ALTER COLUMN product_id DROP NOT NULL
+                        """);
+            } catch (Exception ignored) {
+                // Tabla aún no creada
+            }
+        };
+    }
+
+    @Bean
     CommandLineRunner ensureBillingModuleAndDayPlan() {
         return args -> {
             if (appModuleRepository.findById("FACTURACION").isEmpty()) {

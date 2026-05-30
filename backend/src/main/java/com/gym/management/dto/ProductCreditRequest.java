@@ -1,11 +1,15 @@
 package com.gym.management.dto;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
 
 public record ProductCreditRequest(
-        @NotNull Long memberId,
-        @NotNull Long productId,
-        @NotNull @Min(1) Integer quantity,
+        Long memberId,
+        Long employeeDebtorId,
+        Long productId,
+        @Min(1) Integer quantity,
+        BigDecimal manualAmount,
+        Boolean priorDebt,
+        String concept,
         Long workShiftId,
         String notes) {}

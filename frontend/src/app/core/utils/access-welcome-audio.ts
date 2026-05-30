@@ -21,6 +21,10 @@ let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 let cachedVoice: SpeechSynthesisVoice | undefined;
 let lastSpeechSignature = '';
 let lastSpeechAt = 0;
+const SPEECH_START_TIMEOUT_MS = 2400;
+const SPEECH_RETRY_DELAY_MS = 260;
+const MAX_SPEECH_RETRIES = 3;
+const FEMALE_VOICE_PITCH = 1.06;
 
 function getSpeech(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -78,8 +82,9 @@ function scoreVoice(voice: SpeechSynthesisVoice): number {
   if (lang.startsWith('es')) score += 10;
 
   if (/google.*español|español.*google|google español|google español/i.test(voice.name)) score += 55;
-  if (/microsoft.*(helena|laura|sabina|elvira|raúl|raul)/i.test(voice.name)) score += 50;
-  if (/paulina|monica|flo|soledad|jorge|diego|carlos/i.test(name)) score += 42;
+  if (/microsoft.*(helena|laura|sabina|elvira|sofia|soledad|paulina|monica|zira|dalia)/i.test(voice.name)) score += 58;
+  if (/paulina|monica|flo|soledad|helena|laura|sabina|elvira|sofia|dalia|zira/i.test(name)) score += 48;
+  if (/jorge|diego|carlos|raul|raúl/i.test(name)) score -= 18;
   if (/neural|natural|premium|online|enhanced/i.test(name)) score += 30;
   if (!voice.localService) score += 12;
 
@@ -113,7 +118,7 @@ function buildUtterance(text: string, opts?: UtteranceOpts): SpeechSynthesisUtte
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = opts?.lang ?? 'es-CO';
   utterance.rate = opts?.rate ?? 0.94;
-  utterance.pitch = opts?.pitch ?? 1;
+  utterance.pitch = opts?.pitch ?? FEMALE_VOICE_PITCH;
   utterance.volume = 1;
   return utterance;
 }
@@ -135,6 +140,7 @@ function speakSequence(speech: SpeechSynthesis, segments: SpeechSegment[]): void
   }
 
   unlockAudioContext();
+  prepareWelcomeSpeech();
   speech.resume();
   const voice = pickSpanishVoice(speech);
   let index = 0;
@@ -146,15 +152,61 @@ function speakSequence(speech: SpeechSynthesis, segments: SpeechSegment[]): void
     }
 
     const seg = segments[index++];
-    const run = (): void => {
+    const run = (retry = 0): void => {
       const utterance = buildUtterance(seg.text, { rate: seg.rate, pitch: seg.pitch });
       if (voice) {
         utterance.voice = voice;
       }
-      utterance.onend = speakNext;
-      utterance.onerror = speakNext;
+
+      let started = false;
+      let finished = false;
+      const finish = (): void => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        speakNext();
+      };
+
+      const startGuard = setTimeout(() => {
+        if (started || finished) {
+          return;
+        }
+        speech.cancel();
+        if (retry < MAX_SPEECH_RETRIES) {
+          setTimeout(() => run(retry + 1), SPEECH_RETRY_DELAY_MS);
+          return;
+        }
+        finish();
+      }, SPEECH_START_TIMEOUT_MS);
+
+      utterance.onstart = () => {
+        started = true;
+        clearTimeout(startGuard);
+      };
+      utterance.onend = () => {
+        clearTimeout(startGuard);
+        finish();
+      };
+      utterance.onerror = () => {
+        clearTimeout(startGuard);
+        if (!started && retry < MAX_SPEECH_RETRIES) {
+          setTimeout(() => run(retry + 1), SPEECH_RETRY_DELAY_MS);
+          return;
+        }
+        finish();
+      };
       startSpeechKeepAlive(speech);
-      speech.speak(utterance);
+      try {
+        speech.speak(utterance);
+      } catch {
+        clearTimeout(startGuard);
+        if (retry < MAX_SPEECH_RETRIES) {
+          setTimeout(() => run(retry + 1), SPEECH_RETRY_DELAY_MS);
+          return;
+        }
+        finish();
+      }
     };
 
     if (seg.pauseBeforeMs && seg.pauseBeforeMs > 0) {
@@ -253,7 +305,7 @@ export function staffWelcomeHeadline(gender?: Gender | null): string {
 
 function staffWelcomeSegments(gender?: Gender | null): SpeechSegment[] {
   const word = welcomeWord(gender);
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   return [
     { text: `¡${word}!`, rate: 0.95, pitch },
     {
@@ -275,12 +327,12 @@ function staffWelcomeSegmentsFromMessage(
   }
   const excelenteIdx = base.toLowerCase().indexOf('que tenga un excelente entreno');
   if (excelenteIdx < 0) {
-    const pitch = gender === 'FEMALE' ? 1.04 : 1;
+    const pitch = FEMALE_VOICE_PITCH;
     return [{ text: base, rate: 0.95, pitch }];
   }
   const intro = base.slice(0, excelenteIdx).trim();
   const outro = base.slice(excelenteIdx).trim();
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   return [
     { text: intro, rate: 0.95, pitch },
     { text: outro, rate: 0.93, pitch: 0.98, pauseBeforeMs: 320 },
@@ -293,6 +345,9 @@ export function playStaffAccessWelcome(gender?: Gender | null, logMessage?: stri
   if (!speech) {
     return false;
   }
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
   const segments = staffWelcomeSegmentsFromMessage(logMessage, gender);
   const signature = `staff|${segments.map((s) => s.text).join('|')}`;
   if (!dedupeSpeech(signature)) {
@@ -311,9 +366,9 @@ export function resolveStaffWelcomeText(
 
 function membershipDaysPhrase(days: number): string {
   if (days === 1) {
-    return 'Te queda un día de entreno antes de que venza tu membresía.';
+    return 'Te queda un día de entreno.';
   }
-  return `Te quedan ${days} días de entreno antes de que venza tu membresía.`;
+  return `Te quedan ${days} días de entreno.`;
 }
 
 function tiqueteraEntriesPhrase(left: number): string {
@@ -333,7 +388,7 @@ function welcomeSegments(
 ): SpeechSegment[] {
   const word = welcomeWord(gender);
   const name = formatNameForSpeech(firstName ?? '');
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   const segments: SpeechSegment[] = [];
 
   if (name) {
@@ -381,7 +436,7 @@ function welcomeSegmentsWithHeadline(
   hints?: AccessWelcomeAudioHints | null,
   gender?: Gender | null,
 ): SpeechSegment[] {
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   const segments: SpeechSegment[] = [{ text: headline, rate: 0.95, pitch }];
 
   const days = hints?.membershipDaysRemaining;
@@ -433,6 +488,9 @@ export function playAccessWelcome(
   if (!speech) {
     return false;
   }
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
   const fromLog = welcomeBaseFromLogMessage(logMessage);
   const segments = fromLog
     ? welcomeSegmentsWithHeadline(fromLog, hints, gender)
@@ -460,7 +518,10 @@ export function speakAnnouncement(text: string): boolean {
   if (!speech || !text.trim()) {
     return false;
   }
-  speakSequence(speech, [{ text: text.trim(), rate: 0.93, pitch: 1 }]);
+  unlockAudioContext();
+  speech.resume();
+  prepareWelcomeSpeech();
+  speakSequence(speech, [{ text: text.trim(), rate: 0.93, pitch: FEMALE_VOICE_PITCH }]);
   return true;
 }
 

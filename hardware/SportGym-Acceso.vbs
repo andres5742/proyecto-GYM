@@ -1,53 +1,30 @@
-' Sport Gym Acceso — ventana tipo app desde sportgymr10.com + lector COM3
+' Sport Gym Acceso — lanzador compatibilidad (solo app de escritorio)
 Option Explicit
 
-Dim sh, fso, gw, url, profile, edge, chrome, args
+Dim sh, fso, root, launcher, app, errMsg
 
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
-gw = fso.GetParentFolderName(WScript.ScriptFullName) & "\turnstile-gateway"
-If Not fso.FolderExists(gw) Then
-  MsgBox "Falta la carpeta turnstile-gateway." & vbCrLf & vbCrLf & _
-         "Ejecute: INSTALAR-SPORT-GYM-ENTRADA.bat", vbCritical, "Sport Gym Acceso"
-  WScript.Quit 1
-End If
+root = fso.GetParentFolderName(WScript.ScriptFullName)
+launcher = root & "\ABRIR-SPORT-GYM-ACCESO.vbs"
 
-If Not fso.FileExists(gw & "\iniciar-lector-tarjeta.bat") Then
-  MsgBox "Falta iniciar-lector-tarjeta.bat en turnstile-gateway.", vbCritical, "Sport Gym Acceso"
-  WScript.Quit 1
-End If
-
-' Lector tarjeta (ventana aparte, minimizada al inicio)
-sh.Run "cmd /k call """ & gw & "\iniciar-lector-tarjeta.bat""", 2, False
-WScript.Sleep 5000
-
-url = "https://sportgymr10.com/acceso"
-profile = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\SportGymAcceso\EdgeProfile")
-args = "--app=" & url & " --window-size=1400,900 --disable-features=TranslateUI --user-data-dir=""" & profile & """"
-
-edge = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe")
-If fso.FileExists(edge) Then
-  sh.Run """" & edge & """ " & args, 1, False
+If fso.FileExists(launcher) Then
+  sh.Run "wscript.exe """ & launcher & """", 1, False
   WScript.Quit 0
 End If
 
-edge = sh.ExpandEnvironmentStrings("%ProgramFiles%\Microsoft\Edge\Application\msedge.exe")
-If fso.FileExists(edge) Then
-  sh.Run """" & edge & """ " & args, 1, False
+app = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe")
+If Not fso.FileExists(app) Then app = "C:\SportGym\Sport Gym Acceso.exe"
+If Not fso.FileExists(app) Then app = sh.ExpandEnvironmentStrings("%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe")
+If Not fso.FileExists(app) Then app = sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe")
+
+If fso.FileExists(app) Then
+  sh.Run """" & app & """", 1, False
   WScript.Quit 0
 End If
 
-chrome = sh.ExpandEnvironmentStrings("%ProgramFiles%\Google\Chrome\Application\chrome.exe")
-If fso.FileExists(chrome) Then
-  sh.Run """" & chrome & """ --app=" & url & " --window-size=1400,900", 1, False
-  WScript.Quit 0
-End If
-
-chrome = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
-If fso.FileExists(chrome) Then
-  sh.Run """" & chrome & """ --app=" & url & " --window-size=1400,900", 1, False
-  WScript.Quit 0
-End If
-
-sh.Run url, 1, False
+errMsg = "No se encontro Sport Gym Acceso.exe." & vbCrLf & vbCrLf & _
+         "Ejecute ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat para reinstalar."
+MsgBox errMsg, vbCritical, "Sport Gym Acceso"
+WScript.Quit 1
