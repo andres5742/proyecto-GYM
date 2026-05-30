@@ -24,6 +24,7 @@ let lastSpeechAt = 0;
 const SPEECH_START_TIMEOUT_MS = 900;
 const SPEECH_RETRY_DELAY_MS = 120;
 const MAX_SPEECH_RETRIES = 1;
+const FEMALE_VOICE_PITCH = 1.06;
 
 function getSpeech(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -81,8 +82,9 @@ function scoreVoice(voice: SpeechSynthesisVoice): number {
   if (lang.startsWith('es')) score += 10;
 
   if (/google.*español|español.*google|google español|google español/i.test(voice.name)) score += 55;
-  if (/microsoft.*(helena|laura|sabina|elvira|raúl|raul)/i.test(voice.name)) score += 50;
-  if (/paulina|monica|flo|soledad|jorge|diego|carlos/i.test(name)) score += 42;
+  if (/microsoft.*(helena|laura|sabina|elvira|sofia|soledad|paulina|monica|zira|dalia)/i.test(voice.name)) score += 58;
+  if (/paulina|monica|flo|soledad|helena|laura|sabina|elvira|sofia|dalia|zira/i.test(name)) score += 48;
+  if (/jorge|diego|carlos|raul|raúl/i.test(name)) score -= 18;
   if (/neural|natural|premium|online|enhanced/i.test(name)) score += 30;
   if (!voice.localService) score += 12;
 
@@ -116,7 +118,7 @@ function buildUtterance(text: string, opts?: UtteranceOpts): SpeechSynthesisUtte
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = opts?.lang ?? 'es-CO';
   utterance.rate = opts?.rate ?? 0.94;
-  utterance.pitch = opts?.pitch ?? 1;
+  utterance.pitch = opts?.pitch ?? FEMALE_VOICE_PITCH;
   utterance.volume = 1;
   return utterance;
 }
@@ -303,7 +305,7 @@ export function staffWelcomeHeadline(gender?: Gender | null): string {
 
 function staffWelcomeSegments(gender?: Gender | null): SpeechSegment[] {
   const word = welcomeWord(gender);
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   return [
     { text: `¡${word}!`, rate: 0.95, pitch },
     {
@@ -325,12 +327,12 @@ function staffWelcomeSegmentsFromMessage(
   }
   const excelenteIdx = base.toLowerCase().indexOf('que tenga un excelente entreno');
   if (excelenteIdx < 0) {
-    const pitch = gender === 'FEMALE' ? 1.04 : 1;
+    const pitch = FEMALE_VOICE_PITCH;
     return [{ text: base, rate: 0.95, pitch }];
   }
   const intro = base.slice(0, excelenteIdx).trim();
   const outro = base.slice(excelenteIdx).trim();
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   return [
     { text: intro, rate: 0.95, pitch },
     { text: outro, rate: 0.93, pitch: 0.98, pauseBeforeMs: 320 },
@@ -386,7 +388,7 @@ function welcomeSegments(
 ): SpeechSegment[] {
   const word = welcomeWord(gender);
   const name = formatNameForSpeech(firstName ?? '');
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   const segments: SpeechSegment[] = [];
 
   if (name) {
@@ -434,7 +436,7 @@ function welcomeSegmentsWithHeadline(
   hints?: AccessWelcomeAudioHints | null,
   gender?: Gender | null,
 ): SpeechSegment[] {
-  const pitch = gender === 'FEMALE' ? 1.04 : 1;
+  const pitch = FEMALE_VOICE_PITCH;
   const segments: SpeechSegment[] = [{ text: headline, rate: 0.95, pitch }];
 
   const days = hints?.membershipDaysRemaining;
@@ -519,7 +521,7 @@ export function speakAnnouncement(text: string): boolean {
   unlockAudioContext();
   speech.resume();
   prepareWelcomeSpeech();
-  speakSequence(speech, [{ text: text.trim(), rate: 0.93, pitch: 1 }]);
+  speakSequence(speech, [{ text: text.trim(), rate: 0.93, pitch: FEMALE_VOICE_PITCH }]);
   return true;
 }
 
