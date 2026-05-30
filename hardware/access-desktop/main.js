@@ -5,6 +5,18 @@ const path = require('path');
 
 let mainWindow = null;
 
+function nudgeAudioUnlockWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  try {
+    mainWindow.webContents.sendInputEvent({ type: 'mouseDown', x: 8, y: 8, button: 'left', clickCount: 1 });
+    mainWindow.webContents.sendInputEvent({ type: 'mouseUp', x: 8, y: 8, button: 'left', clickCount: 1 });
+  } catch (err) {
+    console.warn('audio-nudge', err.message);
+  }
+}
+
 function loadConfig() {
   const configPath = path.join(__dirname, 'config.json');
   const examplePath = path.join(__dirname, 'config.example.json');
@@ -249,6 +261,13 @@ function createWindow() {
     mainWindow.webContents.insertCSS(`
       .kiosk-hero__logo-wrap, .access-card, .kiosk-motto__icon { display: none !important; }
     `);
+    for (const ms of [200, 900, 2200]) {
+      setTimeout(() => nudgeAudioUnlockWindow(), ms);
+    }
+  });
+
+  mainWindow.on('focus', () => {
+    nudgeAudioUnlockWindow();
   });
 
   const accesoUrl = new URL(config.accesoUrl);
@@ -291,6 +310,7 @@ function registerExitShortcuts() {
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+  app.commandLine.appendSwitch('disable-features', 'PreloadMediaEngagementData,MediaEngagementBypassAutoplayPolicies');
 }
 
 ipcMain.on('app-request-quit', () => {

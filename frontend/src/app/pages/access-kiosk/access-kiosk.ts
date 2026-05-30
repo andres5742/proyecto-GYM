@@ -14,6 +14,7 @@ import {
   prepareWelcomeSpeech,
   resolveMemberWelcomeText,
   resolveStaffWelcomeText,
+  speakAnnouncement,
   unlockWelcomeAudio,
 } from '../../core/utils/access-welcome-audio';
 import { zktKeypadSelectionIndex } from '../../core/utils/zkt-keypad';
@@ -413,7 +414,18 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.lowBalanceAlert.set(false);
       this.showWelcomeAudioBtn.set(false);
       const cedula = this.displayCedula(res);
-      this.statusLine.set(cedula ? `${res.message} (Cédula ${cedula})` : res.message);
+      if (this.isMembershipExpiredDenied(res)) {
+        const expiredMsg = 'Membresía vencida.';
+        this.statusLine.set(
+          cedula
+            ? `${expiredMsg} ${res.message} (Cédula ${cedula})`
+            : `${expiredMsg} ${res.message}`,
+        );
+        this.refreshAudioSession();
+        speakAnnouncement(expiredMsg);
+      } else {
+        this.statusLine.set(cedula ? `${res.message} (Cédula ${cedula})` : res.message);
+      }
       this.scheduleRelease(DENIED_DISPLAY_MS);
     }
   }
@@ -458,7 +470,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     }
     if (res.tiqueteraPlan && res.tiqueteraEntriesRemainingAfter != null) {
       const left = res.tiqueteraEntriesRemainingAfter;
-      if (left <= LOW_BALANCE_ALERT_THRESHOLD) {
+      if (left > 0 && left <= LOW_BALANCE_ALERT_THRESHOLD) {
         return left === 1
           ? 'ALERTA: queda 1 entreno'
           : `ALERTA: quedan ${left} entrenos`;
@@ -467,7 +479,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     }
     if (res.membershipDaysRemaining != null) {
       const days = res.membershipDaysRemaining;
-      if (days <= LOW_BALANCE_ALERT_THRESHOLD) {
+      if (days > 0 && days <= LOW_BALANCE_ALERT_THRESHOLD) {
         return days === 1
           ? 'ALERTA: queda 1 día de membresía'
           : `ALERTA: quedan ${days} días de membresía`;
@@ -489,6 +501,27 @@ export class AccessKiosk implements OnInit, OnDestroy {
       month: '2-digit',
       year: 'numeric',
     });
+  }
+
+  private isMembershipExpiredDenied(res: AccessVerifyResponse): boolean {
+    if (res.result !== 'DENIED' || isStaffPerson(res) || res.tiqueteraPlan) {
+      return false;
+    }
+    if (/\bvencid[ao]s?\b/i.test(res.message ?? '')) {
+      return true;
+    }
+    if (res.membershipDaysRemaining != null && res.membershipDaysRemaining <= 0) {
+      return true;
+    }
+    const rawEnd = res.membershipEndDate?.trim();
+    if (!rawEnd) {
+      return false;
+    }
+    const end = new Date(`${rawEnd}T23:59:59`);
+    if (Number.isNaN(end.getTime())) {
+      return false;
+    }
+    return end.getTime() < Date.now();
   }
 
   private isShortcutPass(deviceUserId: string | null | undefined): boolean {
