@@ -1,12 +1,12 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal EnableExtensions EnableDelayedExpansion
 title Sport Gym - Instalador oficial torniquete
 REM ============================================================
 REM  INSTALADOR OFICIAL — PC del torniquete (instalar y actualizar).
 REM  Copie SOLO este archivo al PC y ejecutelo con internet.
 REM
 REM  GitHub:
-REM  https://raw.githubusercontent.com/andres5742/proyecto-GYM/aplicacion_torniquete/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
+REM  https://raw.githubusercontent.com/andres5742/proyecto-GYM/produccion/hardware/ACTUALIZAR-TORNIQUETE-DESDE-GIT.bat
 REM ============================================================
 goto :Main
 
@@ -51,6 +51,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "if (Test-Path $icon) { $s.IconLocation = $icon + ',0' } else {" ^
   "  Write-Host 'AVISO: falta SportGym.ico - icono generico' -ForegroundColor Yellow };" ^
   "$s.Save(); Write-Host ('Acceso directo: '+$link); if (Test-Path $icon) { Write-Host ('Icono gym: '+$icon) }"
+exit /b 0
+
+:ResolveInstalledExe
+set "APP_INSTALLED="
+if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" set "APP_INSTALLED=%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe"
+if not defined APP_INSTALLED if exist "%DEST%\Sport Gym Acceso.exe" set "APP_INSTALLED=%DEST%\Sport Gym Acceso.exe"
+if not defined APP_INSTALLED if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" set "APP_INSTALLED=%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe"
+if not defined APP_INSTALLED if exist "%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe" set "APP_INSTALLED=%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe"
 exit /b 0
 
 :Main
@@ -151,6 +159,18 @@ if not defined SETUP (
 echo Instalando / reinstalando...
 echo Setup: !SETUP! >> "%LOG%"
 start /wait "" "!SETUP!"
+call :ResolveInstalledExe
+if not defined APP_INSTALLED (
+  echo.
+  echo AVISO: El setup termino pero no se encontro Sport Gym Acceso.exe.
+  echo Intentando abrir instalador nuevamente en modo interactivo...
+  start "" "!SETUP!"
+  echo.
+  echo Si no aparece el instalador, abra manualmente:
+  echo   !SETUP!
+  echo Luego vuelva a ejecutar este .bat.
+  pause
+)
 
 if not exist "%DEST%\SportGym.ico" (
   if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\resources\SportGym.ico" (
@@ -177,12 +197,24 @@ echo.
 echo [4/4] Creando acceso directo (logo Sport Gym)...
 call :EnsureGymIcon
 call :CreateDesktopShortcut
+call :ResolveInstalledExe
+
+if not defined APP_INSTALLED (
+  echo.
+  echo ERROR: No se encontro Sport Gym Acceso.exe tras la instalacion.
+  echo Descargue e instale manualmente:
+  echo   %SETUP_URL%
+  echo y vuelva a ejecutar este .bat.
+  pause
+  exit /b 1
+)
 
 echo.
 echo ========================================
 echo  LISTO
 echo  Escritorio: Sport Gym Acceso
 echo  Icono: %DEST%\SportGym.ico
+echo  App: !APP_INSTALLED!
 echo  Lanzador: %DEST%\INICIAR-ACCESO-COMPLETO.bat
 echo  Arranque Windows: %DEST%\iniciar-arranque-windows.bat
 echo  Lector: %GW%
@@ -198,14 +230,22 @@ set /p ABRIR="Abrir Sport Gym Acceso ahora? S/N: "
 if /i "!ABRIR!"=="S" (
   set "VBS_RUNNER=%DEST%\ABRIR-SPORT-GYM-ACCESO.vbs"
   set "RUNNER=%DEST%\INICIAR-ACCESO-COMPLETO.bat"
+  set "APP_EXE="
+  if exist "%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe" set "APP_EXE=%LOCALAPPDATA%\Programs\Sport Gym Acceso\Sport Gym Acceso.exe"
+  if not defined APP_EXE if exist "%DEST%\Sport Gym Acceso.exe" set "APP_EXE=%DEST%\Sport Gym Acceso.exe"
+  if not defined APP_EXE if exist "%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe" set "APP_EXE=%ProgramFiles%\Sport Gym Acceso\Sport Gym Acceso.exe"
+  if not defined APP_EXE if exist "%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe" set "APP_EXE=%ProgramFiles(x86)%\Sport Gym Acceso\Sport Gym Acceso.exe"
   if exist "!VBS_RUNNER!" (
     start "" wscript.exe "!VBS_RUNNER!"
   ) else if exist "!RUNNER!" (
     call "!RUNNER!"
+  ) else if defined APP_EXE (
+    start "" "!APP_EXE!"
   ) else (
     echo ERROR: No se encontro lanzador:
     echo   "!VBS_RUNNER!"
     echo   "!RUNNER!"
+    echo Tampoco se encontro Sport Gym Acceso.exe en rutas conocidas.
     echo Ejecuta manualmente:
     echo   wscript.exe "C:\SportGym\ABRIR-SPORT-GYM-ACCESO.vbs"
     echo o call "C:\SportGym\INICIAR-ACCESO-COMPLETO.bat"
