@@ -1,6 +1,7 @@
 import { PaymentMethod } from './sale.model';
 
 export type ProductCreditStatus = 'OPEN' | 'PAID' | 'CANCELLED';
+export type ProductCreditDebtorType = 'MEMBER' | 'STAFF';
 
 export interface ProductCreditPayment {
   id: number;
@@ -19,10 +20,12 @@ export interface ProductCreditPayment {
 
 export interface ProductCredit {
   id: number;
-  memberId: number;
-  memberName: string;
+  debtorType: ProductCreditDebtorType;
+  memberId?: number | null;
+  debtorEmployeeId?: number | null;
+  debtorName: string;
   memberDocumentId?: string | null;
-  productId: number;
+  productId?: number | null;
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -36,15 +39,21 @@ export interface ProductCredit {
   employeeId: number;
   employeeName: string;
   creditedAt: string;
+  priorDebt: boolean;
+  concept?: string | null;
   notes?: string;
   createdAt: string;
   payments: ProductCreditPayment[];
 }
 
 export interface ProductCreditRequest {
-  memberId: number;
-  productId: number;
-  quantity: number;
+  memberId?: number;
+  employeeDebtorId?: number;
+  productId?: number;
+  quantity?: number;
+  manualAmount?: number;
+  priorDebt?: boolean;
+  concept?: string;
   workShiftId?: number;
   notes?: string;
 }
@@ -70,7 +79,9 @@ export interface ProductCreditPayAllResponse {
 
 /** Deuda consolidada por afiliado (varias líneas de fiado en una fila). */
 export interface MemberFiadoGroup {
-  memberId: number;
+  debtorType: ProductCreditDebtorType;
+  memberId?: number | null;
+  debtorEmployeeId?: number | null;
   memberName: string;
   memberDocumentId: string | null;
   /** Suma de saldos OPEN del afiliado. */

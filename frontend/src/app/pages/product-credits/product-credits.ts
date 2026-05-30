@@ -11,15 +11,18 @@ import {
   FIADO_PAYMENT_METHODS,
   MemberFiadoGroup,
   ProductCredit,
+  ProductCreditDebtorType,
   ProductCreditStatus,
 } from '../../core/models/product-credit.model';
 import { BillingContextService } from '../../core/services/billing-context.service';
+import { EmployeeService } from '../../core/services/employee.service';
 import { MemberService } from '../../core/services/member.service';
 import { ProductCreditService } from '../../core/services/product-credit.service';
 import { ProductService } from '../../core/services/product.service';
 import { ShiftService } from '../../core/services/shift.service';
 import { filterMembersByQuery, sortMembersByName } from '../../core/utils/member-search';
 import { WorkShift } from '../../core/models/shift.model';
+import { Employee } from '../../core/models/employee.model';
 
 @Component({
   selector: 'app-product-credits',
@@ -31,6 +34,7 @@ export class ProductCreditsPage implements OnInit {
   private readonly creditService = inject(ProductCreditService);
   private readonly billingContext = inject(BillingContextService);
   private readonly memberService = inject(MemberService);
+  private readonly employeeService = inject(EmployeeService);
   private readonly productService = inject(ProductService);
   private readonly shiftService = inject(ShiftService);
 
@@ -39,6 +43,7 @@ export class ProductCreditsPage implements OnInit {
   protected readonly message = signal<string | null>(null);
   protected readonly credits = signal<ProductCredit[]>([]);
   protected readonly members = signal<Member[]>([]);
+  protected readonly trainers = signal<Employee[]>([]);
   protected readonly products = signal<Product[]>([]);
   protected readonly openShift = signal<WorkShift | null>(null);
   protected readonly statusFilter = signal<'ALL' | ProductCreditStatus>('OPEN');
@@ -53,9 +58,14 @@ export class ProductCreditsPage implements OnInit {
   protected readonly payNotes = signal('');
 
   protected readonly memberSearch = signal('');
+  protected readonly debtorType = signal<ProductCreditDebtorType>('MEMBER');
   protected readonly selectedMemberId = signal<number | null>(null);
+  protected readonly selectedTrainerId = signal<number | null>(null);
+  protected readonly debtMode = signal<'PRODUCT' | 'PRIOR_DEBT'>('PRODUCT');
   protected readonly selectedProductId = signal<number | null>(null);
   protected readonly quantity = signal(1);
+  protected readonly priorDebtAmount = signal<number | null>(null);
+  protected readonly priorDebtConcept = signal('');
   protected readonly creditNotes = signal('');
 
   protected readonly paymentMethods = FIADO_PAYMENT_METHODS;
@@ -85,12 +95,24 @@ export class ProductCreditsPage implements OnInit {
   protected readonly filteredMembers = computed(() =>
     filterMembersByQuery(this.members(), this.memberSearch(), 30),
   );
+  protected readonly filteredTrainers = computed(() => {
+    const q = this.memberSearch().trim().toLowerCase();
+    if (!q) {
+      return this.trainers().slice(0, 30);
+    }
+    return this.trainers()
+      .filter((t) => `${t.firstName} ${t.lastName}`.toLowerCase().includes(q))
+      .slice(0, 30);
+  });
 
   protected readonly selectedProduct = computed(() =>
     this.products().find((p) => p.id === this.selectedProductId()) ?? null,
   );
 
   protected readonly creditLineTotal = computed(() => {
+    if (this.debtMode() === 'PRIOR_DEBT') {
+      return Math.max(0, this.priorDebtAmount() ?? 0);
+    }
     const p = this.selectedProduct();
     if (!p) {
       return 0;
@@ -110,18 +132,21 @@ export class ProductCreditsPage implements OnInit {
   protected readonly memberGroups = computed((): MemberFiadoGroup[] => {
     const map = new Map<number, MemberFiadoGroup>();
     for (const c of this.displayCredits()) {
-      let group = map.get(c.memberId);
+      const key = this.groupKey(c);
+      let group = map.get(key);
       if (!group) {
         group = {
-          memberId: c.memberId,
-          memberName: c.memberName,
+          debtorType: c.debtorType,
+          memberId: c.memberId ?? null,
+          debtorEmployeeId: c.debtorEmployeeId ?? null,
+          memberName: c.debtorName,
           memberDocumentId: c.memberDocumentId ?? null,
           openBalance: 0,
           openItemsCount: 0,
           credits: [],
           lastCreditedAt: c.creditedAt,
         };
-        map.set(c.memberId, group);
+        map.set(key, group);
       }
       group.credits.push(c);
       if (c.creditedAt > group.lastCreditedAt) {
@@ -146,7 +171,7 @@ export class ProductCreditsPage implements OnInit {
   protected readonly memberTableColumns: DataTableColumn<MemberFiadoGroup>[] = [
     {
       id: 'member',
-      header: 'Afiliado',
+      header: 'Deudor',
       sortable: true,
       sortValue: (r) => r.memberName,
       cell: (r) => r.memberName,
@@ -186,7 +211,7 @@ export class ProductCreditsPage implements OnInit {
     },
   ];
 
-  protected readonly trackMemberGroup = (row: MemberFiadoGroup) => row.memberId;
+  protected readonly trackMemberGroup = (row: MemberFiadoGroup) => this.groupKey(row);
 
   protected readonly payingCredit = computed(() => {
     const id = this.payingCreditId();
@@ -200,6 +225,13 @@ export class ProductCreditsPage implements OnInit {
     this.memberService.findAll().subscribe({
       next: (list) => this.members.set(sortMembersByName(list)),
       error: () => this.members.set([]),
+    });
+    this.employeeService.findActive().subscribe({
+      next: (list) =>
+        this.trainers.set(
+          list.filter((e) => (e.role ?? '').toUpperCase() === 'TRAINER').sort((a, b) => a.fullName.localeCompare(b.fullName, 'es')),
+        ),
+      error: () => this.trainers.set([]),
     });
     this.productService.findAll().subscribe({
       next: (list) => this.products.set(list.filter((p) => p.active)),
@@ -232,6 +264,8 @@ export class ProductCreditsPage implements OnInit {
   }
 
   selectMember(id: number): void {
+    this.debtorType.set('MEMBER');
+    this.selectedTrainerId.set(null);
     this.selectedMemberId.set(id);
     const m = this.members().find((x) => x.id === id);
     if (m) {
@@ -239,25 +273,52 @@ export class ProductCreditsPage implements OnInit {
     }
   }
 
+  selectTrainer(id: number): void {
+    this.debtorType.set('STAFF');
+    this.selectedMemberId.set(null);
+    this.selectedTrainerId.set(id);
+    const t = this.trainers().find((x) => x.id === id);
+    if (t) {
+      this.memberSearch.set(`${t.firstName} ${t.lastName}`);
+    }
+  }
+
   registerCredit(): void {
     const shift = this.openShift();
     const memberId = this.selectedMemberId();
+    const trainerId = this.selectedTrainerId();
     const productId = this.selectedProductId();
     if (!shift) {
       this.message.set('Abra un turno antes de registrar fiado');
       return;
     }
-    if (!memberId || !productId) {
-      this.message.set('Seleccione afiliado y producto');
+    if (this.debtorType() === 'MEMBER' && !memberId) {
+      this.message.set('Seleccione afiliado');
+      return;
+    }
+    if (this.debtorType() === 'STAFF' && !trainerId) {
+      this.message.set('Seleccione entrenador');
+      return;
+    }
+    if (this.debtMode() === 'PRODUCT' && !productId) {
+      this.message.set('Seleccione el producto');
+      return;
+    }
+    if (this.debtMode() === 'PRIOR_DEBT' && (!this.priorDebtAmount() || this.priorDebtAmount()! <= 0)) {
+      this.message.set('Indique el monto de la deuda anterior');
       return;
     }
     const qty = Math.max(1, this.quantity());
     this.saving.set(true);
     this.creditService
       .create({
-        memberId,
-        productId,
-        quantity: qty,
+        memberId: this.debtorType() === 'MEMBER' ? memberId ?? undefined : undefined,
+        employeeDebtorId: this.debtorType() === 'STAFF' ? trainerId ?? undefined : undefined,
+        productId: this.debtMode() === 'PRODUCT' ? productId ?? undefined : undefined,
+        quantity: this.debtMode() === 'PRODUCT' ? qty : 1,
+        priorDebt: this.debtMode() === 'PRIOR_DEBT',
+        manualAmount: this.debtMode() === 'PRIOR_DEBT' ? this.priorDebtAmount() ?? undefined : undefined,
+        concept: this.debtMode() === 'PRIOR_DEBT' ? this.priorDebtConcept() || undefined : undefined,
         workShiftId: shift.id,
         notes: this.creditNotes() || undefined,
       })
@@ -265,8 +326,11 @@ export class ProductCreditsPage implements OnInit {
         next: () => {
           this.message.set('Fiado registrado');
           this.selectedMemberId.set(null);
+          this.selectedTrainerId.set(null);
           this.selectedProductId.set(null);
           this.quantity.set(1);
+          this.priorDebtAmount.set(null);
+          this.priorDebtConcept.set('');
           this.creditNotes.set('');
           this.memberSearch.set('');
           this.saving.set(false);
@@ -351,13 +415,19 @@ export class ProductCreditsPage implements OnInit {
       return;
     }
     this.saving.set(true);
-    this.creditService
-      .payAllForMember(group.memberId, {
-        paymentMethod: this.payMethod(),
-        workShiftId: shift.id,
-        notes: this.payNotes() || undefined,
-      })
-      .subscribe({
+    const payAll$ =
+      group.debtorType === 'STAFF'
+        ? this.creditService.payAllForEmployee(group.debtorEmployeeId!, {
+            paymentMethod: this.payMethod(),
+            workShiftId: shift.id,
+            notes: this.payNotes() || undefined,
+          })
+        : this.creditService.payAllForMember(group.memberId!, {
+            paymentMethod: this.payMethod(),
+            workShiftId: shift.id,
+            notes: this.payNotes() || undefined,
+          });
+    payAll$.subscribe({
         next: (res) => {
           this.message.set(
             `Cobro registrado: ${res.creditsPaid} producto(s) · ${res.totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}`,
@@ -454,17 +524,17 @@ export class ProductCreditsPage implements OnInit {
   }
 
   private reloadAndRefreshModal(): void {
-    const memberId = this.selectedGroup()?.memberId;
+    const selectedKey = this.selectedGroup() ? this.groupKey(this.selectedGroup()!) : null;
     const f = this.statusFilter();
     const status: ProductCreditStatus | undefined = f === 'ALL' ? undefined : f;
     this.creditService.findAll(status).subscribe({
       next: (list) => {
         this.credits.set(list);
-        if (memberId == null) {
+        if (selectedKey == null) {
           this.closeModal();
           return;
         }
-        const group = this.memberGroups().find((g) => g.memberId === memberId);
+        const group = this.memberGroups().find((g) => this.groupKey(g) === selectedKey);
         if (group && group.openBalance > 0) {
           this.openMemberModal(group);
         } else {
@@ -487,5 +557,15 @@ export class ProductCreditsPage implements OnInit {
     } catch {
       return iso;
     }
+  }
+
+  protected readonly debtorTypeLabel = computed(() =>
+    this.debtorType() === 'STAFF' ? 'Entrenador' : 'Afiliado',
+  );
+
+  private groupKey(item: Pick<MemberFiadoGroup, 'debtorType' | 'memberId' | 'debtorEmployeeId'>): number {
+    return item.debtorType === 'STAFF'
+      ? -(item.debtorEmployeeId ?? 0)
+      : (item.memberId ?? 0);
   }
 }

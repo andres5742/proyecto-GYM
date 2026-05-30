@@ -22,13 +22,22 @@ public final class ProductCreditMapper {
                     .map(ProductCreditMapper::toPaymentResponse)
                     .toList();
         }
+        String debtorName = credit.getDebtorType() == com.gym.management.model.ProductCreditDebtorType.STAFF
+                ? credit.getDebtorEmployee().getFirstName() + " " + credit.getDebtorEmployee().getLastName()
+                : credit.getMember().getFirstName() + " " + credit.getMember().getLastName();
+        String memberDocumentId = credit.getMember() != null ? credit.getMember().getDocumentId() : null;
+        String productName = credit.getProduct() != null
+                ? credit.getProduct().getName()
+                : (credit.getConcept() != null && !credit.getConcept().isBlank() ? credit.getConcept() : "Deuda anterior");
         return new ProductCreditResponse(
                 credit.getId(),
-                credit.getMember().getId(),
-                credit.getMember().getFirstName() + " " + credit.getMember().getLastName(),
-                credit.getMember().getDocumentId(),
-                credit.getProduct().getId(),
-                credit.getProduct().getName(),
+                credit.getDebtorType(),
+                credit.getMember() != null ? credit.getMember().getId() : null,
+                credit.getDebtorEmployee() != null ? credit.getDebtorEmployee().getId() : null,
+                debtorName,
+                memberDocumentId,
+                credit.getProduct() != null ? credit.getProduct().getId() : null,
+                productName,
                 credit.getQuantity(),
                 credit.getUnitPrice(),
                 credit.getTotalAmount(),
@@ -41,6 +50,8 @@ public final class ProductCreditMapper {
                 credit.getEmployee().getId(),
                 credit.getEmployee().getFirstName() + " " + credit.getEmployee().getLastName(),
                 credit.getCreditedAt(),
+                credit.isPriorDebt(),
+                credit.getConcept(),
                 credit.getNotes(),
                 credit.getCreatedAt(),
                 payments);

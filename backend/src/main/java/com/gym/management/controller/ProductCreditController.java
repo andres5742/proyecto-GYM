@@ -41,6 +41,13 @@ public class ProductCreditController {
         return productCreditService.payAllForMember(memberId, request);
     }
 
+    @PostMapping("/employee/{employeeId}/pay-all")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProductCreditPayAllResponse payAllForEmployee(
+            @PathVariable Long employeeId, @Valid @RequestBody ProductCreditPayAllRequest request) {
+        return productCreditService.payAllForEmployee(employeeId, request);
+    }
+
     @GetMapping("/{id}")
     public ProductCreditResponse findById(@PathVariable Long id) {
         return productCreditService.findById(id);
