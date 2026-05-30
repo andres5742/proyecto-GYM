@@ -21,9 +21,9 @@ let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 let cachedVoice: SpeechSynthesisVoice | undefined;
 let lastSpeechSignature = '';
 let lastSpeechAt = 0;
-const SPEECH_START_TIMEOUT_MS = 900;
-const SPEECH_RETRY_DELAY_MS = 120;
-const MAX_SPEECH_RETRIES = 1;
+const SPEECH_START_TIMEOUT_MS = 2400;
+const SPEECH_RETRY_DELAY_MS = 260;
+const MAX_SPEECH_RETRIES = 3;
 const FEMALE_VOICE_PITCH = 1.06;
 
 function getSpeech(): SpeechSynthesis | null {

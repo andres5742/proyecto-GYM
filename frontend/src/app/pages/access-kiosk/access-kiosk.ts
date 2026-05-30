@@ -53,6 +53,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
   private pollBootstrapped = false;
   private autoStartTimer: ReturnType<typeof setTimeout> | null = null;
   private audioUnlockAttempted = false;
+  private audioBootstrapTimers: ReturnType<typeof setTimeout>[] = [];
   private lastWelcomedLogId = 0;
   private lastWelcomedAt = 0;
   private lastWelcomedKey = '';
@@ -136,6 +137,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (this.autoStartTimer) {
       clearTimeout(this.autoStartTimer);
     }
+    this.clearAudioBootstrapTimers();
     this.stopPolling();
     if (this.releaseTimer) {
       clearTimeout(this.releaseTimer);
@@ -168,6 +170,19 @@ export class AccessKiosk implements OnInit, OnDestroy {
     this.audioUnlockAttempted = true;
     const ok = unlockWelcomeAudio();
     this.audioUnlocked.set(ok);
+    this.scheduleAudioBootstrapRefresh();
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus(): void {
+    this.refreshAudioSession();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!document.hidden) {
+      this.refreshAudioSession();
+    }
   }
 
   private startKiosk(): void {
@@ -177,6 +192,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
     if (this.audioSupported) {
       const ok = unlockWelcomeAudio();
       this.audioUnlocked.set(ok);
+      this.scheduleAudioBootstrapRefresh();
     }
     this.kioskReady.set(true);
     this.pollSinceIso = new Date().toISOString();
@@ -369,10 +385,7 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.welcomeTitle.set(welcomeText);
       prepareWelcomeSpeech();
       if (this.shouldSpeakWelcome(res)) {
-        if (!isWelcomeAudioUnlocked()) {
-          const ok = ensureWelcomeAudioUnlocked();
-          this.audioUnlocked.set(ok);
-        }
+        this.refreshAudioSession();
         const spoke = staff
           ? playStaffAccessWelcome(gender, res.message)
           : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
@@ -525,5 +538,34 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.showWelcomeAudioBtn.set(false);
       this.statusLine.set('Pase su tarjeta o coloque su huella en el lector…');
     }, ms);
+  }
+
+  private scheduleAudioBootstrapRefresh(): void {
+    this.clearAudioBootstrapTimers();
+    for (const ms of [700, 1900, 3800]) {
+      const timer = setTimeout(() => this.refreshAudioSession(), ms);
+      this.audioBootstrapTimers.push(timer);
+    }
+  }
+
+  private clearAudioBootstrapTimers(): void {
+    for (const timer of this.audioBootstrapTimers) {
+      clearTimeout(timer);
+    }
+    this.audioBootstrapTimers = [];
+  }
+
+  private refreshAudioSession(): void {
+    if (!this.audioSupported || this.configError()) {
+      return;
+    }
+    if (!isWelcomeAudioUnlocked()) {
+      const ok = ensureWelcomeAudioUnlocked();
+      this.audioUnlocked.set(ok);
+      return;
+    }
+    const ok = ensureWelcomeAudioUnlocked();
+    this.audioUnlocked.set(ok);
+    prepareWelcomeSpeech();
   }
 }
