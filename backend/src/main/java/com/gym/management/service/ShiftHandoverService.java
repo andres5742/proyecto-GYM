@@ -54,7 +54,6 @@ public class ShiftHandoverService {
 
     private static final java.util.Set<com.gym.management.model.CashShortfallKind> CASH_ONLY_SHORTFALL_KINDS =
             java.util.EnumSet.of(
-                    com.gym.management.model.CashShortfallKind.CASH_HANDOVER,
                     com.gym.management.model.CashShortfallKind.CASH_REGISTER,
                     com.gym.management.model.CashShortfallKind.CASH_SHIFT_OPEN);
 
@@ -127,6 +126,7 @@ public class ShiftHandoverService {
         // El descuadre de caja referencia esta entrega; hay que quitarlo antes del DELETE.
         shortfallRepository.findByShiftHandoverId(id).ifPresent(shortfallRepository::delete);
         billingCashRegisterService.deleteHandoverCashSurplusIncome(id);
+        billingCashRegisterService.deleteHandoverCashShortfallExpense(id);
         handoverRepository.delete(handover);
     }
 
@@ -205,6 +205,10 @@ public class ShiftHandoverService {
 
         java.util.Optional<com.gym.management.dto.CashShortfallResponse> shortfall =
                 cashShortfallService.registerFromHandover(saved, expected.total(), declared);
+        if (shortfall.isPresent()) {
+            billingCashRegisterService.registerHandoverCashShortfallExpense(
+                    saved, shortfall.get().shortfallAmount());
+        }
 
         // Regla de negocio: el sobrante de efectivo SIEMPRE entra completo a caja (otros ingresos).
         // En paralelo, ese sobrante puede cruzar deuda de inventario para evitar cobro total/parcial al responsable.

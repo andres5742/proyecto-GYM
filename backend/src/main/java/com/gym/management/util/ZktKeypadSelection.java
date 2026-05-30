@@ -6,12 +6,14 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 /**
- * Teclado mural ZKT en torniquete: tecla 1 = FD (253), 2 = FA (250), 3 = F7… (paso −3).
+ * Teclado mural ZKT en torniquete: algunas versiones envían 1=FD,2=FA,3=F7...
+ * y otras 1=FC,2=F9,3=F6... (paso -3).
  * El panel envía ese Pin al API como si fuera tarjeta; hay que interpretarlo como selección.
  */
 public final class ZktKeypadSelection {
 
-    private static final int KEYPAD_BASE = 253;
+    private static final int KEYPAD_BASE_A = 253; // FD family
+    private static final int KEYPAD_BASE_B = 252; // FC family
     private static final int KEYPAD_STEP = 3;
 
     private static final Map<String, Integer> HEX_PAIR_TO_INDEX = buildHexPairMap();
@@ -20,11 +22,16 @@ public final class ZktKeypadSelection {
 
     private static Map<String, Integer> buildHexPairMap() {
         Map<String, Integer> map = new LinkedHashMap<>();
+        addKeypadFamily(map, KEYPAD_BASE_A);
+        addKeypadFamily(map, KEYPAD_BASE_B);
+        return Map.copyOf(map);
+    }
+
+    private static void addKeypadFamily(Map<String, Integer> map, int base) {
         for (int index = 1; index <= 9; index++) {
-            int code = KEYPAD_BASE - KEYPAD_STEP * (index - 1);
+            int code = base - KEYPAD_STEP * (index - 1);
             map.put(String.format(Locale.ROOT, "%02X", code), index);
         }
-        return Map.copyOf(map);
     }
 
     /** Índice 1–9 si el Pin es tecla del ZKT (FD, FA, 1…); vacío si parece tarjeta real. */
@@ -50,10 +57,18 @@ public final class ZktKeypadSelection {
     }
 
     public static OptionalInt selectionIndexFromKeyCode(int keyCode) {
-        if (keyCode > KEYPAD_BASE || keyCode < KEYPAD_BASE - KEYPAD_STEP * 8) {
+        OptionalInt fromA = selectionIndexFromKeyCodeFamily(keyCode, KEYPAD_BASE_A);
+        if (fromA.isPresent()) {
+            return fromA;
+        }
+        return selectionIndexFromKeyCodeFamily(keyCode, KEYPAD_BASE_B);
+    }
+
+    private static OptionalInt selectionIndexFromKeyCodeFamily(int keyCode, int base) {
+        if (keyCode > base || keyCode < base - KEYPAD_STEP * 8) {
             return OptionalInt.empty();
         }
-        int diff = KEYPAD_BASE - keyCode;
+        int diff = base - keyCode;
         if (diff % KEYPAD_STEP != 0) {
             return OptionalInt.empty();
         }

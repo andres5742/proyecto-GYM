@@ -103,7 +103,7 @@ public class AccessControlService {
     }
 
     /**
-     * Tecla 1/2 del ZKT llega como Pin FD/FA al mismo endpoint que la tarjeta.
+     * Tecla del ZKT (p. ej. FD/FA/F7 o FC/F9/F6) llega como Pin al mismo endpoint de tarjeta.
      * Si hay una selección de afiliado pendiente, completa el ingreso del elegido.
      */
     private Optional<AccessVerifyResponse> resolvePendingCardSelectionKeypad(int choiceIndex) {
@@ -120,12 +120,12 @@ public class AccessControlService {
                 });
     }
 
-    /** Tecla suelta (FD/FA) sin tarjeta en selección: no registrar como tarjeta desconocida. */
+    /** Tecla suelta del keypad sin tarjeta en selección: no registrar como tarjeta desconocida. */
     private AccessVerifyResponse keypadWithoutPendingSelection(String keypadPin) {
         return new AccessVerifyResponse(
                 AccessResult.DENIED,
                 false,
-                "Pase la tarjeta primero; luego elija 1 o 2 en el teclado.",
+                "Pase la tarjeta primero; luego elija 1-9 en el teclado.",
                 null,
                 null,
                 AccessPersonType.MEMBER,
