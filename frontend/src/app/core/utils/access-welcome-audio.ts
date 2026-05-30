@@ -366,9 +366,9 @@ export function resolveStaffWelcomeText(
 
 function membershipDaysPhrase(days: number): string {
   if (days === 1) {
-    return 'Te queda un día de entreno antes de que venza tu membresía.';
+    return 'Te queda un día de entreno.';
   }
-  return `Te quedan ${days} días de entreno antes de que venza tu membresía.`;
+  return `Te quedan ${days} días de entreno.`;
 }
 
 function tiqueteraEntriesPhrase(left: number): string {

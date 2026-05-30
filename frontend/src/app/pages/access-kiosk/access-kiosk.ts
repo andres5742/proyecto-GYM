@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AccessService } from '../../core/services/access.service';
 import {
   firstNameFromFullName,
+  ensureWelcomeAudioUnlocked,
   isWelcomeAudioSupported,
   isWelcomeAudioUnlocked,
   accessWelcomeHintsFromResponse,
@@ -368,14 +369,14 @@ export class AccessKiosk implements OnInit, OnDestroy {
       this.welcomeTitle.set(welcomeText);
       prepareWelcomeSpeech();
       if (this.shouldSpeakWelcome(res)) {
-        if (isWelcomeAudioUnlocked()) {
-          const spoke = staff
-            ? playStaffAccessWelcome(gender, res.message)
-            : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
-          this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
-        } else {
-          this.showWelcomeAudioBtn.set(this.audioSupported);
+        if (!isWelcomeAudioUnlocked()) {
+          const ok = ensureWelcomeAudioUnlocked();
+          this.audioUnlocked.set(ok);
         }
+        const spoke = staff
+          ? playStaffAccessWelcome(gender, res.message)
+          : playAccessWelcome(firstName, gender, accessWelcomeHintsFromResponse(res), res.message);
+        this.showWelcomeAudioBtn.set(!spoke && this.audioSupported);
         this.markWelcomeSpoken(res);
       } else {
         this.showWelcomeAudioBtn.set(false);
